@@ -16,6 +16,25 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <h1 class="h3 mb-4 text-gray-800">관리자의 클럽 회원 직책 리스트</h1>
+                <div>
+                    <div style="float:right"></div>
+                    <table class="table" id="ranklist">
+                        <thead style="text-align: center">
+                        <th>한글직책</th>
+                        <th>영문직책</th>
+                        <th>직책구분</th>
+                        <th>의전순서</th>
+                        </thead>
+                        {% for rank in rank_list %}
+                            <tr style="text-align: center">
+                                <td>{{ rank[1] }}</td>
+                                <td>{{ rank[2] }}</td>
+                                <td>{{ rank[3] }}</td>
+                                <td>{{ rank[4] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                </div>
             </div>
             <!-- /.container-fluid -->
         </div>
@@ -39,5 +58,14 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
 </body>
+<script>
+    $(document).ready(function () {
+        $('#ranklist').DataTable({
+            "pageLength": 25,
+            order: [[4, "asc"]]
+        });
+    });
+</script>
 </html>

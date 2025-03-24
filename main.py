@@ -31,6 +31,33 @@ async def get_db():
     async with async_session() as session:
         yield session
 
+async def get_clublist(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsClub where attrib not like :attpatt")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        club_list = result.fetchall() # 클럽 데이터를 모두 가져오기
+        return club_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
+
+async def get_dictlist(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsRegion where attrib not like :attpatt")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        dict_list = result.fetchall() # 클럽 데이터를 모두 가져오기
+        return dict_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(DICT)")
+
+async def get_ranklist(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsRank where attrib not like :attpatt order by orderNo")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        rank_list = result.fetchall() # 클럽 데이터를 모두 가져오기
+        return rank_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
+
 # 로그인 폼 페이지
 @app.get("/", response_class=HTMLResponse)
 async def login_form(request: Request):
@@ -104,21 +131,23 @@ async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
     return templates.TemplateResponse("admin/clubList.html", {"request": request, "user_No": user_No, "user_Name": user_Name, "club_list":club_list })
 
 @app.get("/rankList", response_class=HTMLResponse)
-async def rankList(request: Request):
+async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    rank_list  = await get_ranklist(db)
     if not user_No:
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/rankList.html", {"request": request, "user_No": user_No, "user_Name": user_Name})
+    return templates.TemplateResponse("admin/rankList.html", {"request": request, "user_No": user_No, "user_Name": user_Name, "rank_list":rank_list })
 
 @app.get("/dictList", response_class=HTMLResponse)
-async def dictList(request: Request):
+async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
-    club_list = await get_clublist(async_session)
+    club_list = await get_clublist(db)
+    dict_list = await get_dictlist(db)
     if not user_No:
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/dictList.html", {"request": request, "user_No": user_No, "user_Name": user_Name, "club_list":club_list })
+    return templates.TemplateResponse("admin/dictList.html", {"request": request, "user_No": user_No, "user_Name": user_Name, "club_list":club_list, "dict_list":dict_list })
 
 @app.get("/boardManager", response_class=HTMLResponse)
 async def boardManager(request: Request):
