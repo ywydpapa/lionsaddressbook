@@ -5,10 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import text
-from itsdangerous import URLSafeSerializer
 import dotenv
 import os
 
