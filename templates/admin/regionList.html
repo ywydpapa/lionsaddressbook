@@ -22,14 +22,14 @@
                         <thead style="text-align: center">
                         <th>지역번호</th>
                         <th>위원장</th>
-                        <th>귀속연도</th>
+                        <th>소속클럽</th>
                         <th>주요지침</th>
                         </thead>
                         {% for dict in dict_list %}
                             <tr style="text-align: center">
                                 <td>{{ dict[1] }} 지역</td>
                                 <td>{{ dict[2] }}</td>
-                                <td>{{ dict[4] }}-{{ dict[5] }} </td>
+                                <td>{{ dict[9] }}</td>
                                 <td>{{ dict[3] }}</td>
                             </tr>
                         {% endfor %}
