@@ -15,7 +15,7 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">관리자의 클럽 회원 리스트</h1>
+                <h1 class="h3 mb-4 text-gray-800">{{clubName}} 회원 리스트</h1>
                 <div class="container">
                     <div class="row" id="card-container">
                         <!-- JavaScript로 카드가 동적으로 추가될 영역 -->
@@ -48,27 +48,34 @@
 </body>
 </html>
 <script>
-    const cardContainer = document.getElementById("card-container");
-// 인원수만큼 카드를 생성
-for (let i = 1; i <= 17; i++) {
-    // 카드 HTML 구조
-    const cardHTML = `
-        <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 mb-4">
-            <div class="card shadow">
-                <a href = "/member/${i}">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">회원명 ${i}</h6>
+    const members = {{ memberList.members | tojson }}; // 클럽 멤버 데이터 가져오기
+    // 카드 생성 함수
+async function createCards() {
+        console.log(members);
+        const cardContainer = document.getElementById("card-container");
+        // 멤버별 카드 생성
+        members.forEach(member => {
+            const cardHTML = `
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 mb-4">
+                    <div class="card shadow">
+                        <a href="/member/memberdetail/${member.memberNo}">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-primary">${member.memberName}</h6>
+                            </div>
+                            <div class="card-body">
+                                직책 <br>
+                                연락처 ${member.memberPhone} <br>
+                                이메일 ${member.memberEmail} <br>
+                            </div>
+                        </a>
+                    </div>
                 </div>
-                <div class="card-body">
-                    회원정보 : 직책 ${i} <br>
-                    회원정보 : 연락처 ${i} <br>
-                    회원정보 : 이메일 ${i} <br>
-                </div>
-                </a>
-            </div>
-        </div>
-    `;
-    // 카드를 컨테이너에 추가
-    cardContainer.innerHTML += cardHTML;
-}
+            `;
+            // 카드를 컨테이너에 추가
+            cardContainer.innerHTML += cardHTML;
+        });
+    }
+
+    // 클럽 번호를 설정하고 카드 생성 실행
+    createCards();
 </script>

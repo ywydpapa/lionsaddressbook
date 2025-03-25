@@ -41,6 +41,36 @@ async def get_clublist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
 
 
+async def get_regionclublist(region: int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsClub where attrib not like :attpatt and regionNo = :regno")
+        result = await db.execute(query, {"attpatt": "%XXX%", "regno": region })
+        club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return club_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
+
+
+async def get_clubmemberlist(clubno: int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsMember where clubNo = :club_no")
+        result = await db.execute(query, {"club_no": clubno})
+        member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        member = [
+            {
+                "memberNo": row.memberNo,
+                "memberName": row.memberName,
+                "memberPhone": row.memberPhone,
+                "memberEmail": row.memberEmail,
+                "memberMF": row.memberMF
+            }
+            for row in member_list
+        ]
+        return {"members": member}
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberLIST)")
+
+
 async def get_dictlist(db: AsyncSession):
     try:
         query = text(
@@ -141,6 +171,18 @@ async def memberList(request: Request):
                                       {"request": request, "user_No": user_No, "user_Name": user_Name})
 
 
+@app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
+async def memberList(request: Request, clubno: int, clubname:str, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    memberList = await get_clubmemberlist(clubno, db)
+    print(memberList)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/memberList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"clubName":clubname, "memberList": memberList})
+
+
 @app.get("/clubList", response_class=HTMLResponse)
 async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -151,6 +193,18 @@ async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "club_list": club_list})
+
+
+@app.get("/regionclubList/{regno}", response_class=HTMLResponse)
+async def regionclubList(request: Request, regno:int ,db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    club_list = await get_regionclublist(regno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/regionclubList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "club_list": club_list})
 
