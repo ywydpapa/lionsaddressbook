@@ -25,11 +25,6 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/favicon.ico")
-async def favicon():
-    return {"detail": "Favicon is served at /static/favicon.ico"}
-
-
 # 데이터베이스 세션 생성
 async def get_db():
     async with async_session() as session:
@@ -66,6 +61,11 @@ async def get_ranklist(db: AsyncSession):
         return rank_list
     except:
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return {"detail": "Favicon is served at /static/favicon.ico"}
 
 
 # 로그인 폼 페이지

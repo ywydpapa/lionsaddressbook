@@ -16,9 +16,15 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <h1 class="h3 mb-4 text-gray-800">관리자의 클럽 회원 리스트</h1>
+                <div class="container">
+                    <div class="row" id="card-container">
+                        <!-- JavaScript로 카드가 동적으로 추가될 영역 -->
+                    </div>
+                </div>
             </div>
-            <!-- /.container-fluid -->
         </div>
+        <!-- /.container-fluid -->
+
         <!-- End of Main Content -->
         <!-- Footer -->
         <footer class="sticky-footer bg-white">
@@ -41,3 +47,26 @@
 {% include '/comm/adscript.html' %}
 </body>
 </html>
+<script>
+    const cardContainer = document.getElementById("card-container");
+// 인원수만큼 카드를 생성
+for (let i = 1; i <=  35; i++) {
+    // 카드 HTML 구조
+    const cardHTML = `
+        <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">회원명 ${i}</h6>
+                </div>
+                <div class="card-body">
+                    회원정보 : 직책 ${i} <br>
+                    회원정보 : 연락처 ${i} <br>
+                    회원정보 : 이메일 ${i} <br>
+                </div>
+            </div>
+        </div>
+    `;
+    // 카드를 컨테이너에 추가
+    cardContainer.innerHTML += cardHTML;
+}
+</script>
