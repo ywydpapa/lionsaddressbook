@@ -51,6 +51,16 @@ async def get_regionclublist(region: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
 
 
+async def get_memberdetail(memberon: int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsMember where memberNo = :memberno")
+        result = await db.execute(query, {"memberno": memberon })
+        memberdtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
+        return memberdtl
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
+
+
 async def get_clubmemberlist(clubno: int, db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsMember where clubNo = :club_no")
@@ -169,6 +179,17 @@ async def memberList(request: Request):
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name})
+
+
+@app.get("/memberdetail/{memberno}", response_class=HTMLResponse)
+async def memberList(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    memberdtl = await get_memberdetail(memberno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/memberDetail.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name, "memberdtl": memberdtl})
 
 
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
