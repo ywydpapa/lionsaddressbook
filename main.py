@@ -143,6 +143,29 @@ async def get_ranklist(db: AsyncSession):
 async def favicon():
     return {"detail": "Favicon is served at /static/favicon.ico"}
 
+@app.post("/upload/")
+async def upload_image(request: Request, file: UploadFile = File(...)):
+    try:
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+
+        # 파일 읽기
+        contents = await file.read()
+
+        # 데이터베이스에 이미지 저장
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("INSERT INTO images (image) VALUES (?)", (contents,))
+        conn.commit()
+        image_id = cursor.lastrowid
+
+        return templates.TemplateResponse("upload_form.html",
+                                          {"request": request, "filename": file.filename, "id": image_id})
+
+    except Exception as e:
+        return templates.TemplateResponse("upload_form.html", {"request": request, "error": str(e)})
+
 
 # 로그인 폼 페이지
 @app.get("/", response_class=HTMLResponse)
