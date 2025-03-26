@@ -259,20 +259,6 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
                                        "memberdtl": memberdtl, "myphoto": myphoto})
 
 
-@app.post("/uploadphoto/{memberno}", response_class=HTMLResponse)
-async def upload_image(request: Request, file: UploadFile = File(...)):
-    try:
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 데이터베이스에 이미지 저장
-        return templates.TemplateResponse("member/memberDetail.html",
-                                          {"request": request, "filename": file.filename, "id": image_id})
-    except Exception as e:
-        return templates.TemplateResponse("member/memberDetail.html", {"request": request, "error": str(e)})
-
-
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
 async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
