@@ -73,7 +73,6 @@
                             <tr>
                                 <td>직책</td>
                                 <td><select id="ranklst" class="form-control" name="ranklst">
-                                    <option value=""
                                     {% for rank in ranklist %}
                                     <option value="{{rank[0]}}" {% if rank[0] == memberdtl[12] %}selected{% endif %}>{{rank[1]}}</option>
                                     {% endfor %}
@@ -112,6 +111,12 @@
                             <tr>
                                 <td>입회일</td>
                                 <td><input type="date" class="form-control" name="joindate" value="{{ memberdtl[8] if memberdtl[8] else '2029-12-31' }}"/></td>
+                            </tr>
+                                <tr>
+                                <td>회원 메모</td>
+                                <td>
+                                     <textarea class="form-control" rows="4" cols="30" name="memo" placeholder="내용을 입력하세요">{{ memberdtl[11] }}</textarea>
+                                </td>
                             </tr>
                                 <tr>
                                     <td colspan="2">

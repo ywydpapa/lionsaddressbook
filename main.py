@@ -80,7 +80,7 @@ async def get_regionclublist(region: int, db: AsyncSession):
 async def get_regionmemberlist(region: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lcc.clubName  FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno)")
+            "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno)")
         result = await db.execute(query, {"regno": region})
         rmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return rmember_list
@@ -100,7 +100,7 @@ async def get_memberdetail(memberon: int, db: AsyncSession):
 
 async def get_clubmemberlist(clubno: int, db: AsyncSession):
     try:
-        query = text("SELECT * FROM lionsMember where clubNo = :club_no")
+        query = text("SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
         result = await db.execute(query, {"club_no": clubno})
         member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         member = [
@@ -109,7 +109,8 @@ async def get_clubmemberlist(clubno: int, db: AsyncSession):
                 "memberName": row.memberName,
                 "memberPhone": row.memberPhone,
                 "memberEmail": row.memberEmail,
-                "memberMF": row.memberMF
+                "memberMF": row.memberMF,
+                "rankTitle": row.rankTitlekor,
             }
             for row in member_list
         ]
