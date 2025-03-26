@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException
+from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import text
 import dotenv
 import os
+import base64
 
 dotenv.load_dotenv()
 # 데이터베이스 설정
@@ -39,6 +40,30 @@ async def get_clublist(db: AsyncSession):
         return club_list
     except:
         raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
+
+
+def get_default_image_base64(mime_type: str = "image/png") -> str:
+    default_image_path = "static/img/defaultphoto.png"
+    try:
+        with open(default_image_path, "rb") as image_file:
+            image_data = image_file.read()
+            base64_image = base64.b64encode(image_data).decode("utf-8")
+            return f"data:{mime_type};base64,{base64_image}"
+    except FileNotFoundError:
+        raise Exception("Default image file not found.")
+
+
+async def get_photo(memberNo:int, db:AsyncSession, mime_type: str = "image/jpeg") -> str:
+    try:
+        query = text("SELECT mphoto FROM memberPhoto WHERE memberNo = :memberNo")
+        result = await db.execute(query, {"memberNo": memberNo})
+        photo = result.fetchone()
+        if photo is None:
+            return get_default_image_base64(mime_type)
+        base64_image = base64.b64encode(photo[0]).decode("utf-8")
+        return base64_image
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
 
 
 async def get_regionclublist(region: int, db: AsyncSession):
@@ -199,11 +224,30 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     memberdtl = await get_memberdetail(memberno, db)
+    print(memberdtl)
+    myphoto = await get_photo(memberno, db)
+    print(myphoto)
+    if not user_No:
+        return RedirectResponse(url="/")
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "memberdtl": memberdtl})
+                                       "memberdtl": memberdtl, "myphoto": myphoto})
+
+
+@app.post("/uploadphoto/{memberno}", response_class=HTMLResponse)
+async def upload_image(request: Request, file: UploadFile = File(...)):
+    try:
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 데이터베이스에 이미지 저장
+        return templates.TemplateResponse("member/memberDetail.html",
+                                          {"request": request, "filename": file.filename, "id": image_id})
+    except Exception as e:
+        return templates.TemplateResponse("member/memberDetail.html", {"request": request, "error": str(e)})
 
 
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)

@@ -2,6 +2,20 @@
 <html lang="en">
 <head>
     {% include '/comm/adheader.html' %}
+    <style>
+            #imagePreview {
+                display: none; /* 기본적으로 숨김 */
+                max-width: 200px; /* 최대 너비 설정 */
+                max-height: 200px; /* 최대 높이 설정 */
+                margin-top: 10px;
+            }
+            .image-container {
+            display: flex; /* 이미지들을 가로로 배치 */
+            justify-content: center; /* 가로 정렬 */
+            align-items: center; /* 세로 정렬 */
+            gap: 20px; /* 이미지 간격 */
+        }
+    </style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -30,7 +44,21 @@
                             <tbody>
                             <tr>
                                 <td>회원 사진</td>
-                                <td></td>
+                                <td style="text-align: center">
+                                    <div class="image-container">
+                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="200" /><img id="imagePreview" alt="Image Preview">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>사진 변경</td>
+                                <td>
+                                    <form action="/upload/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required onchange="displayFileInfo(this)">
+                                        <span id="fileSize"></span>
+                                        <input type="submit" value="회원사진 Upload"></form>
+                                    </div>
+                                </td>
                             </tr>
                             <tr>
                                 <td>회원 성명</td>
@@ -100,4 +128,25 @@
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
 </body>
+<script>
+    function displayFileInfo(input) {
+        const file = input.files[0];
+        const fileSizeElement = document.getElementById("fileSize");
+        const previewElement = document.getElementById("imagePreview");
+        if (file) {
+              const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
+              fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
+              // 이미지 미리보기
+              const reader = new FileReader();
+              reader.onload = function(e) {
+              previewElement.src = e.target.result;
+              previewElement.style.display = "block"; // 이미지 보이기
+              };
+              reader.readAsDataURL(file);
+        } else {
+              fileSizeElement.textContent = "";
+              previewElement.style.display = "none"; // 이미지 숨기기
+       }
+    }
+        </script>
 </html>
