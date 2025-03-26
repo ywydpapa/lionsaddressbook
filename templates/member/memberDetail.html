@@ -3,13 +3,14 @@
 <head>
     {% include '/comm/adheader.html' %}
     <style>
-            #imagePreview {
-                display: none; /* 기본적으로 숨김 */
-                max-width: 200px; /* 최대 너비 설정 */
-                max-height: 200px; /* 최대 높이 설정 */
-                margin-top: 10px;
-            }
-            .image-container {
+        #imagePreview {
+            display: none; /* 기본적으로 숨김 */
+            max-width: 200px; /* 최대 너비 설정 */
+            max-height: 250px; /* 최대 높이 설정 */
+            margin-top: 10px;
+        }
+
+        .image-container {
             display: flex; /* 이미지들을 가로로 배치 */
             justify-content: center; /* 가로 정렬 */
             align-items: center; /* 세로 정렬 */
@@ -34,19 +35,14 @@
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
-                            <th>
-                                분류
-                            </th>
-                            <th>
-                                데이터
-                            </th>
                             </thead>
                             <tbody>
                             <tr>
                                 <td>회원 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="200" /><img id="imagePreview" alt="Image Preview">
+                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="250"/><img
+                                            id="imagePreview" alt="Image Preview">
                                     </div>
                                 </td>
                             </tr>
@@ -54,52 +50,79 @@
                                 <td>사진 변경</td>
                                 <td>
                                     <form action="/upload/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
-                                        <input type="file" name="file" accept="image/*" required onchange="displayFileInfo(this)">
+                                        <input type="file" name="file" accept="image/*" required
+                                               onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
                                         <input type="submit" value="회원사진 Upload"></form>
-                                    </div>
                                 </td>
                             </tr>
+                            <form method="POST" action="/update_memberdtl/{{memberdtl[0]}}">
                             <tr>
                                 <td>회원 성명</td>
-                                <td>{{ memberdtl[1] }}</td>
+                                <td><input type="text" class="form-control" name="membername" value="{{ memberdtl[1] }}"/></td>
                             </tr>
                             <tr>
                                 <td>소속 클럽</td>
-                                <td>{{ memberdtl[9] }}</td>
+                                <td><select id="clublst" class="form-control" name="clublst">
+                                    {% for club in clublist %}
+                                    <option value="{{club[0]}}" {% if club[0] == memberdtl[9] %}selected{% endif %}>{{club[1]}}</option>
+                                    {% endfor %}
+                                </select>
+                                </td>
                             </tr>
                             <tr>
                                 <td>직책</td>
-                                <td>{{ memberdtl[1] }}</td>
+                                <td><select id="ranklst" class="form-control" name="ranklst">
+                                    <option value=""
+                                    {% for rank in ranklist %}
+                                    <option value="{{rank[0]}}" {% if rank[0] == memberdtl[12] %}selected{% endif %}>{{rank[1]}}</option>
+                                    {% endfor %}
+                                </select>
+                                </td>
                             </tr>
                             <tr>
                                 <td>연락처</td>
-                                <td>{{ memberdtl[6] }}</td>
+                                <td><input type="tel" class="form-control" name="contact" value="{{ memberdtl[6] if memberdtl[6] else '000-0000-0000' }}"/></td>
                             </tr>
                             <tr>
                                 <td>이메일</td>
-                                <td>{{ memberdtl[7] }}</td>
+                                <td><input type="email" class="form-control" name="email" value="{{ memberdtl[7] if memberdtl[7] else 'email@email.com'}}"/></td>
                             </tr>
                             <tr>
                                 <td>집주소</td>
-                                <td>{{ memberdtl[5] }}</td>
+                                <td><input type="text" class="form-control" name="home_address" value="{{ memberdtl[5] }}"/></td>
                             </tr>
                             <tr>
                                 <td>사무실 주소</td>
-                                <td>{{ memberdtl[5] }}</td>
+                                <td><input type="text" class="form-control" name="office_address" value="{{ memberdtl[13] }}"/></td>
                             </tr>
                             <tr>
-                                <td>입회일</td>
-                                <td>{{ memberdtl[8] }}</td>
+                                <td>생년월일</td>
+                                <td><input type="date" class="form-control" name="birthdate" value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}"/></td>
                             </tr>
                             <tr>
                                 <td>회원 성별</td>
-                                <td>{{ memberdtl[2] }}</td>
+                                <td>
+                                    <select name="gender" id="gender" class="form-control">
+                                        <option value="M" {% if memberdtl[2]== "M" %}selected{% endif %}>남성</option>
+                                        <option value="F" {% if memberdtl[2]== "F" %}selected{% endif %}>여성</option>
+                                    </select>
+                                </td>
                             </tr>
                             <tr>
                                 <td>입회일</td>
-                                <td>{{ memberdtl[9] }}</td>
+                                <td><input type="date" class="form-control" name="joindate" value="{{ memberdtl[8] if memberdtl[8] else '2029-12-31' }}"/></td>
                             </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="col-12" style="display: flex; justify-content: space-between; gap: 10px;">
+                                         <a href="/rmemberList/15" class="btn btn-dark" role="button" style="flex: 0 0 30%;">지역회원목록</a>
+                                            <a href="/clubmemberList/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 30%;">클럽회원목록</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </form>
                             </tbody>
                         </table>
                     </div>
@@ -134,19 +157,28 @@
         const fileSizeElement = document.getElementById("fileSize");
         const previewElement = document.getElementById("imagePreview");
         if (file) {
-              const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
-              fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
-              // 이미지 미리보기
-              const reader = new FileReader();
-              reader.onload = function(e) {
-              previewElement.src = e.target.result;
-              previewElement.style.display = "block"; // 이미지 보이기
-              };
-              reader.readAsDataURL(file);
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
+            fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
+            // 이미지 미리보기
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewElement.src = e.target.result;
+                previewElement.style.display = "block"; // 이미지 보이기
+            };
+            reader.readAsDataURL(file);
         } else {
-              fileSizeElement.textContent = "";
-              previewElement.style.display = "none"; // 이미지 숨기기
-       }
+            fileSizeElement.textContent = "";
+            previewElement.style.display = "none"; // 이미지 숨기기
+        }
     }
-        </script>
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const selectBox = document.getElementById("clublst");
+        const link = document.getElementById("clubMemberLink");
+        const selectedText = selectBox.options[selectBox.selectedIndex].text;
+        const baseUrl = "/clubmemberList/{{memberdtl[9]}}";
+        link.href = `${baseUrl}/${encodeURIComponent(selectedText)}`;
+    });
+</script>
 </html>

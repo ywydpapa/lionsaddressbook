@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pycparser.ply.yacc import resultlimit
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
@@ -55,13 +56,13 @@ def get_default_image_base64(mime_type: str = "image/png") -> str:
 
 async def get_photo(memberNo:int, db:AsyncSession, mime_type: str = "image/jpeg") -> str:
     try:
-        query = text("SELECT mphoto FROM memberPhoto WHERE memberNo = :memberNo")
+        query = text("SELECT mPhoto FROM memberPhoto WHERE memberNo = :memberNo")
         result = await db.execute(query, {"memberNo": memberNo})
         photo = result.fetchone()
         if photo is None:
             return get_default_image_base64(mime_type)
         base64_image = base64.b64encode(photo[0]).decode("utf-8")
-        return base64_image
+        return f"data:{mime_type};base64,{base64_image}"
     except:
         raise HTTPException(status_code=500, detail="Database query failed(Photo)")
 
@@ -143,28 +144,20 @@ async def get_ranklist(db: AsyncSession):
 async def favicon():
     return {"detail": "Favicon is served at /static/favicon.ico"}
 
-@app.post("/upload/")
-async def upload_image(request: Request, file: UploadFile = File(...)):
+@app.post("/upload/{memberno}")
+async def upload_image(request: Request, memberno:int ,file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     try:
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-
         # 파일 읽기
         contents = await file.read()
-
         # 데이터베이스에 이미지 저장
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("INSERT INTO images (image) VALUES (?)", (contents,))
-        conn.commit()
-        image_id = cursor.lastrowid
-
-        return templates.TemplateResponse("upload_form.html",
-                                          {"request": request, "filename": file.filename, "id": image_id})
-
+        query = text("INSERT INTO memberPhoto (memberNo, mPhoto) VALUES (:memno, :photo)")
+        result = await db.execute(query, {"memno": memberno, "photo": contents})
+        await db.commit()
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
     except Exception as e:
-        return templates.TemplateResponse("upload_form.html", {"request": request, "error": str(e)})
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
 
 
 # 로그인 폼 페이지
@@ -247,16 +240,44 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     memberdtl = await get_memberdetail(memberno, db)
-    print(memberdtl)
     myphoto = await get_photo(memberno, db)
-    print(myphoto)
+    clublist = await get_clublist(db)
+    ranklist = await get_ranklist(db)
     if not user_No:
         return RedirectResponse(url="/")
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "memberdtl": memberdtl, "myphoto": myphoto})
+                                       "memberdtl": memberdtl, "myphoto": myphoto, "clublist": clublist, "ranklist": ranklist})
+
+
+@app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
+async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "memberName": form_data.get("membername"),
+        "memberMF": form_data.get("gender"),
+        "memberBirth": form_data.get("birthdate"),
+        "memberSns": form_data.get("memberSns"),
+        "memberAddress": form_data.get("home_address"),
+        "memberPhone": form_data.get("contact"),
+        "memberEmail": form_data.get("email"),
+        "memberJoindate": form_data.get("joindate"),
+        "clubNo": form_data.get("clublst"),
+        "sponserNo": form_data.get("sponserNo"),
+        "addMemo": form_data.get("memo"),
+        "rankNo": form_data.get("ranklst"),
+        "officeAddress": form_data.get("office_address"),
+    }
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE lionsMember SET {set_clause} WHERE memberNo = :memberNo")
+    #query = text("update lionsMember set memberName=:memberName,memberMF=:memberMF,memberBirth=:memberBirth,memberSns=:memberSns,memberAddress=:memberAddress,memberPhone=:memberPhone,memberEmail=:memberEmail,memberJoindate=:memberJoindate,clubNo=:clubNo,sponserNo=:sponserNo,addMemo=:addMemo,rankNo=:rankNo, officeAddress=:officeAddress where memberNo = :mno")
+    update_fields["memberNo"] = memberno
+    await db.execute(query, update_fields)
+    await db.commit()
+    return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
 
 
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
