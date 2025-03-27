@@ -43,6 +43,16 @@ async def get_clublist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
 
 
+async def get_clubboards(clubno:int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsBoard where attrib not like :attpatt AND clubno = :clubno")
+        result = await db.execute(query, {"attpatt": "%XXX%", "clubno": clubno})
+        clubboards = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return clubboards
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBBOARDS)")
+
+
 def get_default_image_base64(mime_type: str = "image/png") -> str:
     default_image_path = "static/img/defaultphoto.png"
     try:
@@ -77,10 +87,22 @@ async def get_regionclublist(region: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
 
 
+async def get_regionboardlist(region: int, db: AsyncSession):
+    try:
+        query = text("select lc.clubName , lb.clubNo, GROUP_CONCAT(lb.boardTitle SEPARATOR ',') AS boardDetails, count(lb.boardNo ) from lionsBoard lb "
+                     "left join lionsClub lc on lb.clubNo = lc.clubNo and lc.regionNo = :regno  group by lb.clubNo order by lb.clubNo")
+        result = await db.execute(query, {"regno": region})
+        club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return club_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
+
+
 async def get_regionmemberlist(region: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno)")
+            "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno)")
         result = await db.execute(query, {"regno": region})
         rmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return rmember_list
@@ -140,6 +162,15 @@ async def get_ranklist(db: AsyncSession):
     except:
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
+
+async def get_boarddtl(boardno:int,db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsBoard where boardNo = :boardno")
+        result = await db.execute(query, {"boardno": boardno})
+        boarddtl = result.fetchone()
+        return boarddtl
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
 @app.get("/favicon.ico")
 async def favicon():
@@ -274,7 +305,6 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
     query = text(f"UPDATE lionsMember SET {set_clause} WHERE memberNo = :memberNo")
-    #query = text("update lionsMember set memberName=:memberName,memberMF=:memberMF,memberBirth=:memberBirth,memberSns=:memberSns,memberAddress=:memberAddress,memberPhone=:memberPhone,memberEmail=:memberEmail,memberJoindate=:memberJoindate,clubNo=:clubNo,sponserNo=:sponserNo,addMemo=:addMemo,rankNo=:rankNo, officeAddress=:officeAddress where memberNo = :mno")
     update_fields["memberNo"] = memberno
     await db.execute(query, update_fields)
     await db.commit()
@@ -345,14 +375,63 @@ async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
                                        "club_list": club_list, "dict_list": dict_list})
 
 
-@app.get("/boardManager", response_class=HTMLResponse)
-async def boardManager(request: Request):
+@app.get("/boardManager/{regionno}", response_class=HTMLResponse)
+async def boardManager(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    clublist = await get_regionboardlist(regionno,db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/boardMain.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name})
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name, "clublist": clublist})
+
+
+@app.get("/boardList/{clubno}", response_class=HTMLResponse)
+async def clubboardlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    clubboards = await get_clubboards(clubno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/clubboardlist.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"clubboards": clubboards})
+
+@app.get("/editboard/{boardno}", response_class=HTMLResponse)
+async def editboard(request: Request, boardno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    boarddtl = await get_boarddtl(boardno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/editboard.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "boarddtl": boarddtl})
+
+
+@app.api_route("/addboard/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    btitle = form_data.get("btitle")
+    if not btitle:
+        btitle = "새로만든 게시판(제목 변경 필요)"
+    btype = form_data.get("btype")
+    if not btype:
+        btype = "BOARD"
+    query = text(f"INSERT into lionsBoard (clubNo, boardTitle, boardType) values (:clubNo, :boardTitle, :boardType)")
+    await db.execute(query, {"clubNo": clubno, "boardTitle": btitle,"boardType": btype})
+    await db.commit()
+    return RedirectResponse(f"/boardList/{clubno}", status_code=303)
+
+
+@app.api_route("/updateboard/{boardno}/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def addboard(request: Request, boardno: int, clubno:int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    btitle = form_data.get("btitle")
+    btype = form_data.get("btype")
+    query = text(f"update lionsBoard set boardTitle=:boardTitle,boardType=:boardType where boardNo=:boardNo")
+    await db.execute(query, {"boardNo": boardno, "boardTitle": btitle,"boardType": btype})
+    await db.commit()
+    return RedirectResponse(f"/boardList/{clubno}", status_code=303)
 
 
 # 로그아웃 처리

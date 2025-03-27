@@ -15,22 +15,20 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">클럽별 게시판 리스트</h1>
+                <h1 class="h3 mb-4 text-gray-800">게시판 글목록</h1>
                 <div>
                     <div style="float:right"></div>
                     <table class="table" id="clublist">
                         <thead style="text-align: center">
                         <th>클럽번호</th>
                         <th>클럽명</th>
-                        <th>게시판 제목</th>
-                        <th>게시판 추가</th>
+                        <th>게시판 번호</th>
                         </thead>
                         {% for club in clublist %}
                             <tr style="text-align: center">
+                                <td>{{ club[0] }}</td>
                                 <td>{{ club[1] }}</td>
-                                <td><a href="/boardList/{{club[1]}}">{{ club[0] }}</a></td>
                                 <td>{{ club[2] }}</td>
-                                <td><a href="/addboard/{{club[1]}}" class="btn btn-primary" id="btnaddboard" role="button" style="flex: 0 0 30%;">보드 추가</a></td>
                             </tr>
                         {% endfor %}
                     </table>
