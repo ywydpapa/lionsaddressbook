@@ -27,7 +27,7 @@
                         {% for board in clubboards %}
                             <tr style="text-align: center">
                                 <td>{{ board[0] }}</td>
-                                <td><a href="/editboard/{{ board[0] }}">{{board[2]}}</a></td>
+                                <td><a href="/editboard/{{ board[0] }}/{{clubname}}">{{board[2]}}</a></td>
                                 <td>{{ board[3] }}</td>
                             </tr>
                         {% endfor %}

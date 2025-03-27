@@ -396,8 +396,8 @@ async def clubboardlist(request: Request, clubno: int, clubname:str, db: AsyncSe
     return templates.TemplateResponse("board/clubboardlist.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"clubboards": clubboards, "clubname": clubname})
 
-@app.get("/editboard/{boardno}", response_class=HTMLResponse)
-async def editboard(request: Request, boardno: int, db: AsyncSession = Depends(get_db)):
+@app.get("/editboard/{boardno}/{clubname}", response_class=HTMLResponse)
+async def editboard(request: Request, boardno: int, clubname:str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     boarddtl = await get_boarddtl(boardno, db)
@@ -405,7 +405,7 @@ async def editboard(request: Request, boardno: int, db: AsyncSession = Depends(g
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/editboard.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "boarddtl": boarddtl})
+                                       "boarddtl": boarddtl, "clubname": clubname})
 
 
 @app.api_route("/addboard/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -423,15 +423,15 @@ async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get
     return RedirectResponse(f"/boardList/{clubno}", status_code=303)
 
 
-@app.api_route("/updateboard/{boardno}/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def addboard(request: Request, boardno: int, clubno:int, db: AsyncSession = Depends(get_db)):
+@app.api_route("/updateboard/{boardno}/{clubno}/{clubname}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def addboard(request: Request, boardno: int, clubno:int, clubname:str ,db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     btitle = form_data.get("btitle")
     btype = form_data.get("btype")
     query = text(f"update lionsBoard set boardTitle=:boardTitle,boardType=:boardType where boardNo=:boardNo")
     await db.execute(query, {"boardNo": boardno, "boardTitle": btitle,"boardType": btype})
     await db.commit()
-    return RedirectResponse(f"/boardList/{clubno}", status_code=303)
+    return RedirectResponse(f"/boardList/{clubno}/{clubname}", status_code=303)
 
 
 # 로그아웃 처리
