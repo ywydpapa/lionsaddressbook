@@ -386,15 +386,15 @@ async def boardManager(request: Request, regionno: int, db: AsyncSession = Depen
                                       {"request": request, "user_No": user_No, "user_Name": user_Name, "clublist": clublist})
 
 
-@app.get("/boardList/{clubno}", response_class=HTMLResponse)
-async def clubboardlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+@app.get("/boardList/{clubno}/{clubname}", response_class=HTMLResponse)
+async def clubboardlist(request: Request, clubno: int, clubname:str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     clubboards = await get_clubboards(clubno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/clubboardlist.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"clubboards": clubboards})
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"clubboards": clubboards, "clubname": clubname})
 
 @app.get("/editboard/{boardno}", response_class=HTMLResponse)
 async def editboard(request: Request, boardno: int, db: AsyncSession = Depends(get_db)):

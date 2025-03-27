@@ -28,7 +28,7 @@
                         {% for club in clublist %}
                             <tr style="text-align: center">
                                 <td>{{ club[1] }}</td>
-                                <td><a href="/boardList/{{club[1]}}">{{ club[0] }}</a></td>
+                                <td><a href="/boardList/{{club[1]}}/{{club[0]}}">{{ club[0] }}</a></td>
                                 <td>{{ club[2] }}</td>
                                 <td><a href="/addboard/{{club[1]}}" class="btn btn-primary" id="btnaddboard" role="button" style="flex: 0 0 30%;">보드 추가</a></td>
                             </tr>

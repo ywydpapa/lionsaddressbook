@@ -8,6 +8,9 @@
     // 로딩 화면 보이기
     function showLoading() {
         document.getElementById('loading').style.visibility = 'visible';
+        setTimeout(() => {
+        document.getElementById('loading').style.visibility = 'hidden';
+    }, 1500); // 1500ms = 1.5초
     }
 
     // 로딩 화면 숨기기
@@ -20,11 +23,14 @@
         hideLoading();
     }
 
-    // 페이지 이동 시 로딩 화면 표시 (뒤로가기를 제외)
     window.onbeforeunload = function (event) {
-        // 브라우저의 performance API를 사용하여 뒤로가기인지 확인
-        if (performance.navigation.type !== performance.navigation.TYPE_BACK_FORWARD) {
+        const entries = performance.getEntriesByType("navigation");
+        const navigationType = entries.length > 0 ? entries[0].type : null;
+        if (navigationType !== "back_forward") {
             showLoading();
+        } else {
+            hideLoading();
         }
-    }
+
+    };
 </script>
