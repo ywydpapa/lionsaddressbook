@@ -11,7 +11,7 @@ body {
 }
 .login, .register {
   	width: 400px;
-  	background-color: #ffffff;
+  	background-color: #f6d600;
   	/*box-shadow: 0 0 9px 0 rgba(0, 0, 0, 0.3);*/
 }
 .login h1, .register h1 {
@@ -216,7 +216,7 @@ body{margin:0 auto;}
 #loginContents #loginContent #loginForm #loginSessionDiv #loginSessionBtn.active{
     width:21px;
     vertical-align: bottom;
-    content: url("/static/images/loginSessionActive.png");
+    content: url("/static/img/lionslogo.png");
 }
 
 #loginContents #loginContent #loginForm #loginSessionDiv #loginSessionBtn:not(.active){
@@ -261,7 +261,7 @@ body{margin:0 auto;}
 #loginContent #loginIntroduce{
     width: 100%;
     height: 100%;
-    background-image: url("/static/images/img-1.png");
+    background-image: url("/static/img/lionslogo.png");
     background-size: cover;
 }
 

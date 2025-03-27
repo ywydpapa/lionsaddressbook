@@ -20,17 +20,19 @@
                     <div style="float:right"></div>
                     <table class="table" id="dictlist">
                         <thead style="text-align: center">
-                        <th>지역번호</th>
+                        <th>지역명</th>
                         <th>위원장</th>
                         <th>소속클럽</th>
+                        <th>활동연도</th>
                         <th>주요지침</th>
                         </thead>
-                        {% for dict in dict_list %}
+                        {% for region in region_list %}
                             <tr style="text-align: center">
-                                <td>{{ dict[1] }} 지역</td>
-                                <td>{{ dict[2] }}</td>
-                                <td>{{ dict[9] }}</td>
-                                <td>{{ dict[3] }}</td>
+                                <td><a href="/editregion/{{ region[1] }}">{{ region[1] }} 지역</a></td>
+                                <td>{{ region[10] }}</td>
+                                <td>{{ region[9] }}</td>
+                                <td>{{ region[4] }}-{{ region[5] }}</td>
+                                <td>{{ region[3] }}</td>
                             </tr>
                         {% endfor %}
                     </table>

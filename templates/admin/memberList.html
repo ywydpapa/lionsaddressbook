@@ -1,13 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Success</title>
+    {% include '/comm/adheader.html' %}
 </head>
-<body>
-    <h2>Login Successful</h2>
-    <p>Welcome, user ID: {{ user_id }}</p>
-    <a href="/logout">Logout</a>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h1 class="h3 mb-4 text-gray-800">전체 회원 리스트</h1>
+                    <a href="/addmember" class="btn btn-primary" id="newmember" role="button" style="flex: 0 0 auto;">신규 회원 추가</a>
+                </div>
+                <div class="container">
+                    <div>
+                        <div style="float:right"></div>
+                        <table class="table" id="rmamberlist">
+                            <thead style="text-align: center">
+                            <th>회원번호</th>
+                            <th>회원성명</th>
+                            <th>소속클럽</th>
+                            <th>직책</th>
+                            </thead>
+                            {% for member in members %}
+                            <tr style="text-align: center">
+                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
+                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
+                                <td>{{ member[14] }}</td>
+                                <td>{{ member[15] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- /.container-fluid -->
+
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
 </body>
 </html>
+<script>
+    $(document).ready(function () {
+        $('#rmamberlist').DataTable({
+            "pageLength": 25,
+            order: [[0, "asc"]]
+        });
+    });
+</script>

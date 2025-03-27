@@ -29,7 +29,7 @@
                         {% for club in club_list %}
                             <tr style="text-align: center">
                                 <td>{{ club[0] }}</td>
-                                <td>{{ club[1] }}</td>
+                                <td><a href="/editclub/{{ club[0] }}">{{ club[1] }}</a></td>
                                 <td>{{ club[2] }}</td>
                                 <td>{{ club[3] }}</td>
                             </tr>

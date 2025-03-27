@@ -55,17 +55,24 @@ async function createCards() {
         // 멤버별 카드 생성
         members.forEach(member => {
             const cardHTML = `
-                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 mb-4">
+                <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-4">
                     <div class="card shadow">
                         <a href="/memberdetail/${member.memberNo}">
                             <div class="card-header py-3">
                                 <h6 class="m-0 font-weight-bold text-primary">${member.memberName}</h6>
                             </div>
-                            <div class="card-body">
-                                직  책 : ${member.rankTitle}<br>
-                                연락처 : ${member.memberPhone} <br>
-                                이메일 : ${member.memberEmail} <br>
-                            </div>
+                                <div class="card-body d-flex align-items-center">
+                                    <!-- 이미지 영역 -->
+                                    <div class="image-container">
+                                        <img src="/static/img/members/${member.memberNo}.png" onerror="this.src='/static/img/members/default.png'" alt="Member Image">
+                                    </div>
+                <!-- 텍스트 영역 -->
+                                    <div class="text-container ml-3">
+                                        직  책 : ${member.rankTitle}<br>
+                                        연락처 : ${member.memberPhone} <br>
+                                        이메일 : ${member.memberEmail} <br>
+                                    </div>
+                                </div>
                         </a>
                     </div>
                 </div>

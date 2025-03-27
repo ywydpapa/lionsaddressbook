@@ -1,13 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Success</title>
+    {% include '/comm/adheader.html' %}
 </head>
-<body>
-    <h2>Login Successful</h2>
-    <p>Welcome, user ID: {{ user_id }}</p>
-    <a href="/logout">Logout</a>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">클럽 정보 관리</h1>
+                <div class="d-flex justify-content-center" style="min-height: 100vh;">
+                    <div class="col-md-9">
+                        <table class="table table-bordered text-center">
+                            <thead>
+                            </thead>
+                            <tbody>
+                            <form method="POST" action="/updateclub/{{clubdtl[0]}}">
+                                <tr>
+                                    <td>클럽명</td>
+                                    <td><input type="text" class="form-control" name="clubname"
+                                               value="{{ clubdtl[1]}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>설립일자</td>
+                                    <td><input type="date" class="form-control" name="estdate"
+                                               value="{{ clubdtl[2] if clubdtl[2] else '2500-01-01'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>소속지역</td>
+                                    <td><select class="form-control" name="regno">
+                                        <option value="0"{% if clubdtl[3] == '' %}selected{% endif %}>소속지역없음</option>
+                                        <option value="1"{% if clubdtl[3] == 1 %}selected{% endif %}>1지역</option>
+                                        <option value="2"{% if clubdtl[3] == 2 %}selected{% endif %}>2지역</option>
+                                        <option value="3"{% if clubdtl[3] == 3 %}selected{% endif %}>3지역</option>
+                                        <option value="4"{% if clubdtl[3] == 4 %}selected{% endif %}>4지역</option>
+                                        <option value="5"{% if clubdtl[3] == 5 %}selected{% endif %}>5지역</option>
+                                        <option value="6"{% if clubdtl[3] == 6 %}selected{% endif %}>6지역</option>
+                                        <option value="7"{% if clubdtl[3] == 7 %}selected{% endif %}>7지역</option>
+                                        <option value="8"{% if clubdtl[3] == 8 %}selected{% endif %}>8지역</option>
+                                        <option value="9"{% if clubdtl[3] == 9 %}selected{% endif %}>9지역</option>
+                                        <option value="10"{% if clubdtl[3] == 10 %}selected{% endif %}>10지역</option>
+                                        <option value="11"{% if clubdtl[3] == 11 %}selected{% endif %}>11지역</option>
+                                        <option value="12"{% if clubdtl[3] == 12 %}selected{% endif %}>12지역</option>
+                                        <option value="13"{% if clubdtl[3] == 13 %}selected{% endif %}>13지역</option>
+                                        <option value="14"{% if clubdtl[3] == 14 %}selected{% endif %}>14지역</option>
+                                        <option value="15"{% if clubdtl[3] == 15 %}selected{% endif %}>15지역</option>
+                                        <option value="16"{% if clubdtl[3] == 16 %}selected{% endif %}>16지역</option>
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>사무실 주소</td>
+                                    <td><input type="text" class="form-control" name="offaddr"
+                                               value="{{ clubdtl[4]}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>사무실 전화</td>
+                                    <td><input type="tel" class="form-control" name="offtel"
+                                               value="{{ clubdtl[5] if clubdtl[5] else '000-000-0000'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>사무실 FAX</td>
+                                    <td><input type="tel" class="form-control" name="offfax"
+                                               value="{{ clubdtl[6] if clubdtl[6] else '000-000-0000'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>사무실 이메일</td>
+                                    <td><input type="email" class="form-control" name="offemail"
+                                               value="{{ clubdtl[7] if clubdtl[7] else 'email@email.com'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>웹사이트</td>
+                                    <td><input type="url" class="form-control" name="offweb"
+                                               value="{{ clubdtl[8] if clubdtl[8] else 'http://www.lc355a.or.kr'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="col-12"
+                                             style="display: flex; justify-content: space-between; gap: 10px;">
+                                            <a href="#" onclick="window.location.href='/clubList'; return false;" class="btn btn-dark"
+                                               role="button" style="flex: 0 0 30%;">목록으로 돌아가기</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </form>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
 </body>
 </html>
