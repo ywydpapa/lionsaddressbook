@@ -244,21 +244,18 @@ async def favicon():
     return {"detail": "Favicon is served at /static/favicon.ico"}
 
 
-@app.post("/uploadbefore/{memberno}")
-async def upload_imagebefore(request: Request, memberno: int, file: UploadFile = File(...),
+@app.post("/uploaddoc/{clubno}")
+async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...),
                        db: AsyncSession = Depends(get_db)):
     try:
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
         contents = await file.read()
-        # 데이터베이스에 이미지 저장
-        query = text("INSERT INTO memberPhoto (memberNo, mPhoto) VALUES (:memno, :photo)")
-        result = await db.execute(query, {"memno": memberno, "photo": contents})
+        # 데이터베이스에 저장
+        query = text("INSERT INTO lionsDoc (clubNo,cDocument) VALUES (:memno, :docs)")
+        result = await db.execute(query, {"memno": clubno, "docs": contents})
         await db.commit()
-        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+        return RedirectResponse(f"/doclist/{clubno}", status_code=303)
     except Exception as e:
-        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+        return RedirectResponse(f"/doclist/{clubno}", status_code=303)
 
 
 # 이미지 업로드 엔드포인트
