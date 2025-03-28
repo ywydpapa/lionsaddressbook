@@ -16,22 +16,17 @@ from PIL import Image
 import io
 
 dotenv.load_dotenv()
-# 데이터베이스 설정
 DATABASE_URL = os.getenv("dburl")
 engine = create_async_engine(DATABASE_URL, echo=True)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-# FastAPI 앱 초기화
 app = FastAPI()
 
-# 세션 미들웨어 추가 (서버에서 세션 관리)
 app.add_middleware(SessionMiddleware, secret_key="supersecretkey")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 썸네일 저장 경로
 THUMBNAIL_DIR = "./static/img/members"
-
 
 # 데이터베이스 세션 생성
 async def get_db():
@@ -87,6 +82,19 @@ def get_default_image_base64(mime_type: str = "image/png") -> str:
 async def get_photo(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
     try:
         query = text("SELECT mPhoto FROM memberPhoto WHERE memberNo = :memberNo")
+        result = await db.execute(query, {"memberNo": memberNo})
+        photo = result.fetchone()
+        if photo is None:
+            return get_default_image_base64(mime_type)
+        base64_image = base64.b64encode(photo[0]).decode("utf-8")
+        return f"data:{mime_type};base64,{base64_image}"
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
+
+
+async def get_namecard(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
+    try:
+        query = text("SELECT ncardPhoto FROM memberNamecard WHERE memberNo = :memberNo")
         result = await db.execute(query, {"memberNo": memberNo})
         photo = result.fetchone()
         if photo is None:
@@ -163,7 +171,7 @@ async def get_memberdetail(memberon: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
 
 
-async def get_clubmemberlist(clubno: int, db: AsyncSession):
+async def get_clubmembercard(clubno: int, db: AsyncSession):
     try:
         query = text(
             "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
@@ -182,7 +190,19 @@ async def get_clubmemberlist(clubno: int, db: AsyncSession):
         ]
         return {"members": member}
     except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberLIST)")
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberCards)")
+
+
+async def get_clubmemberlist(clubno: int, db: AsyncSession):
+    try:
+        query = text(
+            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
+        result = await db.execute(query, {"club_no": clubno})
+        member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return member_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberList)")
+
 
 
 async def get_regionlist(db: AsyncSession):
@@ -409,11 +429,22 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
 async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
-    memberList = await get_clubmemberlist(clubno, db)
-    print(memberList)
+    cmembers = await get_clubmemberlist(clubno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "clubName": clubname, "cmembers": cmembers})
+
+
+@app.get("/clubmemberCards/{clubno}/{clubname}", response_class=HTMLResponse)
+async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    memberList = await get_clubmembercard(clubno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/memberCards.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "clubName": clubname, "memberList": memberList})
 

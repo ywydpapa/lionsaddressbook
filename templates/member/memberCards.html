@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">{{clubName}} 회원 리스트</h1>
+                <div class="container">
+                    <div class="row" id="card-container">
+                        <!-- JavaScript로 카드가 동적으로 추가될 영역 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- /.container-fluid -->
+
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+</body>
+</html>
+<script>
+    const members = {{ memberList.members | tojson }}; // 클럽 멤버 데이터 가져오기
+    // 카드 생성 함수
+async function createCards() {
+        const cardContainer = document.getElementById("card-container");
+        // 멤버별 카드 생성
+        members.forEach(member => {
+            const cardHTML = `
+                <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-4">
+                    <div class="card shadow">
+                        <a href="/memberdetail/${member.memberNo}">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-primary">${member.memberName}</h6>
+                            </div>
+                                <div class="card-body d-flex align-items-center">
+                                    <!-- 이미지 영역 -->
+                                    <div class="image-container">
+                                        <img src="/static/img/members/${member.memberNo}.png" onerror="this.src='/static/img/members/default.png'" alt="Member Image">
+                                    </div>
+                <!-- 텍스트 영역 -->
+                                    <div class="text-container ml-3">
+                                        직  책 : ${member.rankTitle}<br>
+                                        연락처 : ${member.memberPhone} <br>
+                                        이메일 : ${member.memberEmail} <br>
+                                    </div>
+                                </div>
+                        </a>
+                    </div>
+                </div>
+            `;
+            // 카드를 컨테이너에 추가
+            cardContainer.innerHTML += cardHTML;
+        });
+    }
+    createCards();
+</script>

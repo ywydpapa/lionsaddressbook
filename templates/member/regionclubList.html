@@ -27,8 +27,8 @@
                         </thead>
                         {% for club in club_list %}
                             <tr style="text-align: center">
-                                <td>{{ club[0] }}</td>
-                                <td><a href="/clubmemberList/{{ club[0] }}/{{ club[1] }}">{{ club[1] }}</a></td>
+                                <td><a href="/clubmemberList/{{club[0]}}/{{ club[1] }}"> {{ club[0] }} </a></td>
+                                <td><a href="/clubmemberCards/{{ club[0] }}/{{ club[1] }}">{{ club[1] }}</a></td>
                                 <td>{{ club[2] }}</td>
                                 <td>{{ club[3] }}</td>
                             </tr>

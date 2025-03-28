@@ -19,21 +19,25 @@
                 <div class="container">
                     <div>
                     <div style="float:right"></div>
-                    <table class="table" id="rmamberlist">
+                    <table class="table" id="rmemberlist">
                         <thead style="text-align: center">
                         <th>회원번호</th>
+                        <th>회원사진</th>
                         <th>회원성명</th>
                         <th>소속클럽</th>
                         <th>직책</th>
                         </thead>
+                        <tbody>
                         {% for member in rmember %}
-                            <tr style="text-align: center">
-                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
-                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
-                                <td>{{ member[14] }}</td>
-                                <td>{{ member[15] }}</td>
+                            <tr style="text-align: center; vertical-align: middle;">
+                                <td style="text-align: center; vertical-align: middle;"><a href="/memberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
+                                <td style="text-align: center; vertical-align: middle;"><img src="/static/img/members/{{member[0]}}.png" onerror="this.src='/static/img/members/default.png'" alt="Member Image"></td>
+                                <td style="text-align: center; vertical-align: middle;"><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[14] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[15] }}</td>
                             </tr>
                         {% endfor %}
+                        </tbody>
                     </table>
                 </div>
                 </div>
@@ -66,8 +70,8 @@
 </html>
 <script>
     $(document).ready(function () {
-        $('#rmamberlist').DataTable({
-            "pageLength": 25,
+        $('#rmemberlist').DataTable({
+            "pageLength": 10,
             order: [[0, "asc"]]
         });
     });

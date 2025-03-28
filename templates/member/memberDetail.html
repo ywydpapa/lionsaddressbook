@@ -37,8 +37,8 @@
                             <thead>
                             </thead>
                             <tbody>
-                            <tr>
-                                <td>회원 사진</td>
+                            <tr >
+                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
                                         <img src="{{myphoto}}" alt="Member Photo" width="200" height="250"/><img
@@ -113,7 +113,7 @@
                                 <td><input type="date" class="form-control" name="joindate" value="{{ memberdtl[8] if memberdtl[8] else '2029-12-31' }}"/></td>
                             </tr>
                                 <tr>
-                                <td>회원 메모</td>
+                                <td style="text-align: center; vertical-align:middle">회원 메모</td>
                                 <td>
                                      <textarea class="form-control" rows="4" cols="30" name="memo" placeholder="내용을 입력하세요">{{ memberdtl[11] }}</textarea>
                                 </td>
@@ -121,8 +121,9 @@
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12" style="display: flex; justify-content: space-between; gap: 10px;">
-                                         <a href="/rmemberList/15" class="btn btn-dark" role="button" style="flex: 0 0 30%;">지역회원목록</a>
-                                            <a href="/clubmemberList/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 30%;">클럽회원목록</a>
+                                         <a href="/rmemberList/15" class="btn btn-dark" role="button" style="flex: 0 0 20%;">지역회원목록</a>
+                                            <a href="/clubmemberList/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 20%;">클럽회원리스트</a>
+                                            <a href="/clubmemberCards/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLinkc" role="button" style="flex: 0 0 20%;">클럽회원카드</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장</button>
                                         </div>
                                     </td>
@@ -181,9 +182,12 @@
     document.addEventListener("DOMContentLoaded", function () {
         const selectBox = document.getElementById("clublst");
         const link = document.getElementById("clubMemberLink");
+        const linkc = document.getElementById("clubMemberLinkc");
         const selectedText = selectBox.options[selectBox.selectedIndex].text;
         const baseUrl = "/clubmemberList/{{memberdtl[9]}}";
+        const baseUrlc = "/clubmemberCards/{{memberdtl[9]}}";
         link.href = `${baseUrl}/${encodeURIComponent(selectedText)}`;
+        linkc.href = `${baseUrlc}/${encodeURIComponent(selectedText)}`;
     });
 </script>
 </html>
