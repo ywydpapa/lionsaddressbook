@@ -48,6 +48,21 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
     image.save(thumbnail_path, format="PNG")
     return thumbnail_path
 
+
+async def save_ncthumbnail(image_data: bytes, memberno: int, size=(80, 100)):
+    # 디렉토리가 없으면 생성
+    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+    # 원본 이미지를 Pillow로 열기
+    image = Image.open(io.BytesIO(image_data))
+    # 썸네일 생성
+    image.thumbnail(size)
+    # 저장 경로
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"nc{memberno}.png")
+    # 썸네일 저장
+    image.save(thumbnail_path, format="PNG")
+    return thumbnail_path
+
+
 async def get_clublist(db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsClub where attrib not like :attpatt")
@@ -81,7 +96,20 @@ def get_default_image_base64(mime_type: str = "image/png") -> str:
 
 async def get_photo(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
     try:
-        query = text("SELECT mPhoto FROM memberPhoto WHERE memberNo = :memberNo")
+        query = text("SELECT mPhoto FROM memberPhoto WHERE memberNo = :memberNo order by regDate desc")
+        result = await db.execute(query, {"memberNo": memberNo})
+        photo = result.fetchone()
+        if photo is None:
+            return get_default_image_base64(mime_type)
+        base64_image = base64.b64encode(photo[0]).decode("utf-8")
+        return f"data:{mime_type};base64,{base64_image}"
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
+
+
+async def get_spphoto(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
+    try:
+        query = text("SELECT spousePhoto FROM memberSpouse WHERE memberNo = :memberNo order by regDate desc")
         result = await db.execute(query, {"memberNo": memberNo})
         photo = result.fetchone()
         if photo is None:
@@ -94,7 +122,7 @@ async def get_photo(memberNo: int, db: AsyncSession, mime_type: str = "image/jpe
 
 async def get_namecard(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
     try:
-        query = text("SELECT ncardPhoto FROM memberNamecard WHERE memberNo = :memberNo")
+        query = text("SELECT ncardPhoto FROM memberNamecard WHERE memberNo = :memberNo order by regDate desc")
         result = await db.execute(query, {"memberNo": memberNo})
         photo = result.fetchone()
         if photo is None:
@@ -131,7 +159,7 @@ async def get_regionmemberlist(region: int, db: AsyncSession):
     try:
         query = text(
             "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno)")
+            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno) order by lm.clubNo, lm.memberJoindate")
         result = await db.execute(query, {"regno": region})
         rmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return rmember_list
@@ -280,6 +308,49 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
         print(f"Error: {e}")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
 
+
+@app.post("/uploadnamecard/{memberno}")
+async def upload_ncimage(request: Request, memberno: int, file: UploadFile = File(...),
+                       db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 데이터베이스에 이미지 저장
+        query = text("INSERT INTO memberNamecard (memberNo, ncardPhoto) VALUES (:memno, :photo)")
+        await db.execute(query, {"memno": memberno, "photo": contents})
+        await db.commit()
+        # 썸네일 생성 및 저장
+        await save_ncthumbnail(contents, memberno)
+        # 리다이렉트
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+
+
+@app.post("/uploadspphoto/{memberno}")
+async def upload_spimage(request: Request, memberno: int, file: UploadFile = File(...),
+                       db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 데이터베이스에 이미지 저장
+        query = text("INSERT INTO memberSpouse (memberNo, spousePhoto) VALUES (:memno, :photo)")
+        await db.execute(query, {"memno": memberno, "photo": contents})
+        await db.commit()
+        # 리다이렉트
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+
+
 # 로그인 폼 페이지
 @app.get("/", response_class=HTMLResponse)
 async def login_form(request: Request):
@@ -383,6 +454,8 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
     user_Name = request.session.get("user_Name")
     memberdtl = await get_memberdetail(memberno, db)
     myphoto = await get_photo(memberno, db)
+    ncphoto = await get_namecard(memberno, db)
+    spphoto = await get_spphoto(memberno, db)
     clublist = await get_clublist(db)
     ranklist = await get_ranklist(db)
     if not user_No:
@@ -392,7 +465,7 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
     return templates.TemplateResponse("member/memberDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "memberdtl": memberdtl, "myphoto": myphoto, "clublist": clublist,
-                                       "ranklist": ranklist})
+                                       "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto})
 
 
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
@@ -412,6 +485,9 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
         "addMemo": form_data.get("memo"),
         "rankNo": form_data.get("ranklst"),
         "officeAddress": form_data.get("office_address"),
+        "spouseName": form_data.get("spname"),
+        "spousePhone": form_data.get("spphone"),
+        "spouseBirth": form_data.get("spbirth"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -472,6 +548,20 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
     return templates.TemplateResponse("admin/clubDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "clubdtl": clubdtl})
+
+@app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
+async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
+    result = await db.execute(query, {"clubNo": clubno})
+    clubdtl = result.fetchone()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/clubDocs.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "clubdtl": clubdtl})
+
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
 async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):

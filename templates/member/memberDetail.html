@@ -10,6 +10,20 @@
             margin-top: 10px;
         }
 
+        #ncPreview {
+            display: none; /* 기본적으로 숨김 */
+            max-width: 250px; /* 최대 너비 설정 */
+            max-height: 200px; /* 최대 높이 설정 */
+            margin-top: 10px;
+        }
+
+        #spPreview {
+            display: none; /* 기본적으로 숨김 */
+            max-width: 200px; /* 최대 너비 설정 */
+            max-height: 250px; /* 최대 높이 설정 */
+            margin-top: 10px;
+        }
+
         .image-container {
             display: flex; /* 이미지들을 가로로 배치 */
             justify-content: center; /* 가로 정렬 */
@@ -37,7 +51,7 @@
                             <thead>
                             </thead>
                             <tbody>
-                            <tr >
+                            <tr>
                                 <td style="text-align: center; vertical-align: middle">회원 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
@@ -56,75 +70,149 @@
                                         <input type="submit" value="회원사진 Upload"></form>
                                 </td>
                             </tr>
+                            <tr>
+                                <td style="text-align: center; vertical-align: middle">명함</td>
+                                <td style="text-align: center">
+                                    <div class="image-container">
+                                        <img src="{{ncphoto}}" alt="Member Namecard" width="250" height="200"/><img
+                                            id="ncPreview" alt="Namecard Preview">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>사진 변경</td>
+                                <td>
+                                    <form action="/uploadnamecard/{{memberdtl[0]}}" method="post"
+                                          enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required
+                                               onchange="displayNamecardInfo(this)">
+                                        <span id="fileSizenc"></span>
+                                        <input type="submit" value="회원명함 Upload"></form>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: center; vertical-align: middle">배우자 사진</td>
+                                <td style="text-align: center">
+                                    <div class="image-container">
+                                        <img src="{{spphoto}}" alt="Spouse Namecard" width="200" height="200"/><img
+                                            id="spPreview" alt="Spouse Preview">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>사진 변경</td>
+                                <td>
+                                    <form action="/uploadspphoto/{{memberdtl[0]}}" method="post"
+                                          enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required
+                                               onchange="displaySpphotoInfo(this)">
+                                        <span id="fileSizesp"></span>
+                                        <input type="submit" value="배우자사진 Upload"></form>
+                                </td>
+                            </tr>
                             <form method="POST" action="/update_memberdtl/{{memberdtl[0]}}">
-                            <tr>
-                                <td>회원 성명</td>
-                                <td><input type="text" class="form-control" name="membername" value="{{ memberdtl[1] }}"/></td>
-                            </tr>
-                            <tr>
-                                <td>소속 클럽</td>
-                                <td><select id="clublst" class="form-control" name="clublst">
-                                    {% for club in clublist %}
-                                    <option value="{{club[0]}}" {% if club[0] == memberdtl[9] %}selected{% endif %}>{{club[1]}}</option>
-                                    {% endfor %}
-                                </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>직책</td>
-                                <td><select id="ranklst" class="form-control" name="ranklst">
-                                    {% for rank in ranklist %}
-                                    <option value="{{rank[0]}}" {% if rank[0] == memberdtl[12] %}selected{% endif %}>{{rank[1]}}</option>
-                                    {% endfor %}
-                                </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>연락처</td>
-                                <td><input type="tel" class="form-control" name="contact" value="{{ memberdtl[6] if memberdtl[6] else '000-0000-0000' }}"/></td>
-                            </tr>
-                            <tr>
-                                <td>이메일</td>
-                                <td><input type="email" class="form-control" name="email" value="{{ memberdtl[7] if memberdtl[7] else 'email@email.com'}}"/></td>
-                            </tr>
-                            <tr>
-                                <td>집주소</td>
-                                <td><input type="text" class="form-control" name="home_address" value="{{ memberdtl[5] }}"/></td>
-                            </tr>
-                            <tr>
-                                <td>사무실 주소</td>
-                                <td><input type="text" class="form-control" name="office_address" value="{{ memberdtl[13] }}"/></td>
-                            </tr>
-                            <tr>
-                                <td>생년월일</td>
-                                <td><input type="date" class="form-control" name="birthdate" value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}"/></td>
-                            </tr>
-                            <tr>
-                                <td>회원 성별</td>
-                                <td>
-                                    <select name="gender" id="gender" class="form-control">
-                                        <option value="M" {% if memberdtl[2]== "M" %}selected{% endif %}>남성</option>
-                                        <option value="F" {% if memberdtl[2]== "F" %}selected{% endif %}>여성</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>입회일</td>
-                                <td><input type="date" class="form-control" name="joindate" value="{{ memberdtl[8] if memberdtl[8] else '2029-12-31' }}"/></td>
-                            </tr>
                                 <tr>
-                                <td style="text-align: center; vertical-align:middle">회원 메모</td>
-                                <td>
-                                     <textarea class="form-control" rows="4" cols="30" name="memo" placeholder="내용을 입력하세요">{{ memberdtl[11] }}</textarea>
-                                </td>
-                            </tr>
+                                    <td>회원 성명</td>
+                                    <td><input type="text" class="form-control" name="membername"
+                                               value="{{ memberdtl[1] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>소속 클럽</td>
+                                    <td><select id="clublst" class="form-control" name="clublst">
+                                        {% for club in clublist %}
+                                        <option value="{{club[0]}}" {% if club[0]== memberdtl[9] %}selected{% endif %}>
+                                            {{club[1]}}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>직책</td>
+                                    <td><select id="ranklst" class="form-control" name="ranklst">
+                                        {% for rank in ranklist %}
+                                        <option value="{{rank[0]}}" {% if rank[0]== memberdtl[12] %}selected{% endif %}>
+                                            {{rank[1]}}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>연락처</td>
+                                    <td><input type="tel" class="form-control" name="contact"
+                                               value="{{ memberdtl[6] if memberdtl[6] else '000-0000-0000' }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>이메일</td>
+                                    <td><input type="email" class="form-control" name="email"
+                                               value="{{ memberdtl[7] if memberdtl[7] else 'email@email.com'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>집주소</td>
+                                    <td><input type="text" class="form-control" name="home_address"
+                                               value="{{ memberdtl[5] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>사무실 주소</td>
+                                    <td><input type="text" class="form-control" name="office_address"
+                                               value="{{ memberdtl[13] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>생년월일</td>
+                                    <td><input type="date" class="form-control" name="birthdate"
+                                               value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>회원 성별</td>
+                                    <td>
+                                        <select name="gender" id="gender" class="form-control">
+                                            <option value="M" {% if memberdtl[2]==
+                                            "M" %}selected{% endif %}>남성</option>
+                                            <option value="F" {% if memberdtl[2]==
+                                            "F" %}selected{% endif %}>여성</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>입회일</td>
+                                    <td><input type="date" class="form-control" name="joindate"
+                                               value="{{ memberdtl[8] if memberdtl[8] else '2029-12-31' }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>배우자성명</td>
+                                    <td><input type="text" class="form-control" name="spname"
+                                               value="{{ memberdtl[14] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>배우자연락처</td>
+                                    <td><input type="text" class="form-control" name="spphone"
+                                               value="{{ memberdtl[15] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>배우자생일</td>
+                                    <td><input type="date" class="form-control" name="spbirth"
+                                               value="{{ memberdtl[16] if memberdtl[16] else '2020-01-01' }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center; vertical-align:middle">회원 메모</td>
+                                    <td>
+                                        <textarea class="form-control" rows="4" cols="30" name="memo"
+                                                  placeholder="내용을 입력하세요">{{ memberdtl[11] }}</textarea>
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td colspan="2">
-                                        <div class="col-12" style="display: flex; justify-content: space-between; gap: 10px;">
-                                         <a href="/rmemberList/15" class="btn btn-dark" role="button" style="flex: 0 0 20%;">지역회원목록</a>
-                                            <a href="/clubmemberList/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 20%;">클럽회원리스트</a>
-                                            <a href="/clubmemberCards/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLinkc" role="button" style="flex: 0 0 20%;">클럽회원카드</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장</button>
+                                        <div class="col-12"
+                                             style="display: flex; justify-content: space-between; gap: 10px;">
+                                            <a href="/rmemberList/15" class="btn btn-dark" role="button"
+                                               style="flex: 0 0 20%;">지역회원목록</a>
+                                            <a href="/clubmemberList/{{memberdtl[9]}}" class="btn btn-dark"
+                                               id="clubMemberLink" role="button" style="flex: 0 0 20%;">클럽회원리스트</a>
+                                            <a href="/clubmemberCards/{{memberdtl[9]}}" class="btn btn-dark"
+                                               id="clubMemberLinkc" role="button" style="flex: 0 0 20%;">클럽회원카드</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -175,6 +263,46 @@
         } else {
             fileSizeElement.textContent = "";
             previewElement.style.display = "none"; // 이미지 숨기기
+        }
+    }
+
+    function displayNamecardInfo(input) {
+        const filenc = input.files[0];
+        const fileSizeElementnc = document.getElementById("fileSizenc");
+        const previewElementnc = document.getElementById("ncPreview");
+        if (filenc) {
+            const sizeInMB = (filenc.size / (1024 * 1024)).toFixed(2); // MB로 변환
+            fileSizeElementnc.textContent = `Selected file size: ${sizeInMB} MB`;
+            // 이미지 미리보기
+            const readernc = new FileReader();
+            readernc.onload = function (e) {
+                previewElementnc.src = e.target.result;
+                previewElementnc.style.display = "block"; // 이미지 보이기
+            };
+            readernc.readAsDataURL(filenc);
+        } else {
+            fileSizeElementnc.textContent = "";
+            previewElementnc.style.display = "none"; // 이미지 숨기기
+        }
+    }
+
+    function displaySpphotoInfo(input) {
+        const filesp = input.files[0];
+        const fileSizeElementsp = document.getElementById("fileSizesp");
+        const previewElementsp = document.getElementById("spPreview");
+        if (filesp) {
+            const sizeInMB = (filesp.size / (1024 * 1024)).toFixed(2); // MB로 변환
+            fileSizeElementsp.textContent = `Selected file size: ${sizeInMB} MB`;
+            // 이미지 미리보기
+            const readersp = new FileReader();
+            readersp.onload = function (e) {
+                previewElementsp.src = e.target.result;
+                previewElementsp.style.display = "block"; // 이미지 보이기
+            };
+            readersp.readAsDataURL(filesp);
+        } else {
+            fileSizeElementsp.textContent = "";
+            previewElementsp.style.display = "none"; // 이미지 숨기기
         }
     }
 </script>
