@@ -32,7 +32,7 @@
                                 <tr>
                                     <td>클럽명</td>
                                     <td><input type="text" class="form-control" name="clubname"
-                                               value="{{ clubdtl[1]}}"/></td>
+                                               value="{{ clubdtl[1]}}" readonly/></td>
                                 </tr>
                                 <tr>
                                     <td>문서명</td>
@@ -55,12 +55,12 @@
                             </form>
                             </tbody>
                         </table>
-                        <h1>HTML Document Editor</h1>
+                        <h4>클럽문서 편집기</h4>
                             <form id="editor-form">
-                                <label for="title">Document Title:</label>
+                                <label for="title">문서명:</label>
                                 <input type="text" id="title" name="title" required><br><br>
                                 <div id="editor-container"></div>
-                                <button type="submit">Save Document</button>
+                                <button type="submit">문서저장</button>
                             </form>
                     </div>
                 </div>
