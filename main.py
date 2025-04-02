@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pycparser.ply.yacc import resultlimit
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -231,6 +231,26 @@ async def get_clubmemberlist(clubno: int, db: AsyncSession):
     except:
         raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberList)")
 
+
+async def get_clubdocs(clubno: int, db: AsyncSession):
+    try:
+        query = text(
+            "SELECT * FROM lionsDoc where clubNo = :clubno and attrib not like :attrxx")
+        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
+        doc_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return doc_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBDocList)")
+
+
+async def get_clubdoc(docno: int, db: AsyncSession):
+    try:
+        query = text("SELECT cDocument from lionsDoc where docno = :docno" )
+        result = await db.execute(query, {"docno": docno})
+        doc = result.fetchone()
+        return doc[0]
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBDoc)")
 
 
 async def get_regionlist(db: AsyncSession):
@@ -543,11 +563,13 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
     query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
+    clubdocs = await get_clubdocs(clubno, db)
+    print(clubdocs)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubdtl": clubdtl})
+                                       "clubdtl": clubdtl, "clubdocs": clubdocs})
 
 @app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
 async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
@@ -561,6 +583,38 @@ async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(
     return templates.TemplateResponse("admin/clubDocs.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "clubdtl": clubdtl})
+
+
+@app.post("/updateclubdoc/{clubno}")
+async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4docs = {
+            "clubNo": clubno,
+            "docType": form_data.get("doctype"),
+            "docTitle": form_data.get("title"),
+            "cDocument": form_data.get("content"),
+        }
+    querys = text(f"SELECT * from lionsDoc where clubNo = :clubNo and docType = :docType")
+    result = await db.execute(querys, data4docs)
+    docresult = result.fetchone()
+    if docresult:
+        queryup = text(f"UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
+        timenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        await db.execute(queryup, {"timenow": timenow,"updattrib":"XXXUPXXXUP",  "clubno": clubno, "doctype": form_data.get("doctype") })
+    query = text(
+        f"INSERT INTO lionsDoc (clubNo,docType,docTitle,cDocument) values (:clubNo,:docType,:docTitle,:cDocument)")
+    await db.execute(query, data4docs)
+    await db.commit()
+    return RedirectResponse(f"/editclub/{clubno}", status_code=303)
+
+
+@app.get("/popup_doc/{docno}")
+async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
+    cdoc = await get_clubdoc(docno, db)
+    print(cdoc)
+    if cdoc:
+        return HTMLResponse(cdoc)
+
 
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)

@@ -2,6 +2,73 @@
 <html lang="en">
 <head>
     {% include '/comm/adheader.html' %}
+    <script>
+        function showHtmlViewer(docno) {
+            // Set the iframe source to the FastAPI endpoint with the document ID
+            const iframe = document.getElementById('popup-iframe');
+            iframe.src = `/popup_doc/${docno}`;
+
+            // Display the popup
+            const popup = document.getElementById('popup');
+            popup.style.display = 'block';
+        }
+
+        function closePopup() {
+            const popup = document.getElementById('popup');
+            popup.style.display = 'none';
+
+            // Clear iframe source to stop loading
+            const iframe = document.getElementById('popup-iframe');
+            iframe.src = '';
+        }
+    </script>
+    <style>
+        /* Popup styling */
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 0;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            width: 80%;
+            height: 80%;
+        }
+
+        #popup iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f00;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+    </style>
+
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -36,23 +103,24 @@
                                 <tr>
                                     <td>소속지역</td>
                                     <td><select class="form-control" name="regno">
-                                        <option value="0"{% if clubdtl[3] == '' %}selected{% endif %}>소속지역없음</option>
-                                        <option value="1"{% if clubdtl[3] == 1 %}selected{% endif %}>1지역</option>
-                                        <option value="2"{% if clubdtl[3] == 2 %}selected{% endif %}>2지역</option>
-                                        <option value="3"{% if clubdtl[3] == 3 %}selected{% endif %}>3지역</option>
-                                        <option value="4"{% if clubdtl[3] == 4 %}selected{% endif %}>4지역</option>
-                                        <option value="5"{% if clubdtl[3] == 5 %}selected{% endif %}>5지역</option>
-                                        <option value="6"{% if clubdtl[3] == 6 %}selected{% endif %}>6지역</option>
-                                        <option value="7"{% if clubdtl[3] == 7 %}selected{% endif %}>7지역</option>
-                                        <option value="8"{% if clubdtl[3] == 8 %}selected{% endif %}>8지역</option>
-                                        <option value="9"{% if clubdtl[3] == 9 %}selected{% endif %}>9지역</option>
-                                        <option value="10"{% if clubdtl[3] == 10 %}selected{% endif %}>10지역</option>
-                                        <option value="11"{% if clubdtl[3] == 11 %}selected{% endif %}>11지역</option>
-                                        <option value="12"{% if clubdtl[3] == 12 %}selected{% endif %}>12지역</option>
-                                        <option value="13"{% if clubdtl[3] == 13 %}selected{% endif %}>13지역</option>
-                                        <option value="14"{% if clubdtl[3] == 14 %}selected{% endif %}>14지역</option>
-                                        <option value="15"{% if clubdtl[3] == 15 %}selected{% endif %}>15지역</option>
-                                        <option value="16"{% if clubdtl[3] == 16 %}selected{% endif %}>16지역</option>
+                                        <option value="0" {% if clubdtl[3]==
+                                        '' %}selected{% endif %}>소속지역없음</option>
+                                        <option value="1" {% if clubdtl[3]== 1 %}selected{% endif %}>1지역</option>
+                                        <option value="2" {% if clubdtl[3]== 2 %}selected{% endif %}>2지역</option>
+                                        <option value="3" {% if clubdtl[3]== 3 %}selected{% endif %}>3지역</option>
+                                        <option value="4" {% if clubdtl[3]== 4 %}selected{% endif %}>4지역</option>
+                                        <option value="5" {% if clubdtl[3]== 5 %}selected{% endif %}>5지역</option>
+                                        <option value="6" {% if clubdtl[3]== 6 %}selected{% endif %}>6지역</option>
+                                        <option value="7" {% if clubdtl[3]== 7 %}selected{% endif %}>7지역</option>
+                                        <option value="8" {% if clubdtl[3]== 8 %}selected{% endif %}>8지역</option>
+                                        <option value="9" {% if clubdtl[3]== 9 %}selected{% endif %}>9지역</option>
+                                        <option value="10" {% if clubdtl[3]== 10 %}selected{% endif %}>10지역</option>
+                                        <option value="11" {% if clubdtl[3]== 11 %}selected{% endif %}>11지역</option>
+                                        <option value="12" {% if clubdtl[3]== 12 %}selected{% endif %}>12지역</option>
+                                        <option value="13" {% if clubdtl[3]== 13 %}selected{% endif %}>13지역</option>
+                                        <option value="14" {% if clubdtl[3]== 14 %}selected{% endif %}>14지역</option>
+                                        <option value="15" {% if clubdtl[3]== 15 %}selected{% endif %}>15지역</option>
+                                        <option value="16" {% if clubdtl[3]== 16 %}selected{% endif %}>16지역</option>
                                     </select>
                                     </td>
                                 </tr>
@@ -79,15 +147,25 @@
                                 <tr>
                                     <td>웹사이트</td>
                                     <td><input type="url" class="form-control" name="offweb"
-                                               value="{{ clubdtl[8] if clubdtl[8] else 'http://www.lc355a.or.kr'}}"/></td>
+                                               value="{{ clubdtl[8] if clubdtl[8] else 'http://www.lc355a.or.kr'}}"/>
+                                    </td>
                                 </tr>
+                                {% for clubdoc in clubdocs %}
+                                <tr>
+                                    <td style="background-color: #f1eeee ">{{ clubdoc[3] }}</td>
+                                    <td><a href="#" onclick="showHtmlViewer({{ clubdoc[0] }})">문서보기</a></td>
+                                </tr>
+                                {% endfor %}
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/clubList'; return false;" class="btn btn-dark"
+                                            <a href="#" onclick="window.location.href='/clubList'; return false;"
+                                               class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">목록으로 돌아가기</a>
-                                            <a href="#" onclick="window.location.href='/editclubdoc/{{clubdtl[0]}}'; return false;" class="btn btn-dark"
+                                            <a href="#"
+                                               onclick="window.location.href='/editclubdoc/{{clubdtl[0]}}'; return false;"
+                                               class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">클럽 문서 관리</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
                                             </button>
@@ -103,6 +181,12 @@
             <!-- /.container-fluid -->
         </div>
         <!-- End of Main Content -->
+        <!-- Popup -->
+        <div id="popup-overlay" onclick="closePopup()"></div>
+        <div id="popup">
+            <button id="popup-close" onclick="closePopup()">Close</button>
+            <iframe id="popup-iframe"></iframe>
+        </div>
         <!-- Footer -->
         <footer class="sticky-footer bg-white">
             <div class="container my-auto">
