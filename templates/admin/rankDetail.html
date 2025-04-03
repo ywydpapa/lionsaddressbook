@@ -15,12 +15,12 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">회원 정보 관리</h1>
+                <div class="row">
+                    <div><h4 class="h3 mb-4 text-gray-800">회원 직책 관리</h4></div>
+                </div>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center" id="ranktable">
-                            <thead>
-                            </thead>
                             <tbody>
                             <form method="POST" action="/update_rank/{{rank_dtl[0]}}">
                                 <tr>
@@ -45,6 +45,15 @@
                                         <select name="ranktype" id="ranktype" class="form-control">
                                             <option value="CLUB" {% if rank_dtl[3]== "CLUB" %}selected{% endif %}>클럽직책</option>
                                             <option value="DIST" {% if rank_dtl[3]== "DIST" %}selected{% endif %}>지구직책</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>사용 여부</td>
+                                    <td>
+                                        <select name="useyn" id="useyn" class="form-control">
+                                            <option value="Y" {% if rank_dtl[5]== "Y" %}selected{% endif %}>사용</option>
+                                            <option value="N" {% if rank_dtl[5]== "N" %}selected{% endif %}>미사용</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -87,14 +96,7 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
-{% include '/comm/adscripttable.html' %}
 </body>
 <script>
-    $(document).ready(function () {
-        $('#ranktable').DataTable({
-            "pageLength": 30,
-            order: [[3, "asc"]]
-        });
-    });
 </script>
 </html>

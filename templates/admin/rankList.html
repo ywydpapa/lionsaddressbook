@@ -15,7 +15,10 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h4 class="h3 mb-4 text-gray-800">회원 직책 관리</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h4 class="h3 mb-4 text-gray-800">회원 직책 관리</h4>
+                    <a href="/add_rank" class="btn btn-primary" id="newmember" role="button" style="flex: 0 0 auto;">직책 추가</a>
+                </div>
                 <div>
                     <div style="float:right"></div>
                     <table class="table" id="ranklist">
@@ -64,7 +67,7 @@
     $(document).ready(function () {
         $('#ranklist').DataTable({
             "pageLength": 25,
-            order: [[4, "asc"]]
+            order: [[3, "asc"]]
         });
     });
 </script>

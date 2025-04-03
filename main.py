@@ -695,12 +695,21 @@ async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depen
         "rankTitleeng": form_data.get("rankeng"),
         "rankDiv": form_data.get("ranktype"),
         "orderNo": form_data.get("orderno"),
+        "useYN": form_data.get("useyn"),
     }
     mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    query = text(f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo WHERE rankNo = :rankNo")
+    query = text(f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/rankDetail/{rankno}", status_code=303)
+
+
+@app.get("/add_rank", response_class=HTMLResponse)
+async def add_rank(request: Request, db: AsyncSession = Depends(get_db)):
+    query = text(f"INSERT INTO lionsRank (rankTitlekor, rankTitleeng, rankDiv, orderNo) values (:rankTitlekor, :rankTitleeng, :rankDiv, :orderNo)")
+    await db.execute(query, {"rankTitlekor":"새로 등록된 직책", "rankTitleeng":"New Rank", "rankDiv":"CLUB", "orderNo":"0"})
+    await db.commit()
+    return RedirectResponse(f"/rankList", status_code=303)
 
 
 @app.get("/regionList", response_class=HTMLResponse)
