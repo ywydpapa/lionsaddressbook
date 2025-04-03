@@ -1,13 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Success</title>
+    {% include '/comm/adheader.html' %}
 </head>
-<body>
-    <h2>Login Successful</h2>
-    <p>Welcome, user ID: {{ user_id }}</p>
-    <a href="/logout">Logout</a>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">회원 정보 관리</h1>
+                <div class="d-flex justify-content-center" style="min-height: 100vh;">
+                    <div class="col-md-9">
+                        <table class="table table-bordered text-center" id="ranktable">
+                            <thead>
+                            </thead>
+                            <tbody>
+                            <form method="POST" action="/update_rank/{{rank_dtl[0]}}">
+                                <tr>
+                                    <td>직책명 (한글)</td>
+                                    <td><input type="text" class="form-control" name="rankkor"
+                                               value="{{ rank_dtl[1] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>직책명 (영문)</td>
+                                    <td><input type="text" class="form-control" name="rankeng"
+                                               value="{{ rank_dtl[2] }}"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>배치 순서</td>
+                                    <td><input type="number" class="form-control" name="orderno"
+                                               value="{{ rank_dtl[4] }}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>직책 구분</td>
+                                    <td>
+                                        <select name="ranktype" id="ranktype" class="form-control">
+                                            <option value="CLUB" {% if rank_dtl[3]== "CLUB" %}selected{% endif %}>클럽직책</option>
+                                            <option value="DIST" {% if rank_dtl[3]== "DIST" %}selected{% endif %}>지구직책</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="col-12"
+                                             style="display: flex; justify-content: space-between; gap: 10px;">
+                                            <a href="/rankList" class="btn btn-dark" role="button"
+                                               style="flex: 0 0 20%;">직책 목록</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </form>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
 </body>
+<script>
+    $(document).ready(function () {
+        $('#ranktable').DataTable({
+            "pageLength": 30,
+            order: [[3, "asc"]]
+        });
+    });
+</script>
 </html>

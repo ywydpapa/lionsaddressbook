@@ -277,6 +277,16 @@ async def get_ranklist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
 
+async def get_rankdtl(rankno:int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsRank where rankNo = :rankNo")
+        result = await db.execute(query, {"rankNo": rankno})
+        rank_dtl = result.fetchone()
+        return rank_dtl
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RANKdtl)")
+
+
 async def get_boarddtl(boardno: int, db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsBoard where boardNo = :boardno")
@@ -662,6 +672,35 @@ async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
     return templates.TemplateResponse("admin/rankList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "rank_list": rank_list})
+
+
+@app.get("/rankDetail/{rankno}", response_class=HTMLResponse)
+async def rankDtl(request: Request, rankno:int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    rank_dtl = await get_rankdtl(rankno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/rankDetail.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "rank_dtl": rank_dtl})
+
+
+@app.post("/update_rank/{rankno}", response_class=HTMLResponse)
+async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "rankNo": rankno,
+        "rankTitlekor": form_data.get("rankkor"),
+        "rankTitleeng": form_data.get("rankeng"),
+        "rankDiv": form_data.get("ranktype"),
+        "orderNo": form_data.get("orderno"),
+    }
+    mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    query = text(f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo WHERE rankNo = :rankNo")
+    await db.execute(query, data4update)
+    await db.commit()
+    return RedirectResponse(f"/rankDetail/{rankno}", status_code=303)
 
 
 @app.get("/regionList", response_class=HTMLResponse)

@@ -15,7 +15,7 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">관리자의 클럽 회원 직책 리스트</h1>
+                <h4 class="h3 mb-4 text-gray-800">회원 직책 관리</h4>
                 <div>
                     <div style="float:right"></div>
                     <table class="table" id="ranklist">
@@ -27,8 +27,8 @@
                         </thead>
                         {% for rank in rank_list %}
                             <tr style="text-align: center">
-                                <td>{{ rank[1] }}</td>
-                                <td>{{ rank[2] }}</td>
+                                <td><a href="/rankDetail/{{rank[0]}}">{{ rank[1] }}</a> </td>
+                                <td><a href="/rankDetail/{{rank[0]}}">{{ rank[2] }}</a></td>
                                 <td>{{ rank[3] }}</td>
                                 <td>{{ rank[4] }}</td>
                             </tr>
