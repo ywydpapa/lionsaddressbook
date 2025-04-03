@@ -1,7 +1,11 @@
+from urllib import request
+
+import uvicorn
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pycparser.ply.yacc import resultlimit
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,9 +27,16 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 app = FastAPI()
 
 app.add_middleware(SessionMiddleware, secret_key="supersecretkey")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 모든 도메인 허용
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
+app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 THUMBNAIL_DIR = "./static/img/members"
 
 # 데이터베이스 세션 생성
@@ -827,22 +838,43 @@ async def logout(request: Request):
     return RedirectResponse(url="/")
 
 
-@app.post("/mlogin")
-async def mlogin(
-        request: Request,
-        response: Response,
-        username: str = Form(...),
-        password: str = Form(...),
-        db: AsyncSession = Depends(get_db)
-):
-    query = text("SELECT memberNo FROM lionsMember WHERE memberName = :username AND mbPassword = password(:password)")
-    result = await db.execute(query, {"username": username, "password": password})
-    user = result.fetchone()
-    if user is None:
-        return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
-    # 서버 세션에 사용자 ID 저장
-    request.session["user_No"] = user[0]
-    return RedirectResponse(url="/success", status_code=303)
+@app.get("/phapp/clubList/{regionno}")
+async def phappclublist(regionno:int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT clubNo, clubName, regionNo FROM lionsClub where regionNo = :regionNo ")
+        result = await db.execute(query, {"regionNo": regionno})
+        rows = result.fetchall()
+        result = [{"no": row[0], "name": row[1], "region": row[2]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"clubs": result}
+
+
+@app.get("/phapp/memberList/{clubno}")
+async def phappmemberlist(clubno:int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT * FROM lionsMember where clubNo = :clubno ")
+        result = await db.execute(query, {"clubno": clubno})
+        rows = result.fetchall()
+        result = [{"no": row[0], "name": row[1], "phone": row[2]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
+@app.get("/phapp/memberDtl/{memberno}")
+async def phappmemberlist(memberno:int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT * FROM lionsMember where memberNo = :memberno ")
+        result = await db.execute(query, {"memberno": memberno})
+        rows = result.fetchone()
+        result = [{"no": rows[0], "name": rows[1], "phone": rows[2]}]
+    except:
+        print("error")
+    finally:
+        return {"member": result}
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -863,3 +895,4 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
         content=f"<h1>{exc.status_code} - {exc.detail}</h1>",
         status_code=exc.status_code,
     )
+
