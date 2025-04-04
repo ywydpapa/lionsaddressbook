@@ -810,7 +810,7 @@ async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get
     form_data = await request.form()
     btitle = form_data.get("btitle")
     if not btitle:
-        btitle = "새로만든 게시판(제목 변경 필요)"
+        btitle = "새로 만든 게시판(제목 변경 필요)"
     btype = form_data.get("btype")
     if not btype:
         btype = "BOARD"
@@ -844,7 +844,7 @@ async def phappclublist(regionno:int, db: AsyncSession = Depends(get_db)):
         query = text("SELECT clubNo, clubName, regionNo FROM lionsClub where regionNo = :regionNo ")
         result = await db.execute(query, {"regionNo": regionno})
         rows = result.fetchall()
-        result = [{"no": row[0], "name": row[1], "region": row[2]} for row in rows]
+        result = [{"clubNo": row[0], "clubName": row[1], "regionNo": row[2]} for row in rows]
     except:
         print("error")
     finally:
@@ -854,10 +854,10 @@ async def phappclublist(regionno:int, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/memberList/{clubno}")
 async def phappmemberlist(clubno:int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT * FROM lionsMember where clubNo = :clubno ")
+        query = text("SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno ")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
-        result = [{"no": row[0], "name": row[1], "phone": row[2]} for row in rows]
+        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle":row[3]} for row in rows]
     except:
         print("error")
     finally:
@@ -870,7 +870,7 @@ async def phappmemberlist(memberno:int, db: AsyncSession = Depends(get_db)):
         query = text("SELECT * FROM lionsMember where memberNo = :memberno ")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
-        result = [{"no": rows[0], "name": rows[1], "phone": rows[2]}]
+        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[2]}]
     except:
         print("error")
     finally:

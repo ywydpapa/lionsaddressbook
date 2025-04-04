@@ -9,3 +9,4 @@ password = "core2020"
 # Generate the hashed password
 hashed_password = pwd_context.hash(password)
 print("Hashed password:", hashed_password)
+
