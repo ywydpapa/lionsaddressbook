@@ -39,6 +39,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 THUMBNAIL_DIR = "./static/img/members"
 
+
 # 데이터베이스 세션 생성
 async def get_db():
     async with async_session() as session:
@@ -256,7 +257,7 @@ async def get_clubdocs(clubno: int, db: AsyncSession):
 
 async def get_clubdoc(docno: int, db: AsyncSession):
     try:
-        query = text("SELECT cDocument from lionsDoc where docno = :docno" )
+        query = text("SELECT cDocument from lionsDoc where docno = :docno")
         result = await db.execute(query, {"docno": docno})
         doc = result.fetchone()
         return doc[0]
@@ -288,7 +289,7 @@ async def get_ranklist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
 
-async def get_rankdtl(rankno:int, db: AsyncSession):
+async def get_rankdtl(rankno: int, db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsRank where rankNo = :rankNo")
         result = await db.execute(query, {"rankNo": rankno})
@@ -315,7 +316,7 @@ async def favicon():
 
 @app.post("/uploaddoc/{clubno}")
 async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...),
-                       db: AsyncSession = Depends(get_db)):
+                     db: AsyncSession = Depends(get_db)):
     try:
         contents = await file.read()
         # 데이터베이스에 저장
@@ -352,7 +353,7 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
 
 @app.post("/uploadnamecard/{memberno}")
 async def upload_ncimage(request: Request, memberno: int, file: UploadFile = File(...),
-                       db: AsyncSession = Depends(get_db)):
+                         db: AsyncSession = Depends(get_db)):
     try:
         # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
@@ -374,7 +375,7 @@ async def upload_ncimage(request: Request, memberno: int, file: UploadFile = Fil
 
 @app.post("/uploadspphoto/{memberno}")
 async def upload_spimage(request: Request, memberno: int, file: UploadFile = File(...),
-                       db: AsyncSession = Depends(get_db)):
+                         db: AsyncSession = Depends(get_db)):
     try:
         # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
@@ -592,6 +593,7 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "clubdtl": clubdtl, "clubdocs": clubdocs})
 
+
 @app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
 async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -610,18 +612,20 @@ async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(
 async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4docs = {
-            "clubNo": clubno,
-            "docType": form_data.get("doctype"),
-            "docTitle": form_data.get("title"),
-            "cDocument": form_data.get("content"),
-        }
+        "clubNo": clubno,
+        "docType": form_data.get("doctype"),
+        "docTitle": form_data.get("title"),
+        "cDocument": form_data.get("content"),
+    }
     querys = text(f"SELECT * from lionsDoc where clubNo = :clubNo and docType = :docType")
     result = await db.execute(querys, data4docs)
     docresult = result.fetchone()
     if docresult:
-        queryup = text(f"UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
+        queryup = text(
+            f"UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
         timenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        await db.execute(queryup, {"timenow": timenow,"updattrib":"XXXUPXXXUP",  "clubno": clubno, "doctype": form_data.get("doctype") })
+        await db.execute(queryup, {"timenow": timenow, "updattrib": "XXXUPXXXUP", "clubno": clubno,
+                                   "doctype": form_data.get("doctype")})
     query = text(
         f"INSERT INTO lionsDoc (clubNo,docType,docTitle,cDocument) values (:clubNo,:docType,:docTitle,:cDocument)")
     await db.execute(query, data4docs)
@@ -637,7 +641,6 @@ async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
         return HTMLResponse(cdoc)
 
 
-
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
 async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -650,7 +653,7 @@ async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depen
         "officeFax": form_data.get("offfax"),
         "officeEmail": form_data.get("offemail"),
         "officeWeb": form_data.get("offweb"),
-        "modDate":  datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "modDate": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -686,7 +689,7 @@ async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/rankDetail/{rankno}", response_class=HTMLResponse)
-async def rankDtl(request: Request, rankno:int, db: AsyncSession = Depends(get_db)):
+async def rankDtl(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     rank_dtl = await get_rankdtl(rankno, db)
@@ -709,7 +712,8 @@ async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depen
         "useYN": form_data.get("useyn"),
     }
     mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    query = text(f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
+    query = text(
+        f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/rankDetail/{rankno}", status_code=303)
@@ -717,8 +721,10 @@ async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depen
 
 @app.get("/add_rank", response_class=HTMLResponse)
 async def add_rank(request: Request, db: AsyncSession = Depends(get_db)):
-    query = text(f"INSERT INTO lionsRank (rankTitlekor, rankTitleeng, rankDiv, orderNo) values (:rankTitlekor, :rankTitleeng, :rankDiv, :orderNo)")
-    await db.execute(query, {"rankTitlekor":"새로 등록된 직책", "rankTitleeng":"New Rank", "rankDiv":"CLUB", "orderNo":"0"})
+    query = text(
+        f"INSERT INTO lionsRank (rankTitlekor, rankTitleeng, rankDiv, orderNo) values (:rankTitlekor, :rankTitleeng, :rankDiv, :orderNo)")
+    await db.execute(query,
+                     {"rankTitlekor": "새로 등록된 직책", "rankTitleeng": "New Rank", "rankDiv": "CLUB", "orderNo": "0"})
     await db.commit()
     return RedirectResponse(f"/rankList", status_code=303)
 
@@ -763,7 +769,8 @@ async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends
     mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     queryup = text(f"UPDATE lionsRegion SET attrib = :attr, modDate = :mdate WHERE regionNo = :regno")
     await db.execute(queryup, {"regno": regno, "attr": "XXXUPXXXUP", "mdate": mdatenow})
-    query = text(f"INSERT INTO lionsRegion (regionNo,chairmanNo,regionSlog,yearFrom,yearTo) values (:regionNo,:chairmanNo,:regionSlog, :yearFrom, :yearTo)")
+    query = text(
+        f"INSERT INTO lionsRegion (regionNo,chairmanNo,regionSlog,yearFrom,yearTo) values (:regionNo,:chairmanNo,:regionSlog, :yearFrom, :yearTo)")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/editregion/{regno}", status_code=303)
@@ -839,7 +846,7 @@ async def logout(request: Request):
 
 
 @app.get("/phapp/clubList/{regionno}")
-async def phappclublist(regionno:int, db: AsyncSession = Depends(get_db)):
+async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text("SELECT clubNo, clubName, regionNo FROM lionsClub where regionNo = :regionNo ")
         result = await db.execute(query, {"regionNo": regionno})
@@ -852,12 +859,29 @@ async def phappclublist(regionno:int, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/phapp/memberList/{clubno}")
-async def phappmemberlist(clubno:int, db: AsyncSession = Depends(get_db)):
+async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno ")
+        query = text(
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno ")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
-        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle":row[3]} for row in rows]
+        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3]} for row in
+                  rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
+@app.get("/phapp/rmemberList/")
+async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.rankNo != :rankno ")
+        result = await db.execute(query,{"rankno": 19}) #회원 제외
+        rows = result.fetchall()
+        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3]} for row in
+                  rows]
     except:
         print("error")
     finally:
@@ -865,16 +889,37 @@ async def phappmemberlist(clubno:int, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/phapp/memberDtl/{memberno}")
-async def phappmemberlist(memberno:int, db: AsyncSession = Depends(get_db)):
+async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT * FROM lionsMember where memberNo = :memberno ")
+        query = text("WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ) "
+                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+                     "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
+                     "left join lionsRank lr on lm.rankNo = lr.rankNo "
+                     "left join lionsClub lc on lm.clubNo = lc.clubNo "
+                     "where lm.memberNo = :memberno")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
-        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[2]}]
+        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],
+                   "rankTitle": rows[18]} for row in rows]
     except:
         print("error")
     finally:
-        return {"member": result}
+        return {"memberdtl": result}
+
+
+@app.get("/phapp/mlogin/{phoneno}")
+async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT clubNo, memberName from lionsMember where memberSeccode = :phoneno ")
+        result = await db.execute(query, {"phoneno": phoneno})
+        rows = result.fetchone()
+        if rows is None:
+            return {"error": "No data found for the given phone number."}
+        result = [{"clubNo": rows[0], "memberName": rows[1]}]
+    except:
+        print("mLogin error")
+    finally:
+        return result
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -895,4 +940,3 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
         content=f"<h1>{exc.status_code} - {exc.detail}</h1>",
         status_code=exc.status_code,
     )
-
