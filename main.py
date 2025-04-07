@@ -873,6 +873,34 @@ async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
         return {"members": result}
 
 
+@app.get("/phapp/clubdocs/{clubno}")
+async def clubdocs(clubno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT * from lionsDoc where clubNo = :clubno and attrib not like :attrib")
+        result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"docNo": row[0], "docType": row[2], "docTitle": row[3]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+
+@app.get("/phapp/docviewer/{docno}")
+async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT cDocument from lionsDoc where docNo = :docno ")
+        result = await db.execute(query, {"docno": docno})
+        row = result.fetchone()
+        result = [{"cDoc": row[0]}]
+    except:
+        print("error")
+    finally:
+        return {"doc": result}
+
+
 @app.get("/phapp/rmemberList/")
 async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
     try:
@@ -882,6 +910,24 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
         rows = result.fetchall()
         result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3]} for row in
                   rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
+@app.get("/phapp/searchmember/{keywd}")
+async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
+    try:
+        keywd = f"%{keywd}%"
+        print(keywd)
+        query = text(
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "where lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword")
+        result = await db.execute(query,{"keyword": keywd}) #키워드 검색
+        rows = result.fetchall()
+        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3]} for row in rows]
+        print(result)
     except:
         print("error")
     finally:
@@ -910,12 +956,13 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/mlogin/{phoneno}")
 async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT clubNo, memberName from lionsMember where memberSeccode = :phoneno ")
+        query = text("SELECT clubNo from lionsMember where memberSeccode = :phoneno ")
         result = await db.execute(query, {"phoneno": phoneno})
         rows = result.fetchone()
         if rows is None:
             return {"error": "No data found for the given phone number."}
-        result = [{"clubNo": rows[0], "memberName": rows[1]}]
+        result = {"clubno": rows[0]}
+        print(result)
     except:
         print("mLogin error")
     finally:
