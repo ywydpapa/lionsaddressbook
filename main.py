@@ -891,10 +891,10 @@ async def clubdocs(clubno: int, db: AsyncSession = Depends(get_db)):
 async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT cDocument from lionsDoc where docNo = :docno ")
+            "SELECT cDocument, docTitle from lionsDoc where docNo = :docno ")
         result = await db.execute(query, {"docno": docno})
         row = result.fetchone()
-        result = [{"cDoc": row[0]}]
+        result = [{"cDoc": row[0], "title": row[1]}]
     except:
         print("error")
     finally:
