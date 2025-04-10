@@ -510,6 +510,9 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
                                        "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto})
 
 
+
+
+
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
 async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -754,6 +757,18 @@ async def editclub(request: Request, regno: int, db: AsyncSession = Depends(get_
     return templates.TemplateResponse("admin/regionDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "regiondtl": regiondtl, "rankmembers": rankmembers})
+
+
+@app.get("/editbis/{memberno}", response_class=HTMLResponse)
+async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    query = text("SELECT * FROM memberBusiness where memberNo = :memberno and attrib not like :atts")
+    result = await db.execute(query, {"memberno": memberno, "atts": "%XXX%"})
+    bisdtl = result.fetchone()
+    return templates.TemplateResponse("business/regBis.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "bisdtl": bisdtl})
 
 
 @app.post("/updateregion/{regno}", response_class=HTMLResponse)
