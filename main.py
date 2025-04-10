@@ -937,18 +937,23 @@ async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/memberDtl/{memberno}")
 async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ) "
-                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+        query = text("WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ),"
+                     "LatestNC AS ( SELECT ncardPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberNamecard ),"
+                     "LatestSP AS ( SELECT spousePhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberSpouse )"
+                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)) FROM lionsMember lm "
                      "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
+                     "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
+                     "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "
                      "left join lionsRank lr on lm.rankNo = lr.rankNo "
                      "left join lionsClub lc on lm.clubNo = lc.clubNo "
                      "where lm.memberNo = :memberno")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
-        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],
-                   "rankTitle": rows[18]} for row in rows]
+        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],"clubNo": rows[9],
+                   "rankTitle": rows[18], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],"memberJoindate":rows[8],
+                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard":rows[20], "officeAddress":rows[13], "spouseName":rows[14], "spousePhone":rows[15],"spouseBirth":rows[16], "spousePhoto":rows[21]}]
     except:
-        print("error")
+        print("Member Detail Phone error")
     finally:
         return {"memberdtl": result}
 
