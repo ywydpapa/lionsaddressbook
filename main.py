@@ -767,7 +767,7 @@ async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(ge
     result = await db.execute(query, {"memberno": memberno, "atts": "%XXX%"})
     bisdtl = result.fetchone()
     return templates.TemplateResponse("business/regBis.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"memberno": memberno,
                                        "bisdtl": bisdtl})
 
 
@@ -788,7 +788,6 @@ async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depe
         "dt11": form_data.get("offsns"),
         "dt12": form_data.get("offemo")
     }
-    mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     queryup = text(f"UPDATE memberBusiness SET attrib = :attr WHERE memberNo = :memberno")
     await db.execute(queryup, {"memberno": memberno, "attr": "XXXUPXXXUP"})
     query = text(
