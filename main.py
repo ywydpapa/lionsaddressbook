@@ -981,18 +981,21 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
         query = text("WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ),"
                      "LatestNC AS ( SELECT ncardPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberNamecard ),"
                      "LatestSP AS ( SELECT spousePhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberSpouse )"
-                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)) FROM lionsMember lm "
+                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
                      "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
                      "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
                      "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "
                      "left join lionsRank lr on lm.rankNo = lr.rankNo "
                      "left join lionsClub lc on lm.clubNo = lc.clubNo "
+                     "left join memberBusiness mb on lm.memberNo = mb.memberNo "
                      "where lm.memberNo = :memberno")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
         result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],"clubNo": rows[9],
                    "rankTitle": rows[18], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],"memberJoindate":rows[8],
-                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard":rows[20], "officeAddress":rows[13], "spouseName":rows[14], "spousePhone":rows[15],"spouseBirth":rows[16], "spousePhoto":rows[21]}]
+                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard":rows[20], "officeAddress":rows[13],
+                   "spouseName":rows[14], "spousePhone":rows[15],"spouseBirth":rows[16], "spousePhoto":rows[21],"bisTitle":rows[24],"bisRank":rows[25],"bisType":rows[26],"bistypeTitle":rows[27],"offtel":rows[28],
+                   "offAddress":rows[29],"offEmail":rows[30],"offPost":rows[31],"offWeb":rows[32],"offSns":rows[33],"bisMemo":rows[34] }]
     except:
         print("Member Detail Phone error")
     finally:
