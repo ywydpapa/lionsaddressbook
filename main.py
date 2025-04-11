@@ -771,6 +771,33 @@ async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(ge
                                        "bisdtl": bisdtl})
 
 
+@app.post("/update_business/{memberno}", response_class=HTMLResponse)
+async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "dt1": memberno,
+        "dt2": form_data.get("bistitle"),
+        "dt3": form_data.get("bisrank"),
+        "dt4": form_data.get("bistype"),
+        "dt5": form_data.get("bistypedtl"),
+        "dt6": form_data.get("offtel"),
+        "dt7": form_data.get("offaddress"),
+        "dt8": form_data.get("offemail"),
+        "dt9": form_data.get("offpost"),
+        "dt10": form_data.get("offweb"),
+        "dt11": form_data.get("offsns"),
+        "dt12": form_data.get("offemo")
+    }
+    mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    queryup = text(f"UPDATE memberBusiness SET attrib = :attr WHERE memberNo = :memberno")
+    await db.execute(queryup, {"memberno": memberno, "attr": "XXXUPXXXUP"})
+    query = text(
+        f"INSERT INTO memberBusiness (memberNo,bisTitle, bisRank, bisType,bistypeTitle,officeTel,officeAddress,officeEmail,officePostNo,officeWeb,officeSns,bisMemo) values (:dt1,:dt2,:dt3,:dt4,:dt5,:dt6,:dt7,:dt8,:dt9,:dt10,:dt11,:dt12)")
+    await db.execute(query, data4update)
+    await db.commit()
+    return RedirectResponse(f"/editbis/{memberno}", status_code=303)
+
+
 @app.post("/updateregion/{regno}", response_class=HTMLResponse)
 async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()

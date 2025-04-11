@@ -1,10 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include '/comm/adheader.html' %}
     <meta charset="UTF-8">
     <title>사업정보 수정</title>
+    <style>
+        /* 중앙 배치 스타일 */
+        .popup-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* 화면 전체 높이 */
+            margin: 0;
+            text-align: center;
+            background-color: #f8f9fa; /* 배경색 설정 (선택 사항) */
+        }
+        .col-md-6 {
+            width: 100%;
+            max-width: 600px; /* 적절한 최대 너비 설정 */
+            box-sizing: border-box;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
 <body>
-사업정보 수정화면
+<div class="popup-container">
+    <div class="col-md-6">
+        <table class="table table-bordered text-center">
+            <thead>
+            </thead>
+            <tbody>
+            <form method="POST" action="/update_business/{{bisdtl[1]}}">
+                <tr>
+                    <td>사업체명</td>
+                    <td><input type="text" class="form-control" name="bistitle"
+                               value="{{ bisdtl[2] }}"/></td>
+                </tr>
+                <tr>
+                    <td>직책</td>
+                    <td><select id="bisrank" class="form-control" name="bisrank">
+                        <option value="CEO" {% if bisdtl[3]=='CEO' %}selected{% endif %}>CEO</option>
+                        <option value="CFO" {% if bisdtl[3]=='CFO' %}selected{% endif %}>CFO</option>
+                        <option value="CTO" {% if bisdtl[3]=='CTO' %}selected{% endif %}>CTO</option>
+                        <option value="ETC" {% if bisdtl[3]=='ETC' %}selected{% endif %}>ETC</option>
+                    </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>사업업종</td>
+                    <td><select id="bistype" class="form-control" name="bistype">
+                        <option value="MANUF" {% if bisdtl[4]=='MANUF' %}selected{% endif %}>제조업</option>
+                        <option value="LOGIS" {% if bisdtl[4]=='LOGIS' %}selected{% endif %}>물류업</option>
+                        <option value="MSALE" {% if bisdtl[4]=='MSALE' %}selected{% endif %}>도매업</option>
+                        <option value="CSALE" {% if bisdtl[4]=='CSALE' %}selected{% endif %}>소매업</option>
+                        <option value="HOSPT" {% if bisdtl[4]=='HOSPT' %}selected{% endif %}>의료업</option>
+                        <option value="FARMI" {% if bisdtl[4]=='FARMI' %}selected{% endif %}>농업</option>
+                        <option value="SERVI" {% if bisdtl[4]=='SERVI' %}selected{% endif %}>서비스업</option>
+                        <option value="ETCBZ" {% if bisdtl[4]=='ETCBZ' %}selected{% endif %}>기타</option>
+                    </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>상세업종</td>
+                    <td><input type="text" class="form-control" name="bistypedtl"
+                               value="{{ bisdtl[5] if bisdtl[5] else '세부 업종 없음' }}"/></td>
+                </tr>
+                <tr>
+                    <td>연락처</td>
+                    <td><input type="tel" class="form-control" name="offtel"
+                               value="{{ bisdtl[6] if bisdtl[6] else '000-0000-0000' }}"/></td>
+                </tr>
+                <tr>
+                    <td>우편번호</td>
+                    <td><input type="text" class="form-control" name="offpost"
+                               value="{{ bisdtl[9] if bisdtl[9] else '11111'}}"/></td>
+                </tr>
+                <tr>
+                    <td>사무실 주소</td>
+                    <td style="display: flex; align-items: center;">
+                        <input type="text" class="form-control" name="offaddress" value="{{ bisdtl[7] if bisdtl[7] else '주소 없음' }}"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>이메일</td>
+                    <td><input type="email" class="form-control" name="offemail"
+                               value="{{ bisdtl[8] if bisdtl[8] else 'email@email.com'}}"/></td>
+                </tr>
+                <tr>
+                    <td>웹페이지</td>
+                    <td><input type="url" class="form-control" name="offweb"
+                               value="{{ bisdtl[10] if bisdtl[10] else 'http://www.lions-biz.com'}}"/></td>
+                </tr>
+                <tr>
+                    <td>SNS</td>
+                    <td><input type="text" class="form-control" name="offsns"
+                               value="{{ bisdtl[11] if bisdtl[11] else '#mysns'}}"/></td>
+                </tr>
+                <tr>
+                    <td style="text-align: center; vertical-align: middle">회원 메모</td>
+                    <td>
+                        <textarea class="form-control" rows="4" cols="30" name="offmemo"
+                                  placeholder="내용을 입력하세요">{{ bisdtl[12] }}</textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <div class="col-12" style="display: flex; justify-content: center; gap: 10px;">
+                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장</button>
+                        </div>
+                    </td>
+                </tr>
+            </form>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% include '/comm/adscript.html' %}
 </body>
 </html>
