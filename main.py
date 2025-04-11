@@ -965,7 +965,7 @@ async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
         query = text(
             "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub cl on lm.clubNo = cl.clubNo "
+            "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "left join memberBusiness mb on lm.memberNo = mb.memberNo "
             "where lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
             "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
