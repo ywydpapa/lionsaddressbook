@@ -1,5 +1,4 @@
 from urllib import request
-
 import uvicorn
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -279,6 +278,16 @@ async def get_regionlist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(DICT)")
 
 
+async def get_clubstaff(clubno: int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsClubstaff where clubNo = :clubno and attrib not like :attrxx")
+        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
+        staff_list = result.fetchone()
+        return staff_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFF)")
+
+
 async def get_ranklist(db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsRank where attrib not like :attpatt order by orderNo")
@@ -510,9 +519,6 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
                                        "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto})
 
 
-
-
-
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
 async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -732,6 +738,47 @@ async def add_rank(request: Request, db: AsyncSession = Depends(get_db)):
     return RedirectResponse(f"/rankList", status_code=303)
 
 
+@app.get("/clubStaff/{clubno}/{clubName}", response_class=HTMLResponse)
+async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    staff_dtl = await get_clubstaff(clubno, db)
+    clubmember = await get_clubmemberlist(clubno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/clubStaff.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "clubName": clubName,"clubno": clubno,
+                                       "staff_dtl": staff_dtl, "clubmember": clubmember})
+
+
+@app.post("/updatestaff/{clubno}", response_class=HTMLResponse)
+async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubName = form_data.get("clubname")
+    data4update = {
+        "logPeriod": form_data.get("dutyyear"),
+        "clubNo": clubno,
+        "presidentNo": form_data.get("presno"),
+        "secretNo": form_data.get("secrno"),
+        "trNo": form_data.get("trsuno"),
+        "ltNo": form_data.get("ltno"),
+        "ttNo": form_data.get("ttno"),
+        "prpresidentNo": form_data.get("ppresno"),
+        "firstViceNo": form_data.get("fviceno"),
+        "secondViceNo": form_data.get("sviceno"),
+        "thirdViceNo": form_data.get("tviceno"),
+        "slog": form_data.get("slog"),
+    }
+    queryb = text(f"UPDATE lionsClubstaff set attrib = :attrib WHERE clubNo = :clubNo")
+    await db.execute(queryb, {"attrib":'XXXUPXXXUP',"clubNo": clubno})
+    query = text(
+        f"INSERT INTO lionsClubstaff (logPeriod,clubNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,secondViceNo,thirdViceNo,slog) values (:logPeriod,:clubNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:secondViceNo,:thirdViceNo,:slog)")
+    await db.execute(query, data4update)
+    await db.commit()
+    return RedirectResponse(f"/clubStaff/{clubno}/{clubName}", status_code=303)
+
+
 @app.get("/regionList", response_class=HTMLResponse)
 async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -767,7 +814,8 @@ async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(ge
     result = await db.execute(query, {"memberno": memberno, "atts": "%XXX%"})
     bisdtl = result.fetchone()
     return templates.TemplateResponse("business/regBis.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"memberno": memberno,
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "memberno": memberno,
                                        "bisdtl": bisdtl})
 
 
@@ -950,10 +998,12 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "where lm.rankNo != :rankno ")
-        result = await db.execute(query,{"rankno": 19}) #회원 제외
+        result = await db.execute(query, {"rankno": 19})  # 회원 제외
         rows = result.fetchall()
-        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]} for row in
-                  rows]
+        result = [
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            for row in
+            rows]
     except:
         print("error")
     finally:
@@ -961,7 +1011,7 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/phapp/searchmember/{keywd}")
-async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
+async def searchmember(keywd: str, db: AsyncSession = Depends(get_db)):
     try:
         keywd = f"%{keywd}%"
         print(keywd)
@@ -973,9 +1023,11 @@ async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
             "where lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
             "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
             "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword ")
-        result = await db.execute(query,{"keyword": keywd}) #키워드 검색
+        result = await db.execute(query, {"keyword": keywd})  # 키워드 검색
         rows = result.fetchall()
-        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName":row[4]} for row in rows]
+        result = [
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            for row in rows]
         print(result)
     except:
         print("error")
@@ -986,24 +1038,31 @@ async def searchmember(keywd:str, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/memberDtl/{memberno}")
 async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ),"
-                     "LatestNC AS ( SELECT ncardPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberNamecard ),"
-                     "LatestSP AS ( SELECT spousePhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberSpouse )"
-                     "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
-                     "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
-                     "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
-                     "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "
-                     "left join lionsRank lr on lm.rankNo = lr.rankNo "
-                     "left join lionsClub lc on lm.clubNo = lc.clubNo "
-                     "left join memberBusiness mb on lm.memberNo = mb.memberNo "
-                     "where lm.memberNo = :memberno")
+        query = text(
+            "WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ),"
+            "LatestNC AS ( SELECT ncardPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberNamecard ),"
+            "LatestSP AS ( SELECT spousePhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberSpouse )"
+            "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
+            "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
+            "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
+            "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "left join lionsClub lc on lm.clubNo = lc.clubNo "
+            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
+            "where lm.memberNo = :memberno")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
-        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],"clubNo": rows[9],
-                   "rankTitle": rows[18], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],"memberJoindate":rows[8],
-                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard":rows[20], "officeAddress":rows[13],
-                   "spouseName":rows[14], "spousePhone":rows[15],"spouseBirth":rows[16], "spousePhoto":rows[21],"bisTitle":rows[24],"bisRank":rows[25],"bisType":rows[26],"bistypeTitle":rows[27],"offtel":rows[28],
-                   "offAddress":rows[29],"offEmail":rows[30],"offPost":rows[31],"offWeb":rows[32],"offSns":rows[33],"bisMemo":rows[34] }]
+        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],
+                   "clubNo": rows[9],
+                   "rankTitle": rows[18], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],
+                   "memberJoindate": rows[8],
+                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard": rows[20],
+                   "officeAddress": rows[13],
+                   "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16], "spousePhoto": rows[21],
+                   "bisTitle": rows[24], "bisRank": rows[25], "bisType": rows[26], "bistypeTitle": rows[27],
+                   "offtel": rows[28],
+                   "offAddress": rows[29], "offEmail": rows[30], "offPost": rows[31], "offWeb": rows[32],
+                   "offSns": rows[33], "bisMemo": rows[34]}]
     except:
         print("Member Detail Phone error")
     finally:
