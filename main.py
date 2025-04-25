@@ -1085,6 +1085,11 @@ async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
         return result
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
+
+
 @app.exception_handler(StarletteHTTPException)
 async def custom_404_handler(request: Request, exc: StarletteHTTPException):
     if exc.status_code == 404:
