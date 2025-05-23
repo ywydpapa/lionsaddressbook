@@ -17,6 +17,8 @@ import base64
 from datetime import datetime
 from PIL import Image
 import io
+from pydantic import BaseModel
+
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -1083,6 +1085,23 @@ async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
         print("mLogin error")
     finally:
         return result
+
+
+class RequestMessage(BaseModel):
+    memberNo: str
+    message: str
+
+
+@app.post("/phapp/requestmessage")
+async def request_message(req: RequestMessage,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("INSERT INTO requestMessage (memberNo, message) VALUES (:memberNo, :message)")
+        await db.execute(query, {"memberNo": req.memberNo, "message": req.message})
+        await db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print("request_message error:", e)
+        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 
 @app.get("/privacy", response_class=HTMLResponse)
