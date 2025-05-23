@@ -1074,12 +1074,12 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/mlogin/{phoneno}")
 async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT clubNo from lionsMember where memberSeccode = :phoneno ")
+        query = text("SELECT clubNo, memberNo from lionsMember where memberSeccode = :phoneno ")
         result = await db.execute(query, {"phoneno": phoneno})
         rows = result.fetchone()
         if rows is None:
             return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0]}
+        result = {"clubno": rows[0], "memberno": rows[1]}
         print(result)
     except:
         print("mLogin error")
