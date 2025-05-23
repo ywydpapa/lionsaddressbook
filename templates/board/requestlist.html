@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">수정요청 목록</h1>
+                <div>
+                    <div style="float:right"></div>
+                    <table class="table" id="requestlist">
+                        <thead style="text-align: center">
+                        <th>요청번호</th>
+                        <th>요청자</th>
+                        <th>요청내용</th>
+                        <th>요청일자</th>
+                        </thead>
+                        <tbody>
+                        {% for request in requests %}
+                            <tr style="text-align: center">
+                                <td>{{ request[0] }}</td>
+                                <td>{{ request[1] }}</td>
+                                <td>{{ request[2] }}</td>
+                                <td>{{ request[3] }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
+</body>
+<script>
+    $(document).ready(function () {
+        $('#requestlist').DataTable({
+            "pageLength": 25,
+            order: [[0, "asc"]]
+        });
+    });
+</script>
+</html>

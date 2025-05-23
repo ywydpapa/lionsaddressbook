@@ -320,6 +320,16 @@ async def get_boarddtl(boardno: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
 
+async def get_requests(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM requestMessage where attrib not like :attxxx")
+        result = await db.execute(query, {"attxxx": '%XXX%'})
+        requests = result.fetchall()
+        return requests
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(REQUEST)")
+
+
 @app.get("/favicon.ico")
 async def favicon():
     return {"detail": "Favicon is served at /static/favicon.ico"}
@@ -916,6 +926,19 @@ async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get
     await db.execute(query, {"clubNo": clubno, "boardTitle": btitle, "boardType": btype})
     await db.commit()
     return RedirectResponse(f"/boardList/{clubno}", status_code=303)
+
+
+@app.get("/requestList", response_class=HTMLResponse)
+async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    requests = await get_requests(db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/requestlist.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "requests": requests})
+
 
 
 @app.api_route("/updateboard/{boardno}/{clubno}/{clubname}", response_class=HTMLResponse, methods=["GET", "POST"])
