@@ -15,10 +15,13 @@ import dotenv
 import os
 import base64
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 import io
 from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
+from starlette.responses import FileResponse
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -290,6 +293,106 @@ async def get_clubstaff(clubno: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFF)")
 
 
+async def get_clubstaffwithname(clubno: int, db: AsyncSession):
+    try:
+        query = text(
+            "SELECT s.logPeriod, s.slog, "
+            "s.presidentNo, COALESCE(pm.memberName, '공석') AS presidentName, "
+            "s.secretNo, COALESCE(sm.memberName, '공석') AS secretName, "
+            "s.trNo, COALESCE(tm.memberName, '공석') AS trName, "
+            "s.ltNo, COALESCE(ltm.memberName, '공석') AS ltName, "
+            "s.ttNo, COALESCE(ttm.memberName, '공석') AS ttName, "
+            "s.prpresidentNo, COALESCE(prm.memberName, '공석') AS prpresidentName, "
+            "s.firstViceNo, COALESCE(fvm.memberName, '공석') AS firstViceName, "
+            "s.secondViceNo, COALESCE(svm.memberName, '공석') AS secondViceName, "
+            "s.thirdViceNo, COALESCE(tvm.memberName, '공석') AS thirdViceName "
+            "FROM lionsClubstaff s "
+            "LEFT JOIN lionsMember pm ON s.presidentNo = pm.memberNo "
+            "LEFT JOIN lionsMember sm ON s.secretNo = sm.memberNo "
+            "LEFT JOIN lionsMember tm ON s.trNo = tm.memberNo "
+            "LEFT JOIN lionsMember ltm ON s.ltNo = ltm.memberNo "
+            "LEFT JOIN lionsMember ttm ON s.ttNo = ttm.memberNo "
+            "LEFT JOIN lionsMember prm ON s.prpresidentNo = prm.memberNo "
+            "LEFT JOIN lionsMember fvm ON s.firstViceNo = fvm.memberNo "
+            "LEFT JOIN lionsMember svm ON s.secondViceNo = svm.memberNo "
+            "LEFT JOIN lionsMember tvm ON s.thirdViceNo = tvm.memberNo "
+            "WHERE s.clubNo = :clubno and s.attrib not like :attrxx")
+        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
+        staff_list = result.fetchone()
+        return staff_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFFWNAME)")
+
+
+def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=400, font_size=20,
+                      sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
+    img = Image.new("RGB", (width, height), color="white")
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("malgun.ttf", font_size)
+        name_font = ImageFont.truetype("malgun.ttf", 18)
+    except:
+        font = ImageFont.load_default()
+        name_font = ImageFont.load_default()
+
+    # 1. 슬로건
+    bbox = draw.textbbox((0, 0), slogan, font=font)
+    text_width = bbox[2] - bbox[0]
+    x = (width - text_width) // 2
+    y = 20
+    draw.text((x, y), slogan, fill="black", font=font)
+
+    # 2. 메인 프로필(상단 중앙)
+    rect_w, rect_h = 80, 100
+    rect_x = (width - rect_w) // 2
+    rect_y = y + bbox[3] + 20
+    draw.rectangle([rect_x, rect_y, rect_x + rect_w, rect_y + rect_h], outline="gray", width=2)
+    try:
+        profile_img = Image.open(f"./static/img/members/{member_no}.png").resize((rect_w, rect_h))
+        img.paste(profile_img, (rect_x, rect_y))
+    except Exception as e:
+        pass
+    # 이름 사각형(중앙)
+    name_rect_w, name_rect_h = 80, 30
+    name_rect_x = (width - name_rect_w) // 2
+    name_rect_y = rect_y + rect_h + 5
+    draw.rectangle([name_rect_x, name_rect_y, name_rect_x + name_rect_w, name_rect_y + name_rect_h], outline="gray", width=2)
+    name_bbox = draw.textbbox((0, 0), name, font=name_font)
+    name_text_w = name_bbox[2] - name_bbox[0]
+    name_text_h = name_bbox[3] - name_bbox[1]
+    name_x = name_rect_x + (name_rect_w - name_text_w) // 2
+    name_y = name_rect_y + (name_rect_h - name_text_h) // 2 - name_bbox[1]
+    draw.text((name_x, name_y), name, fill="black", font=name_font)
+
+    # 3. 하단 2개 프로필(좌우 균등)
+    sub_rect_w, sub_rect_h = 80, 100
+    sub_name_rect_h = 30
+    gap = (width - 2*sub_rect_w) // 3  # 좌-중앙-우 간격
+
+    for i, (sub_no, sub_name) in enumerate(sub_members):
+        # 프로필 사각형
+        sub_rect_x = gap + i * (sub_rect_w + gap)
+        sub_rect_y = name_rect_y + name_rect_h + 20  # 상단 이름박스 아래 20px
+        draw.rectangle([sub_rect_x, sub_rect_y, sub_rect_x + sub_rect_w, sub_rect_y + sub_rect_h], outline="gray", width=2)
+        try:
+            sub_img = Image.open(f"./static/img/members/{sub_no}.png").resize((sub_rect_w, sub_rect_h))
+            img.paste(sub_img, (sub_rect_x, sub_rect_y))
+        except Exception as e:
+            pass
+        # 이름 사각형
+        sub_name_rect_x = sub_rect_x
+        sub_name_rect_y = sub_rect_y + sub_rect_h + 5
+        draw.rectangle([sub_name_rect_x, sub_name_rect_y, sub_name_rect_x + sub_rect_w, sub_name_rect_y + sub_name_rect_h], outline="gray", width=2)
+        # 이름 텍스트 중앙 정렬
+        sub_name_bbox = draw.textbbox((0, 0), sub_name, font=name_font)
+        sub_name_text_w = sub_name_bbox[2] - sub_name_bbox[0]
+        sub_name_text_h = sub_name_bbox[3] - sub_name_bbox[1]
+        sub_name_x = sub_name_rect_x + (sub_rect_w - sub_name_text_w) // 2
+        sub_name_y = sub_name_rect_y + (sub_name_rect_h - sub_name_text_h) // 2 - sub_name_bbox[1]
+        draw.text((sub_name_x, sub_name_y), sub_name, fill="black", font=name_font)
+    return img
+
+
 async def get_ranklist(db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsRank where attrib not like :attpatt order by orderNo")
@@ -322,7 +425,8 @@ async def get_boarddtl(boardno: int, db: AsyncSession):
 
 async def get_requests(db: AsyncSession):
     try:
-        query = text("SELECT a.*, b.memberName FROM requestMessage a left join lionsMember b on a.memberNo = b.memberNo where a.attrib not like :attxxx")
+        query = text(
+            "SELECT a.*, b.memberName FROM requestMessage a left join lionsMember b on a.memberNo = b.memberNo where a.attrib not like :attxxx")
         result = await db.execute(query, {"attxxx": '%XXX%'})
         requests = result.fetchall()
         return requests
@@ -789,7 +893,7 @@ async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSessi
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubStaff.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubName": clubName,"clubno": clubno,
+                                       "clubName": clubName, "clubno": clubno,
                                        "staff_dtl": staff_dtl, "clubmember": clubmember})
 
 
@@ -812,7 +916,7 @@ async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(
         "slog": form_data.get("slog"),
     }
     queryb = text(f"UPDATE lionsClubstaff set attrib = :attrib WHERE clubNo = :clubNo")
-    await db.execute(queryb, {"attrib":'XXXUPXXXUP',"clubNo": clubno})
+    await db.execute(queryb, {"attrib": 'XXXUPXXXUP', "clubNo": clubno})
     query = text(
         f"INSERT INTO lionsClubstaff (logPeriod,clubNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,secondViceNo,thirdViceNo,slog) values (:logPeriod,:clubNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:secondViceNo,:thirdViceNo,:slog)")
     await db.execute(query, data4update)
@@ -968,12 +1072,35 @@ async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "requests": requests})
 
+
 @app.post("/updaterequest/{requestno}", response_class=HTMLResponse)
 async def updaterequest(request: Request, requestno: int, db: AsyncSession = Depends(get_db)):
     query = text(f"UPDATE requestMessage SET attrib = :attr WHERE requestNo = :requestno")
     await db.execute(query, {"requestno": requestno, "attr": "XXXUPXXXUP"})
     await db.commit()
     return JSONResponse({"result": "ok"})
+
+
+@app.get("/slimage/{clubno}")
+async def slogan_image(clubno: int, db: AsyncSession = Depends(get_db)):
+    staff = await get_clubstaffwithname(clubno, db)
+    slogan = staff[1] if staff else "No Slogan"
+    memberno = staff[2] if staff else 0
+    name = staff[3]+"L" if staff else "No Name"
+    sub1 = staff[4] if staff else 0
+    sub1n = staff[5]+"L" if staff else "No Name"
+    sub2 = staff[6] if staff else 0
+    sub2n = staff[7]+"L" if staff else "No Name"
+    sub_members = [(sub1, sub1n), (sub2, sub2n)]
+    img = make_slogan_image(slogan, memberno, name, width=400, height=400, sub_members=sub_members)
+    save_dir = "./static/img/members"
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, f"{clubno}logo.png")
+    img.save(save_path, format="PNG")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/png")
 
 
 @app.api_route("/updateboard/{boardno}/{clubno}/{clubname}", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1151,7 +1278,7 @@ class RequestMessage(BaseModel):
 
 
 @app.post("/phapp/requestmessage")
-async def request_message(req: RequestMessage,db: AsyncSession = Depends(get_db)):
+async def request_message(req: RequestMessage, db: AsyncSession = Depends(get_db)):
     try:
         query = text("INSERT INTO requestMessage (memberNo, message) VALUES (:memberNo, :message)")
         await db.execute(query, {"memberNo": req.memberNo, "message": req.message})
