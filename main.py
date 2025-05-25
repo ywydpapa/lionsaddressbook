@@ -322,7 +322,7 @@ async def get_boarddtl(boardno: int, db: AsyncSession):
 
 async def get_requests(db: AsyncSession):
     try:
-        query = text("SELECT * FROM requestMessage where attrib not like :attxxx")
+        query = text("SELECT a.*, b.memberName FROM requestMessage a left join lionsMember b on a.memberNo = b.memberNo where a.attrib not like :attxxx")
         result = await db.execute(query, {"attxxx": '%XXX%'})
         requests = result.fetchall()
         return requests
@@ -939,6 +939,12 @@ async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "requests": requests})
 
+@app.post("/updaterequest/{requestno}", response_class=HTMLResponse)
+async def updaterequest(request: Request, requestno: int, db: AsyncSession = Depends(get_db)):
+    query = text(f"UPDATE requestMessage SET attrib = :attr WHERE requestNo = :requestno")
+    await db.execute(query, {"requestno": requestno, "attr": "XXXUPXXXUP"})
+    await db.commit()
+    return JSONResponse({"result": "ok"})
 
 
 @app.api_route("/updateboard/{boardno}/{clubno}/{clubname}", response_class=HTMLResponse, methods=["GET", "POST"])
