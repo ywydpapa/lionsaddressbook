@@ -349,7 +349,30 @@ async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...)
         return RedirectResponse(f"/doclist/{clubno}", status_code=303)
 
 
-# 이미지 업로드 엔드포인트
+async def resize_image_if_needed(contents: bytes, max_bytes: int = 1048576) -> bytes:
+    if len(contents) <= max_bytes:
+        return contents
+    image = Image.open(io.BytesIO(contents))
+    format = image.format if image.format else 'JPEG'
+    quality = 85  # JPEG의 경우
+    for trial in range(10):
+        buffer = io.BytesIO()
+        save_kwargs = {'format': format}
+        if format.upper() in ['JPEG', 'JPG']:
+            save_kwargs['quality'] = quality
+            save_kwargs['optimize'] = True
+        image.save(buffer, **save_kwargs)
+        data = buffer.getvalue()
+        if len(data) <= max_bytes:
+            return data
+        if format.upper() in ['JPEG', 'JPG'] and quality > 30:
+            quality -= 10
+        else:
+            w, h = image.size
+            image = image.resize((int(w * 0.9), int(h * 0.9)), Image.LANCZOS)
+    return data
+
+
 @app.post("/upload/{memberno}")
 async def upload_image(request: Request, memberno: int, file: UploadFile = File(...),
                        db: AsyncSession = Depends(get_db)):
@@ -359,6 +382,8 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
             raise HTTPException(status_code=400, detail="File type not supported.")
         # 파일 읽기
         contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=1048576)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberPhoto (memberNo, mPhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
@@ -381,6 +406,8 @@ async def upload_ncimage(request: Request, memberno: int, file: UploadFile = Fil
             raise HTTPException(status_code=400, detail="File type not supported.")
         # 파일 읽기
         contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=1048576)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberNamecard (memberNo, ncardPhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
@@ -403,6 +430,8 @@ async def upload_spimage(request: Request, memberno: int, file: UploadFile = Fil
             raise HTTPException(status_code=400, detail="File type not supported.")
         # 파일 읽기
         contents = await file.read()
+        # 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=1048576)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberSpouse (memberNo, spousePhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
