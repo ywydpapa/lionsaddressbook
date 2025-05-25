@@ -329,8 +329,8 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
     img = Image.new("RGB", (width, height), color="white")
     draw = ImageDraw.Draw(img)
     try:
-        font = ImageFont.truetype("malgun.ttf", font_size)
-        name_font = ImageFont.truetype("malgun.ttf", 18)
+        font = ImageFont.truetype("NanumGothic.ttf", font_size)
+        name_font = ImageFont.truetype("NanumGothic.ttf", 18)
     except:
         font = ImageFont.load_default()
         name_font = ImageFont.load_default()
