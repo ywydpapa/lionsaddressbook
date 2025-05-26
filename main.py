@@ -565,7 +565,7 @@ async def login(
         db: AsyncSession = Depends(get_db)
 ):
     query = text(
-        "SELECT userNo, userName,userRole FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
+        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
     result = await db.execute(query, {"username": username, "password": password})
     user = result.fetchone()
     if user is None:
@@ -574,6 +574,8 @@ async def login(
     request.session["user_No"] = user[0]
     request.session["user_Name"] = user[1]
     request.session["user_Role"] = user[2]
+    request.session["user_Region"] = user[3]
+    request.session["user_Clubno"] = user[4]
     return RedirectResponse(url="/success", status_code=303)
 
 
@@ -583,56 +585,66 @@ async def success_page(request: Request):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/mainClub.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "user_Role": user_Role})
+                                       "user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/userEdit", response_class=HTMLResponse)
 async def user_edit(request: Request):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("login/userEdit.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name})
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/userHome", response_class=HTMLResponse)
 async def user_home(request: Request):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/mainClub.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name})
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/rmemberList/{regno}", response_class=HTMLResponse)
 async def rmemberList(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     rmember = await get_regionmemberlist(regno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/regionmemberList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "rmember": rmember})
+                                       "rmember": rmember, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/memberList", response_class=HTMLResponse)
 async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     members = await get_memberlist(db)
     print(members)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/memberList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "members": members})
+                                       "members": members, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.api_route("/addmember", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -648,6 +660,8 @@ async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
 async def memberList(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     memberdtl = await get_memberdetail(memberno, db)
     myphoto = await get_photo(memberno, db)
     ncphoto = await get_namecard(memberno, db)
@@ -661,7 +675,7 @@ async def memberList(request: Request, memberno: int, db: AsyncSession = Depends
     return templates.TemplateResponse("member/memberDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "memberdtl": memberdtl, "myphoto": myphoto, "clublist": clublist,
-                                       "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto})
+                                       "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
@@ -698,30 +712,36 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
 async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     cmembers = await get_clubmemberlist(clubno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubName": clubname, "cmembers": cmembers})
+                                       "clubName": clubname, "cmembers": cmembers, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/clubmemberCards/{clubno}/{clubname}", response_class=HTMLResponse)
 async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     memberList = await get_clubmembercard(clubno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/memberCards.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubName": clubname, "memberList": memberList})
+                                       "clubName": clubname, "memberList": memberList, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/clubList", response_class=HTMLResponse)
 async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     query = text("SELECT * FROM lionsClub where attrib not like '%XXXUP%'")
     result = await db.execute(query)
     club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
@@ -729,13 +749,15 @@ async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "club_list": club_list})
+                                       "club_list": club_list, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/editclub/{clubno}", response_class=HTMLResponse)
 async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
@@ -745,13 +767,15 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubdtl": clubdtl, "clubdocs": clubdocs})
+                                       "clubdtl": clubdtl, "clubdocs": clubdocs, "user_clubno": clubno, "user_region": user_region})
 
 
 @app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
 async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
@@ -759,7 +783,7 @@ async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubDocs.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubdtl": clubdtl})
+                                       "clubdtl": clubdtl, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.post("/updateclubdoc/{clubno}")
@@ -822,36 +846,42 @@ async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depen
 async def regionclubList(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     club_list = await get_regionclublist(regno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/regionclubList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "club_list": club_list})
+                                       "club_list": club_list, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/rankList", response_class=HTMLResponse)
 async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     rank_list = await get_ranklist(db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/rankList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "rank_list": rank_list})
+                                       "rank_list": rank_list, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/rankDetail/{rankno}", response_class=HTMLResponse)
 async def rankDtl(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     rank_dtl = await get_rankdtl(rankno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/rankDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "rank_dtl": rank_dtl})
+                                       "rank_dtl": rank_dtl, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.post("/update_rank/{rankno}", response_class=HTMLResponse)
@@ -887,6 +917,8 @@ async def add_rank(request: Request, db: AsyncSession = Depends(get_db)):
 async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     staff_dtl = await get_clubstaff(clubno, db)
     clubmember = await get_clubmemberlist(clubno, db)
     if not user_No:
@@ -894,7 +926,7 @@ async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSessi
     return templates.TemplateResponse("admin/clubStaff.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
                                        "clubName": clubName, "clubno": clubno,
-                                       "staff_dtl": staff_dtl, "clubmember": clubmember})
+                                       "staff_dtl": staff_dtl, "clubmember": clubmember, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.post("/updatestaff/{clubno}", response_class=HTMLResponse)
@@ -928,18 +960,22 @@ async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(
 async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     region_list = await get_regionlist(db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/regionList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "region_list": region_list})
+                                       "region_list": region_list, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/editregion/{regno}", response_class=HTMLResponse)
 async def editclub(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     query = text("SELECT * FROM lionsRegion where regionNo = :regNo and attrib not like :atts")
     result = await db.execute(query, {"regNo": regno, "atts": "%XXX%"})
     regiondtl = result.fetchone()
@@ -948,19 +984,21 @@ async def editclub(request: Request, regno: int, db: AsyncSession = Depends(get_
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/regionDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "regiondtl": regiondtl, "rankmembers": rankmembers})
+                                       "regiondtl": regiondtl, "rankmembers": rankmembers, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/editbis/{memberno}", response_class=HTMLResponse)
 async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     query = text("SELECT * FROM memberBusiness where memberNo = :memberno and attrib not like :atts")
     result = await db.execute(query, {"memberno": memberno, "atts": "%XXX%"})
     bisdtl = result.fetchone()
     return templates.TemplateResponse("business/regBis.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "memberno": memberno,
+                                       "memberno": memberno, "user_region": user_region, "user_clubno": user_clubno,
                                        "bisdtl": bisdtl})
 
 
@@ -1014,36 +1052,42 @@ async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends
 async def boardManager(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     clublist = await get_regionboardlist(regionno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/boardMain.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clublist": clublist})
+                                       "clublist": clublist, "user_Region": user_region, "user_Clubno": user_clubno})
 
 
 @app.get("/boardList/{clubno}/{clubname}", response_class=HTMLResponse)
 async def clubboardlist(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     clubboards = await get_clubboards(clubno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/clubboardlist.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "clubboards": clubboards, "clubname": clubname})
+                                       "clubboards": clubboards, "clubname": clubname, "user_clubno": clubno, "user_region": user_region})
 
 
 @app.get("/editboard/{boardno}/{clubname}", response_class=HTMLResponse)
 async def editboard(request: Request, boardno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     boarddtl = await get_boarddtl(boardno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/editboard.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "boarddtl": boarddtl, "clubname": clubname})
+                                       "boarddtl": boarddtl, "clubname": clubname, "user_region": user_region, "user_clubno": user_clubno })
 
 
 @app.api_route("/addboard/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1065,12 +1109,14 @@ async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get
 async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
     requests = await get_requests(db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/requestlist.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "requests": requests})
+                                       "requests": requests, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.post("/updaterequest/{requestno}", response_class=HTMLResponse)
