@@ -1223,6 +1223,34 @@ async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
         return {"doc": result}
 
 
+@app.get("/phapp/notice/{boardno}")
+async def notice(boardno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT * from boardMessage where boardNo = :boardno and attrib not like :attrib")
+        result = await db.execute(query, {"boardno": boardno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+
+@app.get("/phapp/noticeViewer/{messageno}")
+async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT * from boardMessage where messageNo = :messageno and attrib not like :attrib")
+        result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+
 @app.get("/phapp/rmemberList/")
 async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
     try:
