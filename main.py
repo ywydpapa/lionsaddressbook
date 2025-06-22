@@ -1291,11 +1291,11 @@ async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/phapp/notice/{boardno}")
-async def notice(boardno: int, db: AsyncSession = Depends(get_db)):
+async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT * from boardMessage where boardNo = :boardno and attrib not like :attrib")
-        result = await db.execute(query, {"boardno": boardno, "attrib": "%XXX%"})
+            "SELECT * from boardMessage where regionNo = :regionno and attrib not like :attrib")
+        result = await db.execute(query, {"boardno": regionno, "attrib": "%XXX%"})
         rows = result.fetchall()
         result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
     except:
