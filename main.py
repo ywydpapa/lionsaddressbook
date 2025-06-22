@@ -1290,7 +1290,7 @@ async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
         return {"doc": result}
 
 
-@app.get("/phapp/notice/{boardno}")
+@app.get("/phapp/notice/{regionno}")
 async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
