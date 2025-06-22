@@ -24,6 +24,9 @@
                 <h1 class="h3 mb-4 text-gray-800">공지사항목록 </h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
+                        <div class="d-flex justify-content-end mb-2">
+                            <a href="/addnotice/{{user_region}}" class="btn btn-danger" style="width: 20%;">공지사항 추가</a>
+                        </div>
                         <table class="table table-bordered text-center">
                             <thead>
                             <tr>
@@ -41,7 +44,9 @@
                                     <td><a href="/editnotice/{{notice[0]}}">{{notice[4]}}</a></td>
                                      <td>{{ notice[5]|striptags|truncate(30, True, '...') }}</td>
                                     <td>{{notice[6]}}<br>~<br>{{notice[7]}}</td>
-                                    <td><button class="btn btn-primary">내림</button></td>
+                                    <td>
+                                        <button class="btn btn-primary remove-btn" data-messageno="{{notice[0]}}">공지 내림</button>
+                                    </td>
                                 </tr>
                             {% endfor %}
                             </tbody>
@@ -124,6 +129,26 @@
     window.onload = function () {
         updateTitle();
     };
+
+    document.addEventListener('DOMContentLoaded', function () {
+    // 모든 내림 버튼에 이벤트 리스너 추가
+    document.querySelectorAll('.remove-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            if (!confirm('정말로 해당 공지사항을 내리시겠습니까?')) return;
+            const messageno = this.getAttribute('data-messageno');
+            const response = await fetch(`/removenotice/${messageno}`, {
+                method: 'POST'
+            });
+            if (response.redirected) {
+                // FastAPI에서 RedirectResponse가 오면, 그 URL로 이동
+                window.location.href = response.url;
+            } else {
+                alert('내리기 실패!');
+            }
+        });
+    });
+});
+
 </script>
 </body>
 </html>

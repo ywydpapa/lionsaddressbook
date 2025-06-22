@@ -39,7 +39,7 @@
                                 </tr>
                                 <tr>
                                     <td> 내용 </td>
-                                    <td><div id="editor-container" name = "notmessage"data-content="{{notice[5]|safe}}"></div>
+                                    <td><div id="editor-container" name = "notmessage"></div>
                                      <input type="hidden" name="notmessage" id="notmessage"></td>
                                 </tr>
                                 <tr>
@@ -89,12 +89,9 @@
 {% include '/comm/adscript.html' %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
-const quill = new Quill('#editor-container', { theme: 'snow' });
-const editorContainer = document.getElementById('editor-container');
-const initialContent = editorContainer.getAttribute('data-content');
-if (initialContent) {
-    quill.clipboard.dangerouslyPasteHTML(initialContent);
-}
+    const noticeContent = `{{ notice[5]|safe|replace('\n', '') }}`;
+    const quill = new Quill('#editor-container', { theme: 'snow' });
+    quill.clipboard.dangerouslyPasteHTML(noticeContent);
 
 document.getElementById('editor-form').addEventListener('submit', async (event) => {
     event.preventDefault();
