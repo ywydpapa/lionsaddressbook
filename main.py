@@ -14,7 +14,7 @@ from sqlalchemy import text
 import dotenv
 import os
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image, ImageFont, ImageDraw
 import io
 from pydantic import BaseModel
@@ -762,7 +762,6 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
     clubdocs = await get_clubdocs(clubno, db)
-    print(clubdocs)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/clubDetail.html",
@@ -817,6 +816,74 @@ async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
     print(cdoc)
     if cdoc:
         return HTMLResponse(cdoc)
+
+
+@app.get("/listnotice/{regionno}", response_class=HTMLResponse)
+async def editnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM boardMessage where regionNo = :regionNo and attrib not like '%XXXUP%'")
+    result = await db.execute(query, {"regionNo": regionno})
+    noticelist = result.fetchall()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/noticeList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/addnotice/{regionno}", response_class=HTMLResponse)
+async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/addNotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/editnotice/{messageno}", response_class=HTMLResponse)
+async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM boardMessage where messageNo = :messageno")
+    result = await db.execute(query, {"messageno": messageno})
+    notice = result.fetchone()
+    now = datetime.now()
+    two_weeks = now + timedelta(days=14)
+    fmt = '%Y-%m-%dT00:00'
+    from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
+    to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/editnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
+
+
+@app.post("/updatenotice/{messageno}", response_class=HTMLResponse)
+async def update_clubdtl(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    data4update = {
+        "messageTitle": form_data.get("nottitle"),
+        "MessageConts": form_data.get("notmessage"),
+        "noticeFrom": form_data.get("notfrom"),
+        "noticeTo": form_data.get("notto"),
+    }
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE boardMessage SET {set_clause} WHERE messageNo = :messageNo")
+    update_fields["messageNo"] = messageno
+    await db.execute(query, update_fields)
+    await db.commit()
+    return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
 
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
