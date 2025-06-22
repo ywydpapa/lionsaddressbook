@@ -1295,7 +1295,7 @@ async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
             "SELECT * from boardMessage where regionNo = :regionno and attrib not like :attrib")
-        result = await db.execute(query, {"boardno": regionno, "attrib": "%XXX%"})
+        result = await db.execute(query, {"regionno": regionno, "attrib": "%XXX%"})
         rows = result.fetchall()
         result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
     except:
