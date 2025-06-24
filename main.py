@@ -1291,7 +1291,7 @@ async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
 async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno ")
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
         result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3]} for row in
