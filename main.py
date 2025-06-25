@@ -1539,6 +1539,17 @@ async def mskyn(memberno:int,msk:str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 
+@app.get("/phapp/getmask/{memberno}")
+async def mskyn(memberno:int,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("select maskYN from lionsMember where memberNo = :memberNo")
+        result = await db.execute(query, {"memberNo": memberno })
+        rows = result.fetchone()
+        return {"maskYN": rows[0]}
+    except Exception as e:
+        print("request_message error:", e)
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
     return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
