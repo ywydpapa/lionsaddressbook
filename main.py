@@ -1527,6 +1527,18 @@ async def request_message(req: RequestMessage, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 
+@app.post("/phapp/maskYN/{memberno}/{msk}")
+async def mskyn(memberno:int,msk:str, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("UPDATE lionsMember set maskYN = :msk where memberNo = :memberNo")
+        await db.execute(query, {"memberNo": memberno , "msk": msk})
+        await db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print("request_message error:", e)
+        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
     return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
