@@ -1378,6 +1378,26 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
         return {"members": result}
 
 
+@app.get("/phapp/rnkmemberList/{regionno}")
+async def phapprnkmemberlist(regionno:int,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "left join lionsClub lc on lm.clubNo = lc.clubNo "
+            "where lm.rankNo != :rankno and lc.regionNo = :regionno order by lm.memberJoindate ")
+        result = await db.execute(query, {"rankno": 19, "regionno": regionno})  # 회원 제외
+        rows = result.fetchall()
+        result = [
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            for row in
+            rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
 @app.get("/phapp/searchmember/{keywd}")
 async def searchmember(keywd: str, db: AsyncSession = Depends(get_db)):
     try:
@@ -1403,6 +1423,29 @@ async def searchmember(keywd: str, db: AsyncSession = Depends(get_db)):
         return {"members": result}
 
 
+@app.get("/phapp/rsearchmember/{regionno}/{keywd}")
+async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get_db)):
+    try:
+        keywd = f"%{keywd}%"
+        query = text(
+            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "left join lionsClub lc on lm.clubNo = lc.clubNo "
+            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
+            "where lc.regionNo = :regionno AND (lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
+            "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
+            "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword) order by lm.memberJoindate")
+        result = await db.execute(query, {"keyword": keywd, "regionno":regionno})  # 키워드 검색
+        rows = result.fetchall()
+        result = [
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
 @app.get("/phapp/memberDtl/{memberno}")
 async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
     try:
@@ -1420,17 +1463,31 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             "where lm.memberNo = :memberno")
         result = await db.execute(query, {"memberno": memberno})
         rows = result.fetchone()
-        result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[17],
+        if rows[17]=='N':
+            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[18],
                    "clubNo": rows[9],
-                   "rankTitle": rows[18], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],
+                   "rankTitle": rows[19], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],
                    "memberJoindate": rows[8],
-                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[19], "nameCard": rows[20],
+                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[20], "nameCard": rows[21],
                    "officeAddress": rows[13],
-                   "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16], "spousePhoto": rows[21],
-                   "bisTitle": rows[24], "bisRank": rows[25], "bisType": rows[26], "bistypeTitle": rows[27],
-                   "offtel": rows[28],
-                   "offAddress": rows[29], "offEmail": rows[30], "offPost": rows[31], "offWeb": rows[32],
-                   "offSns": rows[33], "bisMemo": rows[34]}]
+                   "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16], "spousePhoto": rows[22],
+                   "bisTitle": rows[25], "bisRank": rows[26], "bisType": rows[27], "bistypeTitle": rows[28],
+                   "offtel": rows[29],
+                   "offAddress": rows[30], "offEmail": rows[31], "offPost": rows[32], "offWeb": rows[33],
+                   "offSns": rows[34], "bisMemo": rows[35]}]
+        else:
+            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[18],
+                       "clubNo": rows[9],
+                       "rankTitle": rows[19], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": "비공개",
+                       "memberJoindate": rows[8],
+                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[20], "nameCard": "비공개",
+                       "officeAddress": "비공개",
+                       "spouseName": "비공개", "spousePhone": "비공개", "spouseBirth": "비공개",
+                       "spousePhoto": "",
+                       "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개", "bistypeTitle": "비공개",
+                       "offtel": "비공개",
+                       "offAddress": "비공개", "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
+                       "offSns": "비공개", "bisMemo": "비공개"}]
     except:
         print("Member Detail Phone error")
     finally:
