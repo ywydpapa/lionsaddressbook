@@ -1527,7 +1527,7 @@ async def request_message(req: RequestMessage, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 
-@app.post("/phapp/maskYN/{memberno}/{msk}")
+@app.get("/phapp/maskYN/{memberno}/{msk}")
 async def mskyn(memberno:int,msk:str, db: AsyncSession = Depends(get_db)):
     try:
         query = text("UPDATE lionsMember set maskYN = :msk where memberNo = :memberNo")
