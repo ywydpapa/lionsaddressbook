@@ -1480,7 +1480,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                        "clubNo": rows[9],
                        "rankTitle": rows[19], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": "비공개",
                        "memberJoindate": rows[8],
-                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[20], "nameCard": "비공개",
+                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[20], "nameCard": "",
                        "officeAddress": "비공개",
                        "spouseName": "비공개", "spousePhone": "비공개", "spouseBirth": "비공개",
                        "spousePhoto": "",
