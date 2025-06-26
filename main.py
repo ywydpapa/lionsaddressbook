@@ -1589,3 +1589,4 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
         content=f"<h1>{exc.status_code} - {exc.detail}</h1>",
         status_code=exc.status_code,
     )
+
