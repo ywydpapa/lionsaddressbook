@@ -1526,6 +1526,22 @@ async def mlogin(regionno:int, phoneno: str, db: AsyncSession = Depends(get_db))
         return result
 
 
+@app.get("/phapp/zlogin/{phoneno}")
+async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno")
+        result = await db.execute(query, {"phoneno": phoneno})
+        rows = result.fetchone()
+        if rows is None:
+            return {"error": "No data found for the given phone number."}
+        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2]}
+        print(result)
+    except:
+        print("mLogin error")
+    finally:
+        return result
+
+
 class RequestMessage(BaseModel):
     memberNo: str
     message: str
