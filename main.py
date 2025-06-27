@@ -1513,12 +1513,12 @@ async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/rlogin/{regionno}/{phoneno}")
 async def mlogin(regionno:int, phoneno: str, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT lm.clubNo, lm.memberNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno and lc.regionNo = :regionno")
+        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno and lc.regionNo = :regionno")
         result = await db.execute(query, {"phoneno": phoneno, "regionno": regionno})
         rows = result.fetchone()
         if rows is None:
             return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0], "memberno": rows[1]}
+        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2]}
         print(result)
     except:
         print("mLogin error")
