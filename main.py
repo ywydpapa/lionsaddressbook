@@ -1385,7 +1385,7 @@ async def phapprnkmemberlist(regionno:int,db: AsyncSession = Depends(get_db)):
             "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "where lm.rankNo != :rankno and lc.regionNo = :regionno order by lm.memberJoindate ")
+            "where lm.rankNo != :rankno and lc.regionNo = :regionno order by lr.orderNo, lm.memberJoindate ")
         result = await db.execute(query, {"rankno": 19, "regionno": regionno})  # 회원 제외
         rows = result.fetchall()
         result = [
