@@ -324,6 +324,28 @@ async def get_clubstaffwithname(clubno: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFFWNAME)")
 
 
+def split_text_to_multiline(draw, text, font, max_width):
+    """슬로건을 width 제한에 맞춰 2줄로 나눔(단어 기준 줄바꿈)"""
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+    for word in words:
+        test_line = current_line + (' ' if current_line else '') + word
+        test_bbox = draw.textbbox((0, 0), test_line, font=font)
+        test_width = test_bbox[2] - test_bbox[0]
+        if test_width <= max_width:
+            current_line = test_line
+        else:
+            if current_line:  # 이전 줄 저장
+                lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    if len(lines) > 2:
+        lines = [lines[0], ' '.join(lines[1:])]
+    return '\n'.join(lines)
+
+
 def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=400, font_size=20,
                       sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
     img = Image.new("RGB", (width, height), color="white")
@@ -336,11 +358,14 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
         name_font = ImageFont.load_default()
 
     # 1. 슬로건
-    bbox = draw.textbbox((0, 0), slogan, font=font)
+    max_slogan_width = int(width * 0.85)
+    multiline_slogan = split_text_to_multiline(draw, slogan, font, max_slogan_width)
+    bbox = draw.multiline_textbbox((0, 0), multiline_slogan, font=font, spacing=4)
     text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
     x = (width - text_width) // 2
     y = 20
-    draw.text((x, y), slogan, fill="black", font=font)
+    draw.multiline_text((x, y), multiline_slogan, fill="black", font=font, spacing=4, align="center")
 
     # 2. 메인 프로필(상단 중앙)
     rect_w, rect_h = 80, 100
