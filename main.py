@@ -1386,14 +1386,14 @@ async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
 async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "where lm.rankNo != :rankno order by lm.memberJoindate ")
         result = await db.execute(query, {"rankno": 19})  # 회원 제외
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in
             rows]
     except:
