@@ -1406,14 +1406,14 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
 async def phapprnkmemberlist(regionno:int,db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "where lm.rankNo != :rankno and lc.regionNo = :regionno order by lc.clubNo, lr.orderNo, lm.memberJoindate ")
         result = await db.execute(query, {"rankno": 19, "regionno": regionno})  # 회원 제외
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in
             rows]
     except:
@@ -1452,7 +1452,7 @@ async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get
     try:
         keywd = f"%{keywd}%"
         query = text(
-            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
+            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "left join memberBusiness mb on lm.memberNo = mb.memberNo "
@@ -1462,7 +1462,7 @@ async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get
         result = await db.execute(query, {"keyword": keywd, "regionno":regionno})  # 키워드 검색
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in rows]
     except:
         print("error")
