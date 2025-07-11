@@ -177,7 +177,11 @@
                                         <input type="submit" value="배우자사진 Upload"></form>
                                 </td>
                             </tr>
+                            </tbody>
+                            </table>
                             <form method="POST" action="/update_memberdtl/{{memberdtl[0]}}">
+                                <table class="table table-bordered text-center">
+                                    <tbody>
                                 <tr>
                                     <td>회원 성명</td>
                                     <td><input type="text" class="form-control" name="membername"
@@ -185,7 +189,7 @@
                                 </tr>
                                 <tr>
                                     <td>소속 클럽</td>
-                                    <td><select id="clublst" class="form-control" name="clublst">
+                                    <td><select id="clublst" class="form-control selectpicker" data-live-search ="true" name="clublst">
                                         {% for club in clublist %}
                                         <option value="{{club[0]}}" {% if club[0]== memberdtl[9] %}selected{% endif %}>
                                             {{club[1]}}
@@ -288,9 +292,9 @@
                                         </div>
                                     </td>
                                 </tr>
-                            </form>
                             </tbody>
                         </table>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -322,8 +326,18 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 </body>
 <script>
+    $(document).ready(function () {
+    $('.selectpicker').selectpicker({
+      style: 'btn-inverse',
+      size: 40
+     });
+    });
+
+
     function displayFileInfo(input) {
         const file = input.files[0];
         const fileSizeElement = document.getElementById("fileSize");
@@ -383,8 +397,6 @@
             previewElementsp.style.display = "none"; // 이미지 숨기기
         }
     }
-</script>
-<script>
     document.addEventListener("DOMContentLoaded", function () {
         const selectBox = document.getElementById("clublst");
         const link = document.getElementById("clubMemberLink");
@@ -395,5 +407,6 @@
         link.href = `${baseUrl}/${encodeURIComponent(selectedText)}`;
         linkc.href = `${baseUrlc}/${encodeURIComponent(selectedText)}`;
     });
+
 </script>
 </html>
