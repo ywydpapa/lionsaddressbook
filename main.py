@@ -1393,7 +1393,7 @@ async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
         result = await db.execute(query, {"rankno": 19})  # 회원 제외
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in
             rows]
     except:
@@ -1413,7 +1413,7 @@ async def phapprnkmemberlist(regionno:int,db: AsyncSession = Depends(get_db)):
         result = await db.execute(query, {"rankno": 19, "regionno": regionno})  # 회원 제외
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in
             rows]
     except:
@@ -1462,7 +1462,7 @@ async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get
         result = await db.execute(query, {"keyword": keywd, "regionno":regionno})  # 키워드 검색
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] == "Y" else row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
             for row in rows]
     except:
         print("error")
@@ -1499,6 +1499,32 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                    "offtel": rows[29],
                    "offAddress": rows[30], "offEmail": rows[31], "offPost": rows[32], "offWeb": rows[33],
                    "offSns": rows[34], "bisMemo": rows[35]}]
+        elif rows[17]=='S':
+            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[18],
+                       "clubNo": rows[9],
+                       "rankTitle": rows[19], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": rows[7],
+                       "memberJoindate": rows[8],
+                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[20], "nameCard": rows[21],
+                       "officeAddress": rows[13],
+                       "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16],
+                       "spousePhoto": rows[22],
+                       "bisTitle": rows[25], "bisRank": rows[26], "bisType": rows[27], "bistypeTitle": rows[28],
+                       "offtel": rows[29],
+                       "offAddress": rows[30], "offEmail": rows[31], "offPost": rows[32], "offWeb": rows[33],
+                       "offSns": rows[34], "bisMemo": rows[35]}]
+        elif rows[17] == 'T':
+            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[18],
+                       "clubNo": rows[9],
+                       "rankTitle": rows[19], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": "비공개",
+                       "memberJoindate": "비공개",
+                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[20], "nameCard": rows[21],
+                       "officeAddress": rows[13],
+                       "spouseName": "비공개", "spousePhone": "비공개", "spouseBirth": "비공개",
+                       "spousePhoto": rows[22],
+                       "bisTitle": rows[25], "bisRank": rows[26], "bisType": rows[27], "bistypeTitle": rows[28],
+                       "offtel": rows[29],
+                       "offAddress": rows[30], "offEmail": rows[31], "offPost": rows[32], "offWeb": rows[33],
+                       "offSns": rows[34], "bisMemo": rows[35]}]
         else:
             result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": "비공개", "mPhotoBase64": rows[18],
                        "clubNo": rows[9],
