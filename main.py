@@ -1330,7 +1330,7 @@ async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
 async def clubdocs(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT * from lionsDoc where clubNo = :clubno and attrib not like :attrib")
+            "SELECT * from lionsDoc where (clubNo = :clubno or clubNo = 999) and attrib not like :attrib order by clubNo desc")
         result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
         rows = result.fetchall()
         result = [{"docNo": row[0], "docType": row[2], "docTitle": row[3]} for row in rows]
