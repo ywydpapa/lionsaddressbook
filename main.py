@@ -716,6 +716,7 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
         "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
         "memberSns": form_data.get("memberSns"),
+        "memberSeccode": form_data.get("contact").replace('-',''),
         "memberAddress": form_data.get("home_address"),
         "memberPhone": form_data.get("contact"),
         "memberEmail": form_data.get("email"),
