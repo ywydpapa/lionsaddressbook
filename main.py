@@ -1572,38 +1572,6 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
         return {"memberdtl": result}
 
 
-@app.get("/phapp/mlogin/{phoneno}")
-async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("SELECT clubNo, memberNo from lionsMember where memberSeccode = :phoneno ")
-        result = await db.execute(query, {"phoneno": phoneno})
-        rows = result.fetchone()
-        if rows is None:
-            return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0], "memberno": rows[1]}
-        print(result)
-    except:
-        print("mLogin error")
-    finally:
-        return result
-
-
-@app.get("/phapp/rlogin/{regionno}/{phoneno}")
-async def mlogin(regionno:int, phoneno: str, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno and lc.regionNo = :regionno")
-        result = await db.execute(query, {"phoneno": phoneno, "regionno": regionno})
-        rows = result.fetchone()
-        if rows is None:
-            return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2]}
-        print(result)
-    except:
-        print("mLogin error")
-    finally:
-        return result
-
-
 @app.get("/phapp/zlogin/{phoneno}")
 async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
     try:
@@ -1620,10 +1588,25 @@ async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
         return result
 
 
+@app.get("/phapp/xlogin/{phoneno}")
+async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo, lm.funcNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno")
+        result = await db.execute(query, {"phoneno": phoneno})
+        rows = result.fetchone()
+        if rows is None:
+            return {"error": "No data found for the given phone number."}
+        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2], "funcno": rows[3]}
+        print(result)
+    except:
+        print("mLogin error")
+    finally:
+        return result
+
+
 class RequestMessage(BaseModel):
     memberNo: str
     message: str
-
 
 @app.post("/phapp/requestmessage")
 async def request_message(req: RequestMessage, db: AsyncSession = Depends(get_db)):
@@ -1648,6 +1631,16 @@ async def mskyn(memberno:int,msk:str, db: AsyncSession = Depends(get_db)):
         print("request_message error:", e)
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
+@app.post("/phapp/funcNo/{memberno}/{funcno}")
+async def funcno(memberno:int,funcno:int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("UPDATE lionsMember set funcNo = :func where memberNo = :memberNo")
+        await db.execute(query, {"memberNo": memberno , "func": funcno})
+        await db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print("request_message error:", e)
+        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 @app.get("/phapp/getmask/{memberno}")
 async def mskyn(memberno:int,db: AsyncSession = Depends(get_db)):
