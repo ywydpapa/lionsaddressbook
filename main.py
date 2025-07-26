@@ -1652,6 +1652,16 @@ async def mskyn(memberno:int,db: AsyncSession = Depends(get_db)):
     except Exception as e:
         print("request_message error:", e)
 
+@app.get("/phapp/getfuncno/{memberno}")
+async def getfunc(memberno:int,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("select funcNo from lionsMember where memberNo = :memberNo")
+        result = await db.execute(query, {"memberNo": memberno })
+        rows = result.fetchone()
+        return {"funcno": rows[0]}
+    except Exception as e:
+        print("request_message error:", e)
+
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
