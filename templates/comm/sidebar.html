@@ -58,7 +58,6 @@
                 <a class="collapse-item" href="/rankList">직책목록</a>
                 <a class="collapse-item" href="/memberList">회원목록</a>
                 <a class="collapse-item" href="/regionList"> 지역목록</a>
-                <a class="collapse-item" href="/boardManager/{{ user_region}}"> 게시판목록</a>
             </div>
         </div>
     </li>
@@ -75,9 +74,14 @@
     <li class="nav-item">
         <a class="nav-link" href="/listnotice/{{ user_region}}">
             <i class="fas fa-fw fa-chart-area"></i>
-            <span>공지사항 확인</span></a>
+            <span>공지사항 관리</span></a>
     </li>
     {% endif %}
+    <li class="nav-item">
+        <a class="nav-link" href="/listclubnotice/{{ user_clubno }}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>클럽 공지사항 관리</span></a>
+    </li>
     <li class="nav-item">
         <a class="nav-link" href="/requestList">
             <i class="fas fa-fw fa-chart-area"></i>

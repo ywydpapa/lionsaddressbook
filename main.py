@@ -870,6 +870,21 @@ async def editnotice(request: Request, regionno: int, db: AsyncSession = Depends
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
 
+@app.get("/listclubnotice/{clubno}", response_class=HTMLResponse)
+async def editnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM clubboardMessage where clubNo = :clubNo and attrib not like '%XXXUP%'")
+    result = await db.execute(query, {"clubNo": clubno})
+    noticelist = result.fetchall()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/clubnoticeList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
 
 @app.get("/addnotice/{regionno}", response_class=HTMLResponse)
 async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
@@ -886,6 +901,23 @@ async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/addnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "from_date": from_date, "to_date": to_date})
+
+
+@app.get("/addclubnotice/{clubno}", response_class=HTMLResponse)
+async def addcnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    now = datetime.now()
+    two_weeks = now + timedelta(days=14)
+    fmt = '%Y-%m-%dT00:00'
+    from_date = now.strftime(fmt)
+    to_date = two_weeks.strftime(fmt)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/addclubnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "from_date": from_date, "to_date": to_date})
 
 
 @app.get("/editnotice/{messageno}", response_class=HTMLResponse)
@@ -906,6 +938,26 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/editnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
+
+
+@app.get("/editclubnotice/{messageno}", response_class=HTMLResponse)
+async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM clubboardMessage where messageNo = :messageno")
+    result = await db.execute(query, {"messageno": messageno})
+    notice = result.fetchone()
+    now = datetime.now()
+    two_weeks = now + timedelta(days=14)
+    fmt = '%Y-%m-%dT00:00'
+    from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
+    to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/editclubnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
 
 
 @app.post("/updatenotice/{messageno}", response_class=HTMLResponse)
@@ -931,6 +983,29 @@ async def update_clubdtl(request: Request, messageno: int, db: AsyncSession = De
     return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
 
 
+@app.post("/updateclubnotice/{messageno}", response_class=HTMLResponse)
+async def update_clubnot(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    data4update = {
+        "messageTitle": form_data.get("nottitle"),
+        "MessageConts": form_data.get("notmessage"),
+        "noticeFrom": form_data.get("notfrom"),
+        "noticeTo": form_data.get("notto"),
+    }
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE clubboardMessage SET {set_clause} WHERE messageNo = :messageNo")
+    update_fields["messageNo"] = messageno
+    await db.execute(query, update_fields)
+    await db.commit()
+    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
+
+
 @app.post("/removenotice/{messageno}", response_class=HTMLResponse)
 async def remove(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -942,6 +1017,18 @@ async def remove(request: Request, messageno: int, db: AsyncSession = Depends(ge
     await db.execute(query, {"XXUP":"XXXUPXXXUP", "messageNo": messageno})
     await db.commit()
     return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
+
+@app.post("/removeclubnotice/{messageno}", response_class=HTMLResponse)
+async def removecn(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text(f"UPDATE clubboardMessage SET attrib = :XXUP WHERE messageNo = :messageNo")
+    await db.execute(query, {"XXUP":"XXXUPXXXUP", "messageNo": messageno})
+    await db.commit()
+    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
 
 
 @app.post("/insertnotice/{regionno}", response_class=HTMLResponse)
@@ -966,6 +1053,29 @@ async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depen
     await db.execute(query, insert_fields)
     await db.commit()
     return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
+
+@app.post("/insertclubnotice/{clubno}", response_class=HTMLResponse)
+async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    data4insert = {
+        "clubNo": clubno,
+        "messageTitle": form_data.get("nottitle"),
+        "MessageConts": form_data.get("notmessage"),
+        "noticeFrom": form_data.get("notfrom"),
+        "noticeTo": form_data.get("notto"),
+    }
+    insert_fields = {key: value for key, value in data4insert.items() if value is not None}
+    columns = ", ".join(insert_fields.keys())
+    values = ", ".join([f":{key}" for key in insert_fields.keys()])
+    query = text(f"INSERT INTO clubboardMessage ({columns}) VALUES ({values})")
+    await db.execute(query, insert_fields)
+    await db.commit()
+    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
 
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
