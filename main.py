@@ -1396,7 +1396,7 @@ async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
         return {"docs": result}
 
 @app.get("/phapp/clubnotice/{clubno}")
-async def notice(clubno: int, db: AsyncSession = Depends(get_db)):
+async def cnotice(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
             "SELECT * from clubboardMessage where clubNo = :clubno and attrib not like :attrib")
@@ -1409,7 +1409,7 @@ async def notice(clubno: int, db: AsyncSession = Depends(get_db)):
         return {"docs": result}
 
 @app.get("/phapp/clubnoticeViewer/{messageno}")
-async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
+async def cnoticev(messageno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
             "SELECT * from clubboardMessage where messageNo = :messageno and attrib not like :attrib")
@@ -1422,7 +1422,7 @@ async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
         return {"docs": result}
 
 @app.get("/phapp/noticeViewer/{messageno}")
-async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
+async def noticev(messageno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
             "SELECT * from boardMessage where messageNo = :messageno and attrib not like :attrib")
