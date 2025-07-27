@@ -1395,6 +1395,31 @@ async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
     finally:
         return {"docs": result}
 
+@app.get("/phapp/clubnotice/{clubno}")
+async def notice(clubno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT * from clubboardMessage where clubNo = :clubno and attrib not like :attrib")
+        result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+@app.get("/phapp/clubnoticeViewer/{messageno}")
+async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT * from clubboardMessage where messageNo = :messageno and attrib not like :attrib")
+        result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
 
 @app.get("/phapp/noticeViewer/{messageno}")
 async def notice(messageno: int, db: AsyncSession = Depends(get_db)):
