@@ -57,7 +57,7 @@ async def get_db():
     async with async_session() as session:
         yield session
 
-def send_fcm_topic_notice(clubno: int, title: str, body: str):
+async def send_fcm_topic_notice(clubno: int, title: str, body: str):
     topic = f"club_{clubno}"
     message = messaging.Message(
         notification=messaging.Notification(
@@ -72,7 +72,7 @@ def send_fcm_topic_notice(clubno: int, title: str, body: str):
     response = messaging.send(message)
     return response  # 성공 시 메시지 ID가 반환됩니다.
 
-def send_fcm_topic_notice_region(regionno: int, title: str, body: str):
+async def send_fcm_topic_notice_region(regionno: int, title: str, body: str):
     topic = f"region_{regionno}"
     message = messaging.Message(
         notification=messaging.Notification(
