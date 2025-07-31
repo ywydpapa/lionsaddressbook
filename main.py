@@ -20,8 +20,11 @@ import io
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from io import BytesIO
-
+import firebase_admin
+from firebase_admin import credentials, messaging
 from starlette.responses import FileResponse
+from pathlib import Path
+
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -42,12 +45,47 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 THUMBNAIL_DIR = "./static/img/members"
+BASE_DIR = Path(__file__).resolve().parent
 
+cred = credentials.Certificate(
+    str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
+)
+firebase_admin.initialize_app(cred)
 
 # 데이터베이스 세션 생성
 async def get_db():
     async with async_session() as session:
         yield session
+
+def send_fcm_topic_notice(clubno: int, title: str, body: str):
+    topic = f"club_{clubno}"
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data={
+            "clubNo": str(clubno),
+        },
+        topic=topic,
+    )
+    response = messaging.send(message)
+    return response  # 성공 시 메시지 ID가 반환됩니다.
+
+def send_fcm_topic_notice_region(regionno: int, title: str, body: str):
+    topic = f"region_{regionno}"
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data={
+            "regionNo": str(regionno),
+        },
+        topic=topic,
+    )
+    response = messaging.send(message)
+    return response  # 성공 시 메시지 ID가 반환됩니다.
 
 
 # 썸네일 생성 함수
@@ -1052,6 +1090,11 @@ async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depen
     query = text(f"INSERT INTO boardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
+    await send_fcm_topic_notice_region(
+        regionno=regionno,
+        title="새로운 지역 공지사항",
+        body=form_data.get("nottitle") or "지역공지"
+    )
     return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
 
 @app.post("/insertclubnotice/{clubno}", response_class=HTMLResponse)
@@ -1075,6 +1118,11 @@ async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends
     query = text(f"INSERT INTO clubboardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
+    await send_fcm_topic_notice(
+        clubno=clubno,
+        title="새로운 클럽 공지사항",
+        body=form_data.get("nottitle") or "클럽공지"
+    )
     return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
 
 
