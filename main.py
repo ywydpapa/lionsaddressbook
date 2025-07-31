@@ -940,6 +940,17 @@ async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/addnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "from_date": from_date, "to_date": to_date})
 
+@app.get("/clubsms/{clubno}", response_class=HTMLResponse)
+async def clubsms(request: Request, clubno: int):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/clubsms.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno})
+
 
 @app.get("/addclubnotice/{clubno}", response_class=HTMLResponse)
 async def addcnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
@@ -1124,6 +1135,23 @@ async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends
         body=form_data.get("nottitle") or "클럽공지"
     )
     return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
+
+@app.post("/sendclubsms/{clubno}", response_class=HTMLResponse)
+async def sendsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    print("###SMS 호출")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    data4insert = {
+        "clubNo": clubno,
+        "messageTitle": form_data.get("smstitle"),
+        "MessageConts": form_data.get("smsmessage"),
+    }
+    await send_fcm_topic_notice(
+        clubno=clubno,
+        title=form_data.get("smstitle") or "클럽공지",
+        body=form_data.get("smsmessage") or "클럽공지"
+    )
+    return RedirectResponse(f"/clubsms/{user_clubno}", status_code=303)
 
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)

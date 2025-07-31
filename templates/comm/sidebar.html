@@ -74,13 +74,18 @@
     <li class="nav-item">
         <a class="nav-link" href="/listnotice/{{ user_region}}">
             <i class="fas fa-fw fa-chart-area"></i>
-            <span>공지사항 관리</span></a>
+            <span>지역 공지사항 관리</span></a>
     </li>
     {% endif %}
     <li class="nav-item">
         <a class="nav-link" href="/listclubnotice/{{ user_clubno }}">
             <i class="fas fa-fw fa-chart-area"></i>
             <span>클럽 공지사항 관리</span></a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/clubsms/{{ user_clubno }}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>클럽 문자 전송</span></a>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="/requestList">
