@@ -1,6 +1,6 @@
 from urllib import request
 import uvicorn
-from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile
+from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pycparser.ply.yacc import resultlimit
@@ -466,6 +466,16 @@ async def get_ranklist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(RANK)")
 
 
+async def get_userdtl(userno:int,db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsUser where userNo = :userno")
+        result = await db.execute(query, {"userno": userno })
+        user_dtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
+        return user_dtl
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(userdtl)")
+
+
 async def get_rankdtl(rankno: int, db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsRank where rankNo = :rankNo")
@@ -658,16 +668,29 @@ async def success_page(request: Request):
 
 
 @app.get("/userEdit", response_class=HTMLResponse)
-async def user_edit(request: Request):
+async def user_edit(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
+    userdtl = await get_userdtl(user_No, db)
+    clublist = await get_clublist(db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("login/userEdit.html",
-                                      {"request": request, "user_No": user_No,"user_Role": user_Role, "user_Name": user_Name, "user_region": user_region, "user_clubno": user_clubno})
+                                      {"request": request, "user_No": user_No,"user_Role": user_Role, "user_Name": user_Name, "user_region": user_region, "user_clubn1o": user_clubno, "userdtl": userdtl, "clublist": clublist})
+
+@app.post("/changeuserpass")
+async def change_password(
+    data: dict = Body(...),  # JSON body를 dict로 받음
+    db: AsyncSession = Depends(get_db)
+):
+    sql = text("UPDATE lionsUser SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
+    await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
+    await db.commit()
+    return {"result": "success"}
+
 
 
 @app.get("/userHome", response_class=HTMLResponse)
@@ -1504,6 +1527,8 @@ async def addboard(request: Request, boardno: int, clubno: int, clubname: str, d
     await db.execute(query, {"boardNo": boardno, "boardTitle": btitle, "boardType": btype})
     await db.commit()
     return RedirectResponse(f"/boardList/{clubno}/{clubname}", status_code=303)
+
+
 
 
 # 로그아웃 처리

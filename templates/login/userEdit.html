@@ -15,7 +15,79 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">관리자의 정보 변경</h1>
+                <div>
+                 <form action="/updateuser" method="post" onsubmit="return confirm('사용자의 정보를 저장하시겠습니까?');">
+                 <table class="table">
+                     <tr style="display: none">
+                         <td>
+                         사용자 번호
+                         </td>
+                         <td>
+                             <label for="uno"></label><input type="number" id="uno" name="uno" value="{{ userdtl[0] }}">
+                         </td>
+                         <td></td>
+                     </tr>
+                     <tr>
+                         <td>
+                         사용자아이디
+                         </td>
+                         <td>
+                         {{ userdtl[1] }}
+                         </td>
+                         <td>
+                             <button class="btn btn-primary" style="display: none"> 개인정보 수정 </button>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>
+                         사용자명
+                         </td>
+                         <td>
+                         {{ userdtl[2] }}
+                         </td>
+                         <td></td>
+                     </tr>
+                     <tr>
+                         <td>
+                         권한
+                         </td>
+                         <td>
+                         {% if userdtl[4]=="ADMIN" %}지역관리자{% else %}클럽관리자{% endif %}
+                         </td>
+                         </td>
+                         <td></td>
+                     </tr>
+                     <tr>
+                         <td>소속지역</td>
+                         <td><select class="form-control" name="regno">
+                                <option value="0" {% if userdtl[6] == '' %}selected{% endif %}>소속지역없음</option>
+                                        {% for i in range(1, 17) %}
+                                <option value="{{ i }}" {% if userdtl[6] == i %}selected{% endif %}>{{ i }}지역</option>
+                                        {% endfor %}
+                                </select></td>
+                         <td></td>
+                     </tr>
+                     <tr>
+                         <td>소속클럽</td>
+                         <td><select id="clublst" class="form-control selectpicker" data-live-search ="true" name="clublst">
+                                        {% for club in clublist %}
+                                        <option value="{{club[0]}}" {% if club[0]== userdtl[7] %}selected{% endif %}>
+                                            {{club[1]}}
+                                        </option>
+                                        {% endfor %}
+                                    </select></td>
+                         <td></td>
+                     </tr>
+                    </table>
+                 </form>
+                    <table class="table">
+                        <tr>
+                         <td>password</td>
+                         <td><input id = "mypasswd" name = "mypasswd" type="password" class="form-control"> </td>
+                         <td><button class="btn btn-danger" onclick="setmypass({{ userdtl[0] }})">암호변경</button></td>
+                     </tr>
+                    </table>
+             </div>
             </div>
             <!-- /.container-fluid -->
         </div>
@@ -39,5 +111,43 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 </body>
+<script>
+    $(document).ready(function () {
+    $('.selectpicker').selectpicker({
+      style: 'btn-inverse',
+      size: 40
+     });
+    });
+
+    function setmypass(uno) {
+    passwd = $('#mypasswd').val();
+    if (passwd == "") {
+        alert("변경하려는 암호가 없습니다.");
+        return;
+    }
+    const data = {
+        uno: uno,
+        passwd: passwd
+    };
+
+    $.ajax({
+        type: "POST",
+        url: "/changeuserpass",
+        data: JSON.stringify(data), // JSON 문자열로 변환
+        contentType: "application/json", // JSON 타입 명시
+        success: function(res) {
+            console.log(res);
+            alert("암호가 변경되었습니다. 원활한 사용을 위해 다시 로그인 해주세요.");
+            window.location.href = "/logout";
+        },
+        error: function(xhr, status, error) {
+            alert("암호 변경에 실패했습니다: " + xhr.responseText);
+        }
+    });
+}
+
+</script>
 </html>
