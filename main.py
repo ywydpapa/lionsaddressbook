@@ -1839,7 +1839,6 @@ async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
     finally:
         return result
 
-
 class RequestMessage(BaseModel):
     memberNo: str
     message: str
@@ -1877,6 +1876,28 @@ async def funcno(memberno:int,funcno:int, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         print("request_message error:", e)
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
+
+@app.post("/phapp/noticeRead/{memberno}/{noticeno}/{noticetype}")
+async def readnot(memberno:int,noticeno:int,noticetype:str ,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("INSERT INTO noticeAndswer (memberNo , noticeNo , noticeType, readYN) values (:memberNo , :notno , :nottype , 'Y')")
+        await db.execute(query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype })
+        await db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print("request_message error:", e)
+        raise HTTPException(status_code=500, detail="공지 읽음 처리 오류 발생")
+
+@app.post("/phapp/noticeAttend/{memberno}/{noticeno}/{noticetype}/{attend}")
+async def attendnot(memberno:int,noticeno:int,noticetype:str,attend:str ,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("update noticeAndswer set attendPlan = :attend where memberNo = :memberNo and noticeNo = :notno and noticeType = :nottype")
+        await db.execute(query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype, "attend": attend })
+        await db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print("request_message error:", e)
+        raise HTTPException(status_code=500, detail="공지 참석 처리 오류 발생")
 
 @app.get("/phapp/getmask/{memberno}")
 async def mskyn(memberno:int,db: AsyncSession = Depends(get_db)):
