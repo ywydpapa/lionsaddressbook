@@ -1657,7 +1657,7 @@ async def cnoticev(messageno: int, db: AsyncSession = Depends(get_db)):
             "SELECT * from clubboardMessage where messageNo = :messageno and attrib not like :attrib")
         result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
         rows = result.fetchall()
-        result = [{"noticeNo": row[0], "noticeType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
+        result = [{"noticeNo": row[0], "andswerType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
     except:
         print("error")
     finally:
@@ -1670,7 +1670,7 @@ async def noticev(messageno: int, db: AsyncSession = Depends(get_db)):
             "SELECT * from boardMessage where messageNo = :messageno and attrib not like :attrib")
         result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
         rows = result.fetchall()
-        result = [{"noticeNo": row[0], "noticeType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
+        result = [{"noticeNo": row[0], "andswerType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
     except:
         print("error")
     finally:
