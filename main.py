@@ -1878,12 +1878,28 @@ async def funcno(memberno:int,funcno:int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
 
 @app.post("/phapp/noticeRead/{memberno}/{noticeno}/{noticetype}")
-async def readnot(memberno:int,noticeno:int,noticetype:str ,db: AsyncSession = Depends(get_db)):
+async def readnot(memberno: int, noticeno: int, noticetype: str, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("INSERT INTO noticeAndswer (memberNo , noticeNo , noticeType, readYN) values (:memberNo , :notno , :nottype , 'Y')")
-        await db.execute(query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype })
-        await db.commit()
-        return {"status": "success"}
+        check_query = text("""
+            SELECT 1 FROM noticeAndswer
+            WHERE memberNo = :memberNo
+              AND noticeNo = :notno
+              AND noticeType = :nottype
+            LIMIT 1
+        """)
+        result = await db.execute(check_query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype})
+        exists = result.scalar() is not None
+        if not exists:
+            insert_query = text("""
+                INSERT INTO noticeAndswer (memberNo, noticeNo, noticeType, readYN)
+                VALUES (:memberNo, :notno, :nottype, 'Y')
+            """)
+            await db.execute(insert_query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype})
+            await db.commit()
+            return {"status": "success"}
+        else:
+            # 이미 있으면 성공 처리(혹은 다른 메시지)
+            return {"status": "already_exists"}
     except Exception as e:
         print("request_message error:", e)
         raise HTTPException(status_code=500, detail="공지 읽음 처리 오류 발생")
