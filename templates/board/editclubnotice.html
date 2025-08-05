@@ -46,7 +46,15 @@
                                     <td> 공지기간 </td>
                                     <td> <input type="datetime-local" id="notfrom" name="notfrom" value="{{from_date}}">~<input type="datetime-local" id="notto" name="notto" value="{{to_date}}"></td>
                                 </tr>
-
+                                <tr>
+                                    <td> 공지종류</td>
+                                    <td> <select class="form-control" id="nottype" name="nottype">
+                                        <option value="RONLY" {% if notice[3] == 'RONLY' %}selected{% endif %} >단순 열람</option>
+                                        <option value="ATTYN" {% if notice[3] == 'ATTYN' %}selected{% endif %} >참석 확인</option>
+                                        <option value="AGREE" {% if notice[3] == 'AGREE' %}selected{% endif %}>동의 여부</option>
+                                    </select>
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12"

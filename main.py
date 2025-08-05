@@ -1043,6 +1043,7 @@ async def update_clubdtl(request: Request, messageno: int, db: AsyncSession = De
     data4update = {
         "messageTitle": form_data.get("nottitle"),
         "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"),
         "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
@@ -1066,6 +1067,7 @@ async def update_clubnot(request: Request, messageno: int, db: AsyncSession = De
     data4update = {
         "messageTitle": form_data.get("nottitle"),
         "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"),
         "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
@@ -1115,6 +1117,7 @@ async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depen
         "regionNo": regionno,
         "messageTitle": form_data.get("nottitle"),
         "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"),
         "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
@@ -1143,6 +1146,7 @@ async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends
         "clubNo": clubno,
         "messageTitle": form_data.get("nottitle"),
         "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"),
         "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
