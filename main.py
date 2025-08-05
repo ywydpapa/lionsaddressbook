@@ -1606,6 +1606,20 @@ async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
     finally:
         return {"docs": result}
 
+@app.get("/phapp/notice/{regionno}/{memberno}")
+async def notice2(regionno: int, memberno:int ,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT a.messageNo, a.messageTitle,b.readYN, b.attendPlan from boardMessage a left join noticeAndswer b on b.noticeType = 'REGION' and a.messageNo = b.noticeNo and b.memberNo = :memberno where a.regionNo = :regionno and a.attrib not like :attrib")
+        result = await db.execute(query, {"regionno": regionno,"memberno":memberno ,"attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "noticeTitle": row[1], "readYN": row[2], "attendPlan": row[3]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+
 @app.get("/phapp/clubnotice/{clubno}")
 async def cnotice(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
@@ -1614,6 +1628,19 @@ async def cnotice(clubno: int, db: AsyncSession = Depends(get_db)):
         result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
         rows = result.fetchall()
         result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"docs": result}
+
+@app.get("/phapp/clubnotice/{clubno}/{memberno}")
+async def cnotice2(clubno: int,memberno:int ,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text(
+            "SELECT a.messageNo, a.messageTitle,b.readYN, b.attendPlan from clubboardMessage a left join noticeAndswer b on b.noticeType = 'CLUB' and a.messageNo = b.noticeNo and b.memberNo = :memberno where a.clubNo = :clubno and a.attrib not like :attrib")
+        result = await db.execute(query, {"clubno": clubno,"memberno":memberno ,"attrib": "%XXX%"})
+        rows = result.fetchall()
+        result = [{"noticeNo": row[0], "noticeTitle": row[1], "readYN": row[2], "attendPlan": row[3]} for row in rows]
     except:
         print("error")
     finally:
