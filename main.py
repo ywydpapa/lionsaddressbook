@@ -1207,6 +1207,23 @@ async def sendsms(request: Request, clubno: int, db: AsyncSession = Depends(get_
     )
     return RedirectResponse(f"/clubsms/{user_clubno}", status_code=303)
 
+@app.post("/sendmembersms/{clubno}", response_class=HTMLResponse)
+async def sendsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    print("###SMS 호출")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    smstitle = form_data.get("smstitle")
+    smsmessage = form_data.get("smsmessage")
+    selusers = form_data.getlist("seluser")
+
+    for memberno in selusers:
+        await send_fcm_topic_notice_member(
+            memberno=memberno,
+            title=smstitle or "개별통지",
+            body=smsmessage or "개별통지"
+        )
+    return RedirectResponse(f"/membersms/{user_clubno}", status_code=303)
+
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
 async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):

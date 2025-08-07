@@ -30,14 +30,25 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td> 수신자 </td>
+                                    <td>수신자</td>
                                     <td>
-                                        <select class="form-control" name="seluser" id="seluser" multiple size="10" >
-                                        {% for user in user_list %}
-                                            <option value="{{user[0]}}">{{user[1]}}</option>
-                                        {% endfor %}
+                                        <div style="display: flex; gap: 10px;">
+                                            <!-- 왼쪽: 전체 회원 목록 -->
+                                            <select class="form-control" id="allUsers" multiple size="10" style="width: 45%;">
+                                                {% for user in user_list %}
+                                                <option value="{{user[0]}}">{{user[1]}}</option>
+                                                {% endfor %}
+                                            </select>
+                                        <div style="display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+                                        <button type="button" id="toRight" class="btn btn-secondary">&gt;&gt;</button>
+                                            <button type="button" id="toLeft" class="btn btn-secondary">&lt;&lt;</button>
+                                        </div>
+                                        <!-- 오른쪽: 선택된 회원 목록 -->
+                                        <select class="form-control" id="selectedUsers" name="seluser" multiple size="10" style="width: 45%;">
+                                        <!-- 여기에 선택된 회원이 이동됨 -->
                                         </select>
-                                    </td>
+                                        </div>
+                                        </td>
                                 </tr>
                                <tr>
                                     <td> 제목 </td>
@@ -49,7 +60,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 80%;">메세지 전송
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 80%;" id="sendBtn">메세지 전송
                                             </button>
                                     </td>
                                 </tr>
@@ -82,7 +93,62 @@
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    const allUsers = document.getElementById('allUsers');
+    const selectedUsers = document.getElementById('selectedUsers');
+    const toRight = document.getElementById('toRight');
+    const toLeft = document.getElementById('toLeft');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // 초기 버튼 상태 설정
+    updateSendBtn();
+
+    // 더블클릭 시 이동
+    allUsers.ondblclick = function() {
+        moveSelected(allUsers, selectedUsers);
+        updateSendBtn();
+    };
+    selectedUsers.ondblclick = function() {
+        moveSelected(selectedUsers, allUsers);
+        updateSendBtn();
+    };
+
+    // 버튼 클릭 시 이동
+    toRight.onclick = function() {
+        moveSelected(allUsers, selectedUsers);
+        updateSendBtn();
+    };
+    toLeft.onclick = function() {
+        moveSelected(selectedUsers, allUsers);
+        updateSendBtn();
+    };
+
+    // 폼 제출 시 오른쪽 select의 모든 option을 선택 처리
+    document.getElementById('editor-form').onsubmit = function(e) {
+        if (selectedUsers.options.length === 0) {
+            e.preventDefault(); // 선택된 회원 없으면 전송 막기
+            return false;
+        }
+        for (let option of selectedUsers.options) {
+            option.selected = true;
+        }
+    };
+
+    // 이동 함수
+    function moveSelected(from, to) {
+        const selected = Array.from(from.selectedOptions);
+        selected.forEach(option => {
+            to.appendChild(option);
+        });
+    }
+
+    // 전송 버튼 활성/비활성 함수
+    function updateSendBtn() {
+        sendBtn.disabled = selectedUsers.options.length === 0;
+    }
+});
 </script>
+
 </body>
 </html>
 
