@@ -70,7 +70,22 @@ async def send_fcm_topic_notice(clubno: int, title: str, body: str):
         topic=topic,
     )
     response = messaging.send(message)
-    return response  # 성공 시 메시지 ID가 반환됩니다.
+    return response
+
+async def send_fcm_topic_notice_member(memberno: int, title: str, body: str):
+    topic = f"member_{memberno}"
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data={
+            "memberNo": str(memberno),
+        },
+        topic=topic,
+    )
+    response = messaging.send(message)
+    return response
 
 async def send_fcm_topic_notice_region(regionno: int, title: str, body: str):
     topic = f"region_{regionno}"
@@ -973,6 +988,18 @@ async def clubsms(request: Request, clubno: int):
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/clubsms.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno})
+
+@app.get("/membersms/{clubno}", response_class=HTMLResponse)
+async def membersms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    user_list = await get_clubmemberlist(clubno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/membersms.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "user_list": user_list})
 
 
 @app.get("/addclubnotice/{clubno}", response_class=HTMLResponse)

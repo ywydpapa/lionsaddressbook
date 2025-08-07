@@ -201,8 +201,7 @@
                                             <a href="#" onclick="window.location.href='/clubList'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">클럽 목록으로 돌아가기</a>
-                                            <a href="#" onclick="window.location.href='/slimage/{{ clubno }}'; return false;"
-                                               class="btn btn-danger"
+                                            <a href="#" onclick="openSloganImage({{ clubno }})" class="btn btn-danger"
                                                role="button" style="flex: 0 0 30%;">클럽 이미지 생성</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 40%;">저장
                                             </button>
@@ -243,5 +242,16 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
+<script>
+function openSloganImage(clubno) {
+    // 팝업 창 크기와 옵션 지정
+    const url = `/slimage/${clubno}`;
+    window.open(
+        url,
+        'sloganImagePopup',
+        'width=420,height=420,scrollbars=no,resizable=no'
+    );
+}
+</script>
 </body>
 </html>
