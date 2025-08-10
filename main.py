@@ -142,6 +142,16 @@ async def get_clublist(db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
 
 
+async def get_circlelist(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsCircle where attrib not like :attpatt")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        circle_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return circle_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CIRCLELIST)")
+
+
 async def get_clubboards(clubno: int, db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsBoard where attrib not like :attpatt AND clubno = :clubno")
@@ -236,6 +246,22 @@ async def get_regionmemberlist(region: int, db: AsyncSession):
         raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
 
 
+async def get_circlememberlist(circleno: int, db: AsyncSession):
+    try:
+        query = text(
+            "SELECT lm.*, lcc.clubName, lr.rankTitlekor, lr2.rankTitlekor FROM lionsMember lm "
+            "left join lionsClub lcc on lm.clubNo = lcc.clubNo "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "left join circleMember cm on lm.memberNo = cm.memberNo "
+            "LEFT JOIN lionsRank lr2 ON cm.rankNo = lr2.rankNo "
+            "where cm.circleNo = :circleno order by lm.clubNo, lm.memberJoindate")
+        result = await db.execute(query, {"circleno": circleno})
+        cmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return cmember_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CircleMemberLIST)")
+
+
 async def get_memberlist(db: AsyncSession):
     try:
         query = text(
@@ -256,6 +282,25 @@ async def get_rankmemberlist(rankno: int, db: AsyncSession):
         return rankmember_list
     except:
         raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
+
+async def get_circlerank(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsRank where rankDiv = :rankdiv")
+        result = await db.execute(query, {"rankdiv": 'CIRCLE'})
+        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return rank_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RankCircleList)")
+
+
+async def get_circledtl(circleno:int,db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsCircle where circleNo = :circleno")
+        result = await db.execute(query, {"circleno": circleno})
+        circle = result.fetchone()  # 클럽 데이터를 모두 가져오기
+        return circle
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(Circledtl)")
 
 
 async def get_memberdetail(memberon: int, db: AsyncSession):
@@ -378,7 +423,6 @@ async def get_clubstaffwithname(clubno: int, db: AsyncSession):
 
 
 def split_text_to_multiline(draw, text, font, max_width):
-    """슬로건을 width 제한에 맞춰 2줄로 나눔(단어 기준 줄바꿈)"""
     words = text.split(' ')
     lines = []
     current_line = ""
@@ -473,7 +517,26 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
 
 async def get_ranklist(db: AsyncSession):
     try:
+        query = text("SELECT * FROM lionsRank where attrib not like :attpatt and rankDiv in ('CLUB','DIST') order by orderNo")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return rank_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
+
+async def get_ranklistall(db: AsyncSession):
+    try:
         query = text("SELECT * FROM lionsRank where attrib not like :attpatt order by orderNo")
+        result = await db.execute(query, {"attpatt": "%XXX%"})
+        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
+        return rank_list
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
+
+
+async def get_ranklistcircle(db: AsyncSession):
+    try:
+        query = text("SELECT * FROM lionsRank where attrib not like :attpatt and rankDiv in ('CIRC') order by orderNo")
         result = await db.execute(query, {"attpatt": "%XXX%"})
         rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return rank_list
@@ -736,6 +799,21 @@ async def rmemberList(request: Request, regno: int, db: AsyncSession = Depends(g
                                        "rmember": rmember, "user_region": user_region, "user_clubno": user_clubno})
 
 
+@app.get("/circlememberList/{circleno}", response_class=HTMLResponse)
+async def ccmemberList(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    cmember = await get_circlememberlist(circleno, db)
+    circledtl = await get_circledtl(circleno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/circlememberList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "circledtl":circledtl,
+                                       "cmembers": cmember, "user_region": user_region, "user_clubno": user_clubno})
+
 @app.get("/memberList", response_class=HTMLResponse)
 async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -759,6 +837,15 @@ async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
     await db.execute(query, {"membername": memberName})
     await db.commit()
     return RedirectResponse("/memberList", status_code=303)
+
+
+@app.api_route("/addcircle", response_class=HTMLResponse, methods=["GET", "POST"])
+async def addcorcle(request: Request, db: AsyncSession = Depends(get_db)):
+    circleName = "신규추가 써클"
+    query = text(f"INSERT into lionsCircle (circleName) values (:circlename)")
+    await db.execute(query, {"circlename": circleName})
+    await db.commit()
+    return RedirectResponse("/circleList", status_code=303)
 
 
 @app.get("/memberdetail/{memberno}", response_class=HTMLResponse)
@@ -945,6 +1032,14 @@ async def editnotice(request: Request, regionno: int, db: AsyncSession = Depends
     return templates.TemplateResponse("board/noticeList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
+
+@app.get("/listanswer/{noiceno}/{noticetype}", response_class=HTMLResponse)
+async def editnotice(request: Request, noticeno: int,noticetype:str, db: AsyncSession = Depends(get_db)):
+    query = text("SELECT * FROM noticeAnswer where noticeNo = :noticeno and noticeType = :noticetype")
+    result = await db.execute(query, {"noticeno": noticeno, "noticetype": noticetype})
+    answerlist = result.fetchall()
+    return answerlist
+
 
 @app.get("/listclubnotice/{clubno}", response_class=HTMLResponse)
 async def editnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
@@ -1248,6 +1343,24 @@ async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depen
     return RedirectResponse(f"/editclub/{clubno}", status_code=303)
 
 
+@app.post("/updatecircle/{circleno}", response_class=HTMLResponse)
+async def update_circledtl(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "circleName": form_data.get("circlename"),
+        "circleType": form_data.get("circletype"),
+        "circleAddress": form_data.get("circleaddr"),
+        "circleTel": form_data.get("circletel"),
+    }
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE lionsCircle SET {set_clause} WHERE circleNo = :circleNo")
+    update_fields["circleNo"] = circleno
+    await db.execute(query, update_fields)
+    await db.commit()
+    return RedirectResponse(f"/editcircle/{circleno}", status_code=303)
+
+
 @app.get("/regionclubList/{regno}", response_class=HTMLResponse)
 async def regionclubList(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -1270,7 +1383,7 @@ async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
-    rank_list = await get_ranklist(db)
+    rank_list = await get_ranklistall(db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("admin/rankList.html",
@@ -1339,6 +1452,19 @@ async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSessi
                                        "staff_dtl": staff_dtl, "clubmember": clubmember, "user_region": user_region, "user_clubno": user_clubno})
 
 
+@app.get("/circleStaff/{circleno}", response_class=HTMLResponse)
+async def circlestaff(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleStaff.html", {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"circle_no":circleno,
+                                       "user_region": user_region, "user_clubno": user_clubno})
+
+
 @app.post("/updatestaff/{clubno}", response_class=HTMLResponse)
 async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -1379,6 +1505,38 @@ async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
     return templates.TemplateResponse("admin/regionList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "region_list": region_list, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/circleList", response_class=HTMLResponse)
+async def circleList(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    circle_list = await get_circlelist(db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "circle_list": circle_list, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/editcircle/{circleno}", response_class=HTMLResponse)
+async def editcircle(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM lionsCircle where circleNo = :circleNo and attrib not like :atts")
+    result = await db.execute(query, {"circleNo": circleno, "atts": "%XXX%"})
+    circledtl = result.fetchone()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleDetail.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "circledtl": circledtl, "user_region": user_region, "user_clubno": user_clubno})
 
 
 @app.get("/editregion/{regno}", response_class=HTMLResponse)
