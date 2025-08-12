@@ -2183,7 +2183,7 @@ async def getcircle(memberno:int,db: AsyncSession = Depends(get_db)):
 @app.get("/phapp/getcirclemembers/{circleno}")
 async def getcirclemember(circleno:int,db: AsyncSession = Depends(get_db)):
     try:
-        query = text("select cm.memberNo , lm.memberName, lc.clubName , lr.rankTitlekor, lm.memberPhone  from circleMember cm left join lionsMember lm on cm.memberNo = lm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo left join lionsClub lc on lm.clubNo = lc.clubNo where cm.circleNo = :circleno order by lr.orderNo")
+        query = text("select cm.memberNo , lm.memberName, lc.clubName , lr.rankTitlekor, lm.memberPhone  from circleMember cm left join lionsMember lm on cm.memberNo = lm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo left join lionsClub lc on lm.clubNo = lc.clubNo where cm.circleNo = :circleno order by lr.orderNo, lc.clubNo")
         result = await db.execute(query, {"circleno": circleno })
         rows = result.fetchall()
         cmembers = [dict(row._mapping) for row in rows]
