@@ -24,7 +24,6 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from starlette.responses import FileResponse
 from pathlib import Path
-import datetime
 
 
 dotenv.load_dotenv()
