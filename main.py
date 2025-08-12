@@ -24,6 +24,7 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from starlette.responses import FileResponse
 from pathlib import Path
+import datetime
 
 
 dotenv.load_dotenv()
@@ -249,7 +250,7 @@ async def get_regionmemberlist(region: int, db: AsyncSession):
 async def get_circlememberlist(circleno: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lcc.clubName, lr.rankTitlekor, lr2.rankTitlekor FROM lionsMember lm "
+            "SELECT lm.*, lcc.clubName, lr.rankTitlekor, lr2.rankTitlekor as circleRanktitle FROM lionsMember lm "
             "left join lionsClub lcc on lm.clubNo = lcc.clubNo "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join circleMember cm on lm.memberNo = cm.memberNo "
@@ -260,6 +261,16 @@ async def get_circlememberlist(circleno: int, db: AsyncSession):
         return cmember_list
     except:
         raise HTTPException(status_code=500, detail="Database query failed(CircleMemberLIST)")
+
+
+async def get_circlememberdtl(circleno:int, memberno: int, db: AsyncSession):
+    try:
+        query = text("select cm.cmId, cm.circleNo, lc.circleName, cm.memberNo, lm.memberName,lr.rankNo,lr.rankTitlekor ,cm.addRemark, cm.circlePeriod from circleMember cm left join lionsMember lm on lm.memberNo = cm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo  left join lionsCircle lc on lc.circleNo = cm.circleNo where cm.memberNo = :memberno and cm.circleNo = :circleno")
+        result = await db.execute(query, {"memberno": memberno,"circleno":circleno})
+        cmember_dtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
+        return cmember_dtl
+    except:
+        raise HTTPException(status_code=500, detail="Database query failed(CircleMemberDetail)")
 
 
 async def get_memberlist(db: AsyncSession):
@@ -799,6 +810,22 @@ async def rmemberList(request: Request, regno: int, db: AsyncSession = Depends(g
                                        "rmember": rmember, "user_region": user_region, "user_clubno": user_clubno})
 
 
+def row_to_dict(row):
+    d = dict(row._mapping)
+    for k, v in d.items():
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            d[k] = v.isoformat()  # "YYYY-MM-DD" 또는 "YYYY-MM-DDTHH:MM:SS"
+    return d
+
+
+@app.get("/getcirclemembers/{circleno}", response_class=JSONResponse)
+async def getcirclemembers(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    rows = await get_circlememberlist(circleno, db)
+    members = [row_to_dict(row) for row in rows]
+    print(members)
+    return JSONResponse({"members": members})
+
+
 @app.get("/circlememberList/{circleno}", response_class=HTMLResponse)
 async def ccmemberList(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -806,13 +833,29 @@ async def ccmemberList(request: Request, circleno: int, db: AsyncSession = Depen
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
+    allmembers = await get_memberlist(db)
     cmember = await get_circlememberlist(circleno, db)
     circledtl = await get_circledtl(circleno, db)
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("member/circlememberList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "circledtl":circledtl,
-                                       "cmembers": cmember, "user_region": user_region, "user_clubno": user_clubno})
+                                       "cmembers": cmember, "user_region": user_region, "user_clubno": user_clubno, "allmembers":allmembers})
+
+@app.get("/editcirclemember/{circleno}/{memberno}", response_class=HTMLResponse)
+async def ccmemberList(request: Request, circleno:int, memberno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    ranks = await get_ranklistcircle(db)
+    cmemberdtl = await get_circlememberdtl(circleno, memberno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/circlememberdtl.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "circlerank":ranks,
+                                       "cmember": cmemberdtl, "user_region": user_region, "user_clubno": user_clubno})
 
 @app.get("/memberList", response_class=HTMLResponse)
 async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
@@ -1152,6 +1195,30 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     if not user_No:
         return RedirectResponse(url="/")
     return templates.TemplateResponse("board/editclubnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
+
+
+@app.post("/updatecirclemember/{cmid}", response_class=HTMLResponse)
+async def update_ccirclemember(request: Request, cmid:int , db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    form_data = await request.form()
+    data4update = {
+        "circleNo": form_data.get("circleno"),
+        "memberNo": form_data.get("memberno"),
+        "rankNo": form_data.get("rankno"),
+        "addRemark": form_data.get("memo"),
+    }
+    circleno = form_data.get("circleno")
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE circleMember SET {set_clause} WHERE cmId = :cmid")
+    update_fields["cmid"] = cmid
+    await db.execute(query, update_fields)
+    await db.commit()
+    return RedirectResponse(f"/circlememberList/{circleno}", status_code=303)
 
 
 @app.post("/updatenotice/{messageno}", response_class=HTMLResponse)
@@ -1694,12 +1761,25 @@ async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
                                        "requests": requests, "user_region": user_region, "user_clubno": user_clubno})
 
 
-@app.post("/updaterequest/{requestno}", response_class=HTMLResponse)
+@app.post("/updaterequest/{requestno}")
 async def updaterequest(request: Request, requestno: int, db: AsyncSession = Depends(get_db)):
     query = text(f"UPDATE requestMessage SET attrib = :attr WHERE requestNo = :requestno")
     await db.execute(query, {"requestno": requestno, "attr": "XXXUPXXXUP"})
     await db.commit()
     return JSONResponse({"result": "ok"})
+
+
+@app.post("/membertocircle/{circleno}/{memberno}")
+async def membertocircle(request: Request, circleno: int, memberno: int, db: AsyncSession = Depends(get_db)):
+    query = text(f"select * from circleMember where circleNo = :circleno and memberNo = :memberno")
+    result = await db.execute(query, {"circleno": circleno, "memberno": memberno})
+    if result.rowcount == 0:
+        query = text(f"INSERT into circleMember (circleNo, memberNo) values (:circleno, :memberno)")
+        await db.execute(query, {"circleno": circleno, "memberno": memberno})
+        await db.commit()
+        return JSONResponse({"result": "ok"})
+    else:
+        return JSONResponse({"result": "already"})
 
 
 @app.get("/slimage/{clubno}")

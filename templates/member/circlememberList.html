@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
     {% include '/comm/adheader.html' %}
+    <style>
+    #rmemberlist td, #rmemberlist th {
+        text-align: center;
+        vertical-align: middle;
+    }
+</style>
+
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -17,30 +24,66 @@
                 <!-- Page Heading -->
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <h4 class="h3 mb-4 text-gray-800">{{circledtl[1]}} 회원 리스트</h4>
+                    <a href="/circleList" class="btn btn-primary" role="button" style="flex: 0 0 auto;">써클 목록으로 돌아가기</a>
                 </div>
                 <div class="container">
-                    <div>
-                        <div style="float:right"></div>
-                        <table class="table" id="rmamberlist">
-                            <thead style="text-align: center">
-                            <th>회원번호</th>
-                            <th>회원성명</th>
-                            <th>소속클럽</th>
-                            <th>클럽직책</th>
-                            <th>써클직책</th>
-                            </thead>
-                            {% for member in cmembers %}
-                            <tr style="text-align: center">
-                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
-                                <td><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
-                                <td>{{ member[19] }}</td>
-                                <td>{{ member[20] }}</td>
-                                <td>{{ member[21] }}</td>
-                            </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
+    <!-- 전체 회원 리스트 영역 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            지구 전체 회원 리스트
+        </div>
+        <div class="card-body">
+            <table class="table" id="allmemberlist">
+                <thead style="text-align: center">
+                    <th>회원번호</th>
+                    <th>회원성명</th>
+                    <th>소속클럽</th>
+                    <th>클럽직책</th>
+                    <th>기능</th>
+                </thead>
+                {% for amember in allmembers %}
+                <tr style="text-align: center">
+                    <td>{{ amember[0] }}</td>
+                    <td>{{ amember[1] }}</td>
+                    <td>{{ amember[19] }}</td>
+                    <td>{{ amember[20] }}</td>
+                    <td><button class="btn-facebook add-member-btn" data-circleno="{{ circledtl[0] }}" data-memberno="{{ amember[0] }}"> 회원으로 추가 </button></td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    <!-- 써클 회원 리스트 영역 -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            {{circledtl[1]}} 회원 리스트
+        </div>
+        <div class="card-body">
+            <table class="table" id="rmemberlist">
+    <thead style="text-align: center">
+        <th>회원번호</th>
+        <th>회원성명</th>
+        <th>소속클럽</th>
+        <th>클럽직책</th>
+        <th>써클직책</th>
+    </thead>
+    <tbody>
+    {% for member in cmembers %}
+    <tr style="text-align: center">
+        <td><a href="/editcirclemember/{{circledtl[0]}}/{{ member.memberNo }}">{{ member.memberNo }}</a></td>
+        <td><a href="/editcirclemember/{{circledtl[0]}}/{{ member.memberNo }}">{{ member.memberName }}</a></td>
+        <td>{{ member.clubName }}</td>
+        <td>{{ member.rankTitlekor }}</td>
+        <td>{{ member.circleRanktitle }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+        </div>
+    </div>
+</div>
+
             </div>
         </div>
         <!-- /.container-fluid -->
@@ -69,10 +112,64 @@
 </body>
 </html>
 <script>
-    $(document).ready(function () {
-        $('#rmamberlist').DataTable({
-            "pageLength": 25,
-            order: [[0, "asc"]]
+$(document).ready(function () {
+    $('#rmemberlist').DataTable({
+    "pageLength": 25,
+    order: [[0, "asc"]],
+    "columnDefs": [
+        { className: "dt-center", targets: "_all" } // 모든 컬럼 가운데 정렬
+    ]
+});
+    $('#allmemberlist').DataTable({
+        "pageLength": 5,
+        order: [[1, "asc"]]
+    });
+
+    // 이벤트 위임 방식으로 변경!
+    $('#allmemberlist').on('click', '.add-member-btn', function () {
+        let circleno = $(this).data('circleno');
+        let memberno = $(this).data('memberno');
+        let $btn = $(this);
+
+        $.ajax({
+            url: `/membertocircle/${circleno}/${memberno}`,
+            type: 'POST',
+            success: function (data) {
+                if (data.result === "ok") {
+                    alert('회원이 성공적으로 추가되었습니다.');
+                    $btn.prop('disabled', true).text('추가됨');
+                    refreshCircleMemberList(circleno);
+                } else if (data.result === "already") {
+                    alert('이미 등록된 회원입니다.');
+                } else {
+                    alert('처리 중 오류가 발생했습니다.');
+                }
+            },
+            error: function () {
+                alert('서버와 통신 중 오류가 발생했습니다.');
+            }
         });
     });
+});
+
+function refreshCircleMemberList(circleno) {
+    $.get(`/getcirclemembers/${circleno}`, function(data) {
+        let table = $('#rmemberlist').DataTable();
+        table.clear();
+        data.members.forEach(function(member) {
+            let row = [
+                `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberNo}</a>`,
+                `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberName}</a>`,
+                member.clubName,
+                member.rankTitlekor,
+                member.circleRanktitle || '' // null이면 빈칸
+            ];
+            table.row.add(row);
+        });
+
+        table.draw();
+    });
+}
+
 </script>
+
