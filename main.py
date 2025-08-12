@@ -14,7 +14,7 @@ from sqlalchemy import text
 import dotenv
 import os
 import base64
-from datetime import datetime, timedelta
+import datetime
 from PIL import Image, ImageFont, ImageDraw
 import io
 from pydantic import BaseModel
