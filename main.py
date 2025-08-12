@@ -2168,6 +2168,28 @@ async def getfunc(memberno:int,db: AsyncSession = Depends(get_db)):
     except Exception as e:
         print("request_message error:", e)
 
+@app.get("/phapp/getmycircle/{memberno}")
+async def getcircle(memberno:int,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("select cm.circleNo, lc.circleName  from circleMember cm left join lionsCircle lc on cm.circleNo = lc.circleNo where cm.memberNo = :memberno ")
+        result = await db.execute(query, {"memberno": memberno })
+        rows = result.fetchall()
+        circles = [dict(row._mapping) for row in rows]
+        return {"circles": circles}
+    except Exception as e:
+        print("request_message error:", e)
+
+
+@app.get("/phapp/getcirclemembers/{circleno}")
+async def getcirclemember(circleno:int,db: AsyncSession = Depends(get_db)):
+    try:
+        query = text("select cm.memberNo , lm.memberName, lc.clubName , lr.rankTitlekor, lm.memberPhone  from circleMember cm left join lionsMember lm on cm.memberNo = lm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo left join lionsClub lc on lm.clubNo = lc.clubNo where cm.circleNo = :circleno")
+        result = await db.execute(query, {"circleno": circleno })
+        rows = result.fetchall()
+        cmembers = [dict(row._mapping) for row in rows]
+        return {"cmembers": cmembers}
+    except Exception as e:
+        print("request_message error:", e)
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
