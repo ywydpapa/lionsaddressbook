@@ -1041,7 +1041,7 @@ async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depend
     if docresult:
         queryup = text(
             f"UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
-        timenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         await db.execute(queryup, {"timenow": timenow, "updattrib": "XXXUPXXXUP", "clubno": clubno,
                                    "doctype": form_data.get("doctype")})
     query = text(
@@ -1106,8 +1106,8 @@ async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
-    now = datetime.now()
-    two_weeks = now + timedelta(days=14)
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = now.strftime(fmt)
     to_date = two_weeks.strftime(fmt)
@@ -1146,8 +1146,8 @@ async def addcnotice(request: Request, clubno: int, db: AsyncSession = Depends(g
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
-    now = datetime.now()
-    two_weeks = now + timedelta(days=14)
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = now.strftime(fmt)
     to_date = two_weeks.strftime(fmt)
@@ -1166,8 +1166,8 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     query = text("SELECT * FROM boardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
-    now = datetime.now()
-    two_weeks = now + timedelta(days=14)
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
@@ -1186,8 +1186,8 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     query = text("SELECT * FROM clubboardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
-    now = datetime.now()
-    two_weeks = now + timedelta(days=14)
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
@@ -1398,7 +1398,7 @@ async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depen
         "officeFax": form_data.get("offfax"),
         "officeEmail": form_data.get("offemail"),
         "officeWeb": form_data.get("offweb"),
-        "modDate": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "modDate": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -1483,7 +1483,6 @@ async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depen
         "orderNo": form_data.get("orderno"),
         "useYN": form_data.get("useyn"),
     }
-    mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     query = text(
         f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
     await db.execute(query, data4update)
@@ -1675,7 +1674,7 @@ async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends
         "yearFrom": form_data.get("yearfrom"),
         "yearTo": form_data.get("yearto"),
     }
-    mdatenow = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    mdatenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     queryup = text(f"UPDATE lionsRegion SET attrib = :attr, modDate = :mdate WHERE regionNo = :regno")
     await db.execute(queryup, {"regno": regno, "attr": "XXXUPXXXUP", "mdate": mdatenow})
     query = text(
