@@ -1813,6 +1813,12 @@ async def addboard(request: Request, boardno: int, clubno: int, clubname: str, d
     return RedirectResponse(f"/boardList/{clubno}/{clubname}", status_code=303)
 
 
+@app.api_route("/updateclubsort/{memberno}/{sortno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def updatesort(request: Request, memberno: int, sortno: int, db: AsyncSession = Depends(get_db)):
+    query = text(f"update lionsMember set clubSortNo=:sortNo where memberNo=:memberNo")
+    await db.execute(query, {"sortNo": sortno, "memberNo": memberno})
+    await db.commit()
+    return JSONResponse(content={"result": "ok"})
 
 
 # 로그아웃 처리
@@ -1839,7 +1845,7 @@ async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
 async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.memberJoindate")
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
         result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3]} for row in rows]
@@ -2052,7 +2058,9 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             "WITH LatestPhoto AS (SELECT mPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberPhoto ),"
             "LatestNC AS ( SELECT ncardPhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberNamecard ),"
             "LatestSP AS ( SELECT spousePhoto, memberNo,ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn FROM memberSpouse )"
-            "SELECT lm.*, (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
+            "SELECT lm.memberNo, lm.memberName, lm.memberMF, lm.memberBirth, lm.memberSeccode, lm.memberAddress, lm.memberPhone, lm.memberEmail, "
+            "lm.memberJoindate, lm.clubNo, lm.sponserNo , lm.addMemo, lm.rankNo, lm.officeAddress, lm.spouseName, lm.spousePhone, lm.spouseBirth, lm.maskYN, lm.funcNo,"
+            " (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
             "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
             "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
             "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "

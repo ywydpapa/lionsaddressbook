@@ -26,6 +26,7 @@
                         <th>회원성명</th>
                         <th>연락처</th>
                         <th>직책</th>
+                        <th>배치순서</th>
                         </thead>
                         <tbody>
                         {% for member in cmembers %}
@@ -34,7 +35,8 @@
                                 <td style="text-align: center; vertical-align: middle;"><img src="/static/img/members/{{member[0]}}.png" onerror="this.src='/static/img/members/default.png'" alt="Member Image"></td>
                                 <td style="text-align: center; vertical-align: middle;"><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
                                 <td style="text-align: center; vertical-align: middle;">{{ member[6] }}</td>
-                                <td style="text-align: center; vertical-align: middle;">{{ member[19] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[20] }}</td>
+                                <td style="text-align: center; vertical-align: middle;"> <input class="form-control-sm sort-input" style="text-align: right; border: none" type="number" value="{{ member[19] }}" data-memberno="{{ member[0] }}"></td>
                             </tr>
                         {% endfor %}
                         </tbody>
@@ -74,4 +76,28 @@
             order: [[4, "asc"]]
         });
     });
+
+    // 배치순서 input blur 이벤트 핸들러
+    $('.sort-input').on('blur', function() {
+        const memberNo = $(this).data('memberno');
+        const sortNo = $(this).val();
+
+        // AJAX 요청
+        $.ajax({
+            url: `/updateclubsort/${memberNo}/${sortNo}`,
+            type: 'POST',
+            success: function(response) {
+                // 성공 시 처리 (필요하다면)
+                if(response.result === "ok") {
+                    // 예: 알림 표시
+                    // alert('배치순서가 변경되었습니다.');
+                }
+            },
+            error: function(xhr, status, error) {
+                // 오류 시 처리
+                alert('배치순서 변경 실패');
+            }
+        });
+    });
+
 </script>
