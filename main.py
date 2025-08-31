@@ -1075,6 +1075,48 @@ async def editnotice(request: Request, regionno: int, db: AsyncSession = Depends
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
 
+
+@app.get("/clubnoticeread/{messageno}", response_class=HTMLResponse)
+async def clubnoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("select cm.messageTitle , lm.memberName , na.readYN, na.attendPlan ,na.modDate from clubboardMessage cm "
+                 "left join lionsMember lm on cm.clubNo = lm.clubNo "
+                 "left join noticeAndswer na on na.noticeNo = cm.messageNo and na.memberNo = lm.memberNo "
+                 "where cm.messageNo = :messageNo order by lm.clubSortNo ")
+    result = await db.execute(query, {"messageNo": messageno})
+    noticeread = result.fetchall()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/clubnoticeRead.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "notices": noticeread, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/regionnoticeread/{messageno}", response_class=HTMLResponse)
+async def regionnoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT bm.messageTitle,lc.clubNo,lc.clubName,lm.memberNo,lm.memberName,na.readYN, na.attendPlan,na.modDate FROM boardMessage bm "
+                 "LEFT JOIN lionsClub lc ON lc.regionNo = bm.regionNo "
+                 "LEFT JOIN lionsMember lm ON lm.clubNo = lc.clubNo "
+                 "LEFT JOIN noticeAndswer na on bm.messageNo = na.noticeNo and lm.memberNo = na.memberNo "
+                 "WHERE bm.messageNo = :messageNo ORDER BY lc.clubNo, lm.memberNo")
+    result = await db.execute(query, {"messageNo": messageno})
+    noticeread = result.fetchall()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/regionnoticeRead.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "notices": noticeread, "user_region": user_region, "user_clubno": user_clubno})
+
+
 @app.get("/listanswer/{noiceno}/{noticetype}", response_class=HTMLResponse)
 async def editnotice(request: Request, noticeno: int,noticetype:str, db: AsyncSession = Depends(get_db)):
     query = text("SELECT * FROM noticeAnswer where noticeNo = :noticeno and noticeType = :noticetype")

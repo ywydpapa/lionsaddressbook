@@ -44,11 +44,11 @@
                                     <td>{{notice[0]}}</td>
                                     <td>
                                         {% if notice[3] == 'RONLY' %}
-                                        단순 열람
+                                        <a href="/regionnoticeread/{{notice[0]}}">단순 열람</a>
                                         {% elif notice[3] == 'ATTYN' %}
-                                        참석 확인
+                                        <a href="/regionnoticeread/{{notice[0]}}">참석 확인</a>
                                         {% elif notice[3] == 'AGREE' %}
-                                        동의 여부
+                                        <a href="/regionnoticeread/{{notice[0]}}">동의 여부</a>
                                         {% else %}
                                         알 수 없음
                                         {% endif %}
