@@ -348,7 +348,7 @@ async def get_clubmembercard(clubno: int, db: AsyncSession):
 async def get_clubmemberlist(clubno: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
+            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no order by lm.clubSortNo")
         result = await db.execute(query, {"club_no": clubno})
         member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return member_list
