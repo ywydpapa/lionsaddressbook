@@ -2131,7 +2131,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                        "memberJoindate": rows[8],
                        "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[21], "nameCard": rows[22],
                        "officeAddress": rows[13],
-                       "spouseName": rows[14], "spousePhone": rows[23], "spouseBirth": rows[16],
+                       "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16],
                        "spousePhoto": rows[23],
                        "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
                        "offtel": rows[30],
