@@ -2105,7 +2105,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             " (TO_BASE64(lp.mPhoto)), lr.rankTitlekor, lc.clubName, (TO_BASE64(ln.ncardPhoto)), (TO_BASE64(ls.spousePhoto)), mb.* FROM lionsMember lm "
             "left join latestPhoto lp on lm.memberNo = lp.memberNo and lp.rn = 1 "
             "left join latestNC ln on lm.memberNo = ln.memberNo and ln.rn = 1 "
-            "left join latestSP ls on ls.memberNo = ln.memberNo and ls.rn = 1 "
+            "left join latestSP ls on lm.memberNo = ls.memberNo and ls.rn = 1 "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "left join memberBusiness mb on lm.memberNo = mb.memberNo "
