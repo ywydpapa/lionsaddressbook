@@ -614,7 +614,7 @@ async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...)
         return RedirectResponse(f"/doclist/{clubno}", status_code=303)
 
 
-async def resize_image_if_needed(contents: bytes, max_bytes: int = 1048576) -> bytes:
+async def resize_image_if_needed(contents: bytes, max_bytes: int = 102400) -> bytes:
     if len(contents) <= max_bytes:
         return contents
     image = Image.open(io.BytesIO(contents))
@@ -648,7 +648,7 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
         # 파일 읽기
         contents = await file.read()
         # 이미지 사이즈 조절
-        contents = await resize_image_if_needed(contents, max_bytes=1048576)
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberPhoto (memberNo, mPhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
@@ -672,7 +672,7 @@ async def upload_ncimage(request: Request, memberno: int, file: UploadFile = Fil
         # 파일 읽기
         contents = await file.read()
         # 이미지 사이즈 조절
-        contents = await resize_image_if_needed(contents, max_bytes=1048576)
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberNamecard (memberNo, ncardPhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
@@ -696,7 +696,7 @@ async def upload_spimage(request: Request, memberno: int, file: UploadFile = Fil
         # 파일 읽기
         contents = await file.read()
         # 사이즈 조절
-        contents = await resize_image_if_needed(contents, max_bytes=1048576)
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
         # 데이터베이스에 이미지 저장
         query = text("INSERT INTO memberSpouse (memberNo, spousePhoto) VALUES (:memno, :photo)")
         await db.execute(query, {"memno": memberno, "photo": contents})
