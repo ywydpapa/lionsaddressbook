@@ -2093,6 +2093,29 @@ async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get
         return {"members": result}
 
 
+@app.get("/phapp/csearchmember/{clubno}/{keywd}")
+async def csearchmember(clubno:int, keywd: str, db: AsyncSession = Depends(get_db)):
+    try:
+        keywd = f"%{keywd}%"
+        query = text(
+            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
+            "left join lionsRank lr on lm.rankNo = lr.rankNo "
+            "left join lionsClub lc on lm.clubNo = lc.clubNo "
+            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
+            "where lc.clubNo = :clubno AND (lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
+            "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
+            "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword) order by lm.memberJoindate")
+        result = await db.execute(query, {"keyword": keywd, "clubno":clubno})  # 키워드 검색
+        rows = result.fetchall()
+        result = [
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
+            for row in rows]
+    except:
+        print("error")
+    finally:
+        return {"members": result}
+
+
 @app.get("/phapp/memberDtl/{memberno}")
 async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
     try:
