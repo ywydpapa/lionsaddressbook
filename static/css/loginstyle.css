@@ -163,9 +163,9 @@ body{margin:0 auto;}
 }
 
 #loginContents #loginContent .login{
-    position: relative;
+    position: fixed;
     left: 50%;
-    top: 50%;
+    top: 20%;
     transform:translate(-50%,-50%);
     display:inline-block;
 }
@@ -258,11 +258,14 @@ body{margin:0 auto;}
     border-radius: 8px;
 }
 
-#loginContent #loginIntroduce{
-    width: 100%;
-    height: 100%;
-    background-image: url("/static/img/lionslogo.png");
-    background-size: cover;
+#loginContent #loginIntroduce::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url("/static/img/lionslogo.png") repeat;
+    filter: grayscale(100%);
+    opacity: 0.1; /* 이미지만 10% 보이도록 */
+    z-index: 0;
 }
 
 #loginContent #loginIntroduce #loginSpans{
@@ -275,14 +278,14 @@ body{margin:0 auto;}
     font-weight: 300;
     font-size: calc(1em + 2vw);
     line-height: 70px;
-    color: #FFFFFF;
+    color: #4be545;
 }
 
 #loginContent #loginIntroduce #loginSpans #loginIntroSpan_2{
     font-weight: 700;
     font-size: calc(1em + 2vw);
     line-height: 70px;
-    color: #FFFFFF;
+    color: #4be545;
 }
 
 /* @media(max-width: 1439px){
