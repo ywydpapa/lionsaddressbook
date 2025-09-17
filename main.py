@@ -2346,6 +2346,10 @@ async def getcirclemember(circleno:int,db: AsyncSession = Depends(get_db)):
 async def privacy(request: Request):
     return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
 
+@app.get("/privacy2", response_class=HTMLResponse)
+async def privacy(request: Request):
+    return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
+
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_404_handler(request: Request, exc: StarletteHTTPException):
