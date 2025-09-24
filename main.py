@@ -2370,3 +2370,6 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
         status_code=exc.status_code,
     )
 
+@app.get("/contactus", response_class=HTMLResponse)
+async def contactus(request: Request):
+    return templates.TemplateResponse("help/contactus.html", {"request": request})
