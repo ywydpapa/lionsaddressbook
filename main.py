@@ -2161,7 +2161,8 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             "  lc.clubName, "
             "  (TO_BASE64(ln.ncardPhoto)), "
             "  (TO_BASE64(ls.spousePhoto)), "
-            "  mb.* "
+            "  mb.*, "
+            "  lm.clubRank "
             "FROM lionsMember lm "
             "LEFT JOIN LatestPhoto lp ON lm.memberNo = lp.memberNo AND lp.rn = 1 "
             "LEFT JOIN LatestNC ln ON lm.memberNo = ln.memberNo AND ln.rn = 1 "
@@ -2184,7 +2185,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                    "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
                    "offtel": rows[30],
                    "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                   "offSns": rows[35], "bisMemo": rows[36]}]
+                   "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
         elif rows[17]=='S':
             result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[19],
                        "clubNo": rows[9],
@@ -2197,7 +2198,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                        "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
                        "offtel": rows[30],
                        "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                       "offSns": rows[35], "bisMemo": rows[36]}]
+                       "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
         elif rows[17] == 'T':
             result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[19],
                        "clubNo": rows[9],
@@ -2210,7 +2211,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                        "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
                        "offtel": rows[30],
                        "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                       "offSns": rows[35], "bisMemo": rows[36]}]
+                       "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
         else:
             result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": "비공개", "mPhotoBase64": rows[19],
                        "clubNo": rows[9],
@@ -2223,7 +2224,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
                        "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개", "bistypeTitle": "비공개",
                        "offtel": "비공개",
                        "offAddress": "비공개", "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
-                       "offSns": "비공개", "bisMemo": "비공개"}]
+                       "offSns": "비공개", "bisMemo": "비공개", "clubRank":rows[39]}]
     except:
         print("Member Detail Phone error")
     finally:
