@@ -25,7 +25,8 @@
                         <th>회원사진</th>
                         <th>회원성명</th>
                         <th>연락처</th>
-                        <th>직책</th>
+                        <th>공식직책</th>
+                        <th>클럽직책</th>
                         <th>배치순서</th>
                         </thead>
                         <tbody>
@@ -35,7 +36,8 @@
                                 <td style="text-align: center; vertical-align: middle;"><img src="/static/img/members/{{member[0]}}.png" onerror="this.src='/static/img/members/default.png'" alt="Member Image"></td>
                                 <td style="text-align: center; vertical-align: middle;"><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
                                 <td style="text-align: center; vertical-align: middle;">{{ member[6] }}</td>
-                                <td style="text-align: center; vertical-align: middle;">{{ member[20] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[22] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[21] }}</td>
                                 <td style="text-align: center; vertical-align: middle;"> <input class="form-control-sm sort-input" style="text-align: right; border: none" type="number" min=0 max=300 value="{{ member[19] }}" data-memberno="{{ member[0] }}"></td>
                             </tr>
                         {% endfor %}
@@ -73,7 +75,7 @@
     $(document).ready(function () {
         $('#rmemberlist').DataTable({
             "pageLength": 15,
-            order: [[5, "asc"]]
+            order: [[6, "asc"]]
         });
     });
 

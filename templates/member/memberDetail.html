@@ -199,7 +199,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td>직책</td>
+                                    <td>지구공식직책</td>
                                     <td><select id="ranklst" class="form-control" name="ranklst">
                                         {% for rank in ranklist %}
                                         <option value="{{rank[0]}}" {% if rank[0]== memberdtl[12] %}selected{% endif %}>
@@ -207,6 +207,11 @@
                                         </option>
                                         {% endfor %}
                                     </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽내부직책</td>
+                                    <td><input type="text" id="clubrank" class="form-control" name="clubrank" value="{{ memberdtl[21] }}"/></td>
                                     </td>
                                 </tr>
                                 <tr>

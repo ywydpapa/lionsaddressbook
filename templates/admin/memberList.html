@@ -27,14 +27,14 @@
                             <th>회원번호</th>
                             <th>회원성명</th>
                             <th>소속클럽</th>
-                            <th>직책</th>
+                            <th>지구공식직책</th>
                             </thead>
                             {% for member in members %}
                             <tr style="text-align: center">
                                 <td><a href="/memberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
                                 <td><a href="/memberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
-                                <td>{{ member[20] }}</td>
-                                <td>{{ member[21] }}</td>
+                                <td>{{ member[22] }}</td>
+                                <td>{{ member[23] }}</td>
                             </tr>
                             {% endfor %}
                         </table>

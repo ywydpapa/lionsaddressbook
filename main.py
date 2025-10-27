@@ -934,6 +934,7 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
         "spouseName": form_data.get("spname"),
         "spousePhone": form_data.get("spphone"),
         "spouseBirth": form_data.get("spbirth"),
+        "clubRank": form_data.get("clubrank"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -1887,10 +1888,10 @@ async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
 async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
+            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
-        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3]} for row in rows]
+        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3], "clubRank":row[5]} for row in rows]
     except:
         print("error")
     finally:
@@ -2098,7 +2099,7 @@ async def csearchmember(clubno:int, keywd: str, db: AsyncSession = Depends(get_d
     try:
         keywd = f"%{keywd}%"
         query = text(
-            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
+            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN, lm.clubRank FROM lionsMember lm "
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join lionsClub lc on lm.clubNo = lc.clubNo "
             "left join memberBusiness mb on lm.memberNo = mb.memberNo "
@@ -2108,7 +2109,7 @@ async def csearchmember(clubno:int, keywd: str, db: AsyncSession = Depends(get_d
         result = await db.execute(query, {"keyword": keywd, "clubno":clubno})  # 키워드 검색
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4], "clubRank":row[5]}
             for row in rows]
     except:
         print("error")
