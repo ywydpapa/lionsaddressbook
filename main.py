@@ -2109,7 +2109,7 @@ async def csearchmember(clubno:int, keywd: str, db: AsyncSession = Depends(get_d
         result = await db.execute(query, {"keyword": keywd, "clubno":clubno})  # 키워드 검색
         rows = result.fetchall()
         result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4], "clubRank":row[5]}
+            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4], "clubRank":row[6]}
             for row in rows]
     except:
         print("error")
