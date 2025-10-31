@@ -28,7 +28,12 @@ from pathlib import Path
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_timeout=10,
+    pool_recycle=1800)
+
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 app = FastAPI()
