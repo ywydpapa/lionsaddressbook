@@ -2160,7 +2160,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             "  lm.spouseName, "
             "  lm.spousePhone, "
             " CASE "
-            "    WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2029' THEN '' "
+            "    WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2020' THEN '' "
             "    WHEN DATE_FORMAT(lm.spouseBirth, '%m-%d') = '01-01' THEN CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y'),'년생')"
             "    ELSE DATE_FORMAT(lm.spouseBirth, '%Y-%m-%d') "
             "  END AS spouseBirth, "
