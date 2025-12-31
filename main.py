@@ -137,6 +137,20 @@ async def save_ncthumbnail(image_data: bytes, memberno: int, size=(80, 100)):
     return thumbnail_path
 
 
+async def save_circlelogo(image_data: bytes, circleno: int, size=(200, 200)):
+    # 디렉토리가 없으면 생성
+    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+    # 원본 이미지를 Pillow로 열기
+    image = Image.open(io.BytesIO(image_data))
+    # 썸네일 생성
+    image.thumbnail(size)
+    # 저장 경로
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"{circleno}circlelogo.png")
+    # 썸네일 저장
+    image.save(thumbnail_path, format="PNG")
+    return thumbnail_path
+
+
 async def get_clublist(db: AsyncSession):
     try:
         query = text("SELECT * FROM lionsClub where attrib not like :attpatt")
@@ -665,6 +679,26 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+
+
+@app.post("/upload_clogo/{circleno}")
+async def upload_logoimage(request: Request, circleno: int, file: UploadFile = File(...),
+                       db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
+        # 데이터베이스에 이미지 저장
+        await save_circlelogo(contents, circleno)
+        # 리다이렉트
+        return RedirectResponse(f"/editcircle/{circleno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/editcircle/{circleno}", status_code=303)
 
 
 @app.post("/uploadnamecard/{memberno}")
