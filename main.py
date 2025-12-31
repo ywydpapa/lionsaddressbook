@@ -2179,7 +2179,7 @@ async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
             "LEFT JOIN LatestSP ls ON lm.memberNo = ls.memberNo AND ls.rn = 1 "
             "LEFT JOIN lionsRank lr ON lm.rankNo = lr.rankNo "
             "LEFT JOIN lionsClub lc ON lm.clubNo = lc.clubNo "
-            "LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo "
+            "LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo and mb.attrib not like '%XXX%'"
             "WHERE lm.memberNo = :memberno"
         )
         result = await db.execute(query, {"memberno": memberno})
