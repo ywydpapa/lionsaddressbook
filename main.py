@@ -1671,7 +1671,7 @@ async def editclub(request: Request, regno: int, db: AsyncSession = Depends(get_
 
 
 @app.get("/editbis/{memberno}", response_class=HTMLResponse)
-async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def editbis(request: Request, memberno: int, saved: int = 0,db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
@@ -1682,7 +1682,7 @@ async def editbis(request: Request, memberno: int, db: AsyncSession = Depends(ge
     bisdtl = result.fetchone()
     return templates.TemplateResponse("business/regBis.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "memberno": memberno, "user_region": user_region, "user_clubno": user_clubno,
+                                       "memberno": memberno, "user_region": user_region, "user_clubno": user_clubno, "saved": saved,
                                        "bisdtl": bisdtl})
 
 
@@ -1709,7 +1709,7 @@ async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depe
         f"INSERT INTO memberBusiness (memberNo,bisTitle, bisRank, bisType,bistypeTitle,officeTel,officeAddress,officeEmail,officePostNo,officeWeb,officeSns,bisMemo) values (:dt1,:dt2,:dt3,:dt4,:dt5,:dt6,:dt7,:dt8,:dt9,:dt10,:dt11,:dt12)")
     await db.execute(query, data4update)
     await db.commit()
-    return RedirectResponse(f"/editbis/{memberno}", status_code=303)
+    return RedirectResponse(url=f"/editbis/{memberno}?saved=1", status_code=303)
 
 
 @app.post("/updateregion/{regno}", response_class=HTMLResponse)

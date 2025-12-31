@@ -5,26 +5,35 @@
     <meta charset="UTF-8">
     <title>사업정보 수정</title>
     <style>
-        /* 중앙 배치 스타일 */
-        .popup-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh; /* 화면 전체 높이 */
-            margin: 0;
-            text-align: center;
-            background-color: #f8f9fa; /* 배경색 설정 (선택 사항) */
-        }
-        .col-md-6 {
-            width: 100%;
-            max-width: 600px; /* 적절한 최대 너비 설정 */
-            box-sizing: border-box;
-            padding: 20px;
-            background-color: #fff;
-            border: 1px solid #ccc;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-    </style>
+  html, body{
+    height: 100%;
+    margin: 0;
+  }
+
+  .popup-container{
+    height: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    overflow: auto;  /* 내용 길면 iframe 내부에서 스크롤 */
+    background-color: #f8f9fa;
+  }
+
+  .col-md-6{
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  table{
+    margin: 0;
+    background: #fff;
+  }
+</style>
+
 </head>
 <body>
 <div class="popup-container">
@@ -45,6 +54,8 @@
                         <option value="CEO" {% if bisdtl[3]=='CEO' %}selected{% endif %}>CEO</option>
                         <option value="CFO" {% if bisdtl[3]=='CFO' %}selected{% endif %}>CFO</option>
                         <option value="CTO" {% if bisdtl[3]=='CTO' %}selected{% endif %}>CTO</option>
+                        <option value="TLD" {% if bisdtl[3]=='TLD' %}selected{% endif %}>TEAM LEADER</option>
+                        <option value="STF" {% if bisdtl[3]=='STF' %}selected{% endif %}>STAFF</option>
                         <option value="ETC" {% if bisdtl[3]=='ETC' %}selected{% endif %}>ETC</option>
                     </select>
                     </td>
@@ -61,6 +72,7 @@
                         <option value="수산업" {% if bisdtl[4]=='수산업' %}selected{% endif %}>수산업</option>
                         <option value="서비스업" {% if bisdtl[4]=='서비스업' %}selected{% endif %}>서비스업</option>
                         <option value="기타" {% if bisdtl[4]=='기타' %}selected{% endif %}>기타</option>
+                        <option value="SELF" {% if bisdtl[4]=='SELF' %}selected{% endif %}>직접입력</option>
                     </select>
                     </td>
                 </tr>
@@ -120,5 +132,10 @@
     </div>
 </div>
 {% include '/comm/adscript.html' %}
+{% if saved %}
+<script>
+  alert("성공적으로 저장되었습니다.");
+</script>
+{% endif %}
 </body>
 </html>
