@@ -1701,7 +1701,7 @@ async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depe
         "dt9": form_data.get("offpost"),
         "dt10": form_data.get("offweb"),
         "dt11": form_data.get("offsns"),
-        "dt12": form_data.get("offemo")
+        "dt12": form_data.get("offmemo")
     }
     queryup = text(f"UPDATE memberBusiness SET attrib = :attr WHERE memberNo = :memberno")
     await db.execute(queryup, {"memberno": memberno, "attr": "XXXUPXXXUP"})
