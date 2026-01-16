@@ -294,7 +294,7 @@ async def get_circlememberdtl(circleno:int, memberno: int, db: AsyncSession):
 async def get_memberlist(db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
+            "SELECT lm.memberNo, lm.memberName, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
             "left join lionsRank lr on lm.rankNo = lr.rankNo")
         result = await db.execute(query)
         member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
@@ -914,10 +914,15 @@ async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
 @app.api_route("/addmember", response_class=HTMLResponse, methods=["GET", "POST"])
 async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
     memberName = "신규추가 회원"
-    query = text(f"INSERT into lionsMember (memberName) values (:membername)")
-    await db.execute(query, {"membername": memberName})
+    # 1) INSERT
+    insert_q = text("INSERT INTO lionsMember (memberName) VALUES (:membername)")
+    await db.execute(insert_q, {"membername": memberName})
+    # 2) 방금 INSERT된 AUTO_INCREMENT 값 가져오기
+    id_q = text("SELECT LAST_INSERT_ID()")
+    result = await db.execute(id_q)
+    new_memberno = result.scalar_one()  # int
     await db.commit()
-    return RedirectResponse("/memberList", status_code=303)
+    return RedirectResponse(url=f"/memberdetail/{new_memberno}", status_code=303)
 
 
 @app.api_route("/addcircle", response_class=HTMLResponse, methods=["GET", "POST"])
