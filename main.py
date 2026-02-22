@@ -1,3 +1,4 @@
+from logging import exception
 from urllib import request
 import uvicorn
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile, Body
@@ -273,11 +274,12 @@ async def get_circlememberlist(circleno: int, db: AsyncSession):
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join circleMember cm on lm.memberNo = cm.memberNo "
             "LEFT JOIN lionsRank lr2 ON cm.rankNo = lr2.rankNo "
-            "where cm.circleNo = :circleno order by lm.clubNo, lm.memberJoindate")
-        result = await db.execute(query, {"circleno": circleno})
+            "where cm.circleNo = :circleno and cm.attrib = :attr order by lm.clubNo, lm.memberJoindate")
+        result = await db.execute(query, {"circleno": circleno, "attr": "1000010000"})
         cmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
         return cmember_list
-    except:
+    except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="Database query failed(CircleMemberLIST)")
 
 
@@ -1860,6 +1862,19 @@ async def membertocircle(request: Request, circleno: int, memberno: int, db: Asy
     result = await db.execute(query, {"circleno": circleno, "memberno": memberno})
     if result.rowcount == 0:
         query = text(f"INSERT into circleMember (circleNo, memberNo) values (:circleno, :memberno)")
+        await db.execute(query, {"circleno": circleno, "memberno": memberno})
+        await db.commit()
+        return JSONResponse({"result": "ok"})
+    else:
+        return JSONResponse({"result": "already"})
+
+
+@app.post("/membertocircleminus/{circleno}/{memberno}")
+async def membertocircleminus(request: Request, circleno: int, memberno: int, db: AsyncSession = Depends(get_db)):
+    query = text(f"select * from circleMember where circleNo = :circleno and memberNo = :memberno")
+    result = await db.execute(query, {"circleno": circleno, "memberno": memberno})
+    if result.rowcount != 0:
+        query = text(f"DELETE FROM circleMember where circleNo = :circleno and memberNo = :memberno")
         await db.execute(query, {"circleno": circleno, "memberno": memberno})
         await db.commit()
         return JSONResponse({"result": "ok"})
