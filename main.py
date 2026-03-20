@@ -1,30 +1,29 @@
-from logging import exception
-from urllib import request
-import uvicorn
+import os
+import datetime
+from datetime import timedelta
+from pathlib import Path
+import asyncio
+from io import BytesIO
+import dotenv
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile, Body
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from pycparser.ply.yacc import resultlimit
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from starlette.middleware.sessions import SessionMiddleware
-from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import text
-import dotenv
-import os
-import base64
-import datetime
-from PIL import Image, ImageFont, ImageDraw
-import io
 from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
-from io import BytesIO
+import jwt
 import firebase_admin
-from firebase_admin import credentials, messaging
-from starlette.responses import FileResponse
-from pathlib import Path
+from firebase_admin import credentials
+from funchub import *
+from PIL import Image
+import io
+import os
 
 
 dotenv.load_dotenv()
@@ -39,7 +38,7 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 
 app = FastAPI()
 
-app.add_middleware(SessionMiddleware, secret_key="supersecretkey")
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET_KEY", "supersecretkey"))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 모든 도메인 허용
@@ -50,570 +49,35 @@ app.add_middleware(
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
-THUMBNAIL_DIR = "./static/img/members"
+MEMBERPHOTO_DIR = "./static/img/members"
 BASE_DIR = Path(__file__).resolve().parent
-
 cred = credentials.Certificate(
     str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
 )
+
 firebase_admin.initialize_app(cred)
+security = HTTPBearer()
+
+
+# 토큰 검증 함수 (API 호출 시마다 실행됨)
+async def get_current_mobile_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        memberno: str = payload.get("sub")
+        if memberno is None:
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+        return memberno
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="토큰이 만료되었습니다. 다시 로그인해주세요.")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="잘못된 토큰입니다.")
+
 
 # 데이터베이스 세션 생성
 async def get_db():
     async with async_session() as session:
         yield session
-
-async def send_fcm_topic_notice(clubno: int, title: str, body: str):
-    topic = f"club_{clubno}"
-    message = messaging.Message(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data={
-            "clubNo": str(clubno),
-        },
-        topic=topic,
-    )
-    response = messaging.send(message)
-    return response
-
-async def send_fcm_topic_notice_member(memberno: int, title: str, body: str):
-    topic = f"member_{memberno}"
-    message = messaging.Message(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data={
-            "memberNo": str(memberno),
-        },
-        topic=topic,
-    )
-    response = messaging.send(message)
-    return response
-
-async def send_fcm_topic_notice_region(regionno: int, title: str, body: str):
-    topic = f"region_{regionno}"
-    message = messaging.Message(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data={
-            "regionNo": str(regionno),
-        },
-        topic=topic,
-    )
-    response = messaging.send(message)
-    return response  # 성공 시 메시지 ID가 반환됩니다.
-
-
-# 썸네일 생성 함수
-async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
-    # 디렉토리가 없으면 생성
-    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-    # 원본 이미지를 Pillow로 열기
-    image = Image.open(io.BytesIO(image_data))
-    # 썸네일 생성
-    image.thumbnail(size)
-    # 저장 경로
-    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"{memberno}.png")
-    # 썸네일 저장
-    image.save(thumbnail_path, format="PNG")
-    return thumbnail_path
-
-
-async def save_ncthumbnail(image_data: bytes, memberno: int, size=(80, 100)):
-    # 디렉토리가 없으면 생성
-    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-    # 원본 이미지를 Pillow로 열기
-    image = Image.open(io.BytesIO(image_data))
-    # 썸네일 생성
-    image.thumbnail(size)
-    # 저장 경로
-    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"nc{memberno}.png")
-    # 썸네일 저장
-    image.save(thumbnail_path, format="PNG")
-    return thumbnail_path
-
-
-async def save_circlelogo(image_data: bytes, circleno: int, size=(200, 200)):
-    # 디렉토리가 없으면 생성
-    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-    # 원본 이미지를 Pillow로 열기
-    image = Image.open(io.BytesIO(image_data))
-    # 썸네일 생성
-    image.thumbnail(size)
-    # 저장 경로
-    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"{circleno}circlelogo.png")
-    # 썸네일 저장
-    image.save(thumbnail_path, format="PNG")
-    return thumbnail_path
-
-
-async def get_clublist(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsClub where attrib not like :attpatt")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return club_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBLIST)")
-
-
-async def get_circlelist(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsCircle where attrib not like :attpatt")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        circle_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return circle_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CIRCLELIST)")
-
-
-async def get_clubboards(clubno: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsBoard where attrib not like :attpatt AND clubno = :clubno")
-        result = await db.execute(query, {"attpatt": "%XXX%", "clubno": clubno})
-        clubboards = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return clubboards
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBBOARDS)")
-
-
-def get_default_image_base64(mime_type: str = "image/png") -> str:
-    default_image_path = "static/img/defaultphoto.png"
-    try:
-        with open(default_image_path, "rb") as image_file:
-            image_data = image_file.read()
-            base64_image = base64.b64encode(image_data).decode("utf-8")
-            return f"data:{mime_type};base64,{base64_image}"
-    except FileNotFoundError:
-        raise Exception("Default image file not found.")
-
-
-async def get_photo(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
-    try:
-        query = text("SELECT mPhoto FROM memberPhoto WHERE memberNo = :memberNo order by regDate desc")
-        result = await db.execute(query, {"memberNo": memberNo})
-        photo = result.fetchone()
-        if photo is None:
-            return get_default_image_base64(mime_type)
-        base64_image = base64.b64encode(photo[0]).decode("utf-8")
-        return f"data:{mime_type};base64,{base64_image}"
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
-
-
-async def get_spphoto(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
-    try:
-        query = text("SELECT spousePhoto FROM memberSpouse WHERE memberNo = :memberNo order by regDate desc")
-        result = await db.execute(query, {"memberNo": memberNo})
-        photo = result.fetchone()
-        if photo is None:
-            return get_default_image_base64(mime_type)
-        base64_image = base64.b64encode(photo[0]).decode("utf-8")
-        return f"data:{mime_type};base64,{base64_image}"
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
-
-
-async def get_namecard(memberNo: int, db: AsyncSession, mime_type: str = "image/jpeg") -> str:
-    try:
-        query = text("SELECT ncardPhoto FROM memberNamecard WHERE memberNo = :memberNo order by regDate desc")
-        result = await db.execute(query, {"memberNo": memberNo})
-        photo = result.fetchone()
-        if photo is None:
-            return get_default_image_base64(mime_type)
-        base64_image = base64.b64encode(photo[0]).decode("utf-8")
-        return f"data:{mime_type};base64,{base64_image}"
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(Photo)")
-
-
-async def get_regionclublist(region: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsClub where attrib not like :attpatt and regionNo = :regno")
-        result = await db.execute(query, {"attpatt": "%XXX%", "regno": region})
-        club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return club_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
-
-
-async def get_regionboardlist(region: int, db: AsyncSession):
-    try:
-        query = text(
-            "select lc.clubName , lb.clubNo, GROUP_CONCAT(lb.boardTitle SEPARATOR ',') AS boardDetails, count(lb.boardNo ) from lionsBoard lb "
-            "left join lionsClub lc on lb.clubNo = lc.clubNo and lc.regionNo = :regno  group by lb.clubNo order by lb.clubNo")
-        result = await db.execute(query, {"regno": region})
-        club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return club_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
-
-
-async def get_regionmemberlist(region: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno) order by lm.clubNo, lm.memberJoindate")
-        result = await db.execute(query, {"regno": region})
-        rmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rmember_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
-
-
-async def get_circlememberlist(circleno: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lm.*, lcc.clubName, lr.rankTitlekor, lr2.rankTitlekor as circleRanktitle FROM lionsMember lm "
-            "left join lionsClub lcc on lm.clubNo = lcc.clubNo "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join circleMember cm on lm.memberNo = cm.memberNo "
-            "LEFT JOIN lionsRank lr2 ON cm.rankNo = lr2.rankNo "
-            "where cm.circleNo = :circleno and cm.attrib = :attr order by lm.clubNo, lm.memberJoindate")
-        result = await db.execute(query, {"circleno": circleno, "attr": "1000010000"})
-        cmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return cmember_list
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Database query failed(CircleMemberLIST)")
-
-
-async def get_circlememberdtl(circleno:int, memberno: int, db: AsyncSession):
-    try:
-        query = text("select cm.cmId, cm.circleNo, lc.circleName, cm.memberNo, lm.memberName,lr.rankNo,lr.rankTitlekor ,cm.addRemark, cm.circlePeriod from circleMember cm left join lionsMember lm on lm.memberNo = cm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo  left join lionsCircle lc on lc.circleNo = cm.circleNo where cm.memberNo = :memberno and cm.circleNo = :circleno")
-        result = await db.execute(query, {"memberno": memberno,"circleno":circleno})
-        cmember_dtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
-        return cmember_dtl
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CircleMemberDetail)")
-
-
-async def get_memberlist(db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lm.memberNo, lm.memberName, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo")
-        result = await db.execute(query)
-        member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return member_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(MEMBERLIST)")
-
-
-async def get_rankmemberlist(rankno: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsMember where rankNo = :rankno")
-        result = await db.execute(query, {"rankno": rankno})
-        rankmember_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rankmember_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
-
-async def get_circlerank(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsRank where rankDiv = :rankdiv")
-        result = await db.execute(query, {"rankdiv": 'CIRCLE'})
-        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rank_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RankCircleList)")
-
-
-async def get_circledtl(circleno:int,db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsCircle where circleNo = :circleno")
-        result = await db.execute(query, {"circleno": circleno})
-        circle = result.fetchone()  # 클럽 데이터를 모두 가져오기
-        return circle
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(Circledtl)")
-
-
-async def get_memberdetail(memberon: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsMember where memberNo = :memberno")
-        result = await db.execute(query, {"memberno": memberon})
-        memberdtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
-        return memberdtl
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(regionCLUBLIST)")
-
-
-async def get_clubmembercard(clubno: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
-        result = await db.execute(query, {"club_no": clubno})
-        member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        member = [
-            {
-                "memberNo": row.memberNo,
-                "memberName": row.memberName,
-                "memberPhone": row.memberPhone,
-                "memberEmail": row.memberEmail,
-                "memberMF": row.memberMF,
-                "rankTitle": row.rankTitlekor,
-            }
-            for row in member_list
-        ]
-        return {"members": member}
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberCards)")
-
-
-async def get_clubmemberlist(clubno: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no order by lm.clubSortNo")
-        result = await db.execute(query, {"club_no": clubno})
-        member_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return member_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBMemberList)")
-
-
-async def get_clubdocs(clubno: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT * FROM lionsDoc where clubNo = :clubno and attrib not like :attrxx")
-        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
-        doc_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return doc_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBDocList)")
-
-
-async def get_clubdoc(docno: int, db: AsyncSession):
-    try:
-        query = text("SELECT cDocument from lionsDoc where docno = :docno")
-        result = await db.execute(query, {"docno": docno})
-        doc = result.fetchone()
-        return doc[0]
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBDoc)")
-
-
-async def get_regionlist(db: AsyncSession):
-    try:
-        query = text(
-            "SELECT lr.*, GROUP_CONCAT(lc.clubName SEPARATOR ', ') AS clubNames, lm.memberName FROM lionsaddr.lionsRegion lr "
-            "LEFT JOIN lionsaddr.lionsClub lc ON lr.regionNo = lc.regionNo "
-            "LEFT JOIN lionsaddr.lionsMember lm ON lr.chairmanNo = lm.memberNo "
-            "where lr.attrib not like :attpatt GROUP BY lr.regionNo")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        dict_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return dict_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(DICT)")
-
-
-async def get_clubstaff(clubno: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsClubstaff where clubNo = :clubno and attrib not like :attrxx")
-        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
-        staff_list = result.fetchone()
-        return staff_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFF)")
-
-
-async def get_clubstaffwithname(clubno: int, db: AsyncSession):
-    try:
-        query = text(
-            "SELECT s.logPeriod, s.slog, "
-            "s.presidentNo, COALESCE(pm.memberName, '공석') AS presidentName, "
-            "s.secretNo, COALESCE(sm.memberName, '공석') AS secretName, "
-            "s.trNo, COALESCE(tm.memberName, '공석') AS trName, "
-            "s.ltNo, COALESCE(ltm.memberName, '공석') AS ltName, "
-            "s.ttNo, COALESCE(ttm.memberName, '공석') AS ttName, "
-            "s.prpresidentNo, COALESCE(prm.memberName, '공석') AS prpresidentName, "
-            "s.firstViceNo, COALESCE(fvm.memberName, '공석') AS firstViceName, "
-            "s.secondViceNo, COALESCE(svm.memberName, '공석') AS secondViceName, "
-            "s.thirdViceNo, COALESCE(tvm.memberName, '공석') AS thirdViceName "
-            "FROM lionsClubstaff s "
-            "LEFT JOIN lionsMember pm ON s.presidentNo = pm.memberNo "
-            "LEFT JOIN lionsMember sm ON s.secretNo = sm.memberNo "
-            "LEFT JOIN lionsMember tm ON s.trNo = tm.memberNo "
-            "LEFT JOIN lionsMember ltm ON s.ltNo = ltm.memberNo "
-            "LEFT JOIN lionsMember ttm ON s.ttNo = ttm.memberNo "
-            "LEFT JOIN lionsMember prm ON s.prpresidentNo = prm.memberNo "
-            "LEFT JOIN lionsMember fvm ON s.firstViceNo = fvm.memberNo "
-            "LEFT JOIN lionsMember svm ON s.secondViceNo = svm.memberNo "
-            "LEFT JOIN lionsMember tvm ON s.thirdViceNo = tvm.memberNo "
-            "WHERE s.clubNo = :clubno and s.attrib not like :attrxx")
-        result = await db.execute(query, {"clubno": clubno, "attrxx": '%XXX%'})
-        staff_list = result.fetchone()
-        return staff_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFFWNAME)")
-
-
-def split_text_to_multiline(draw, text, font, max_width):
-    words = text.split(' ')
-    lines = []
-    current_line = ""
-    for word in words:
-        test_line = current_line + (' ' if current_line else '') + word
-        test_bbox = draw.textbbox((0, 0), test_line, font=font)
-        test_width = test_bbox[2] - test_bbox[0]
-        if test_width <= max_width:
-            current_line = test_line
-        else:
-            if current_line:  # 이전 줄 저장
-                lines.append(current_line)
-            current_line = word
-    if current_line:
-        lines.append(current_line)
-    if len(lines) > 2:
-        lines = [lines[0], ' '.join(lines[1:])]
-    return '\n'.join(lines)
-
-
-def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=400, font_size=20,
-                      sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
-    img = Image.new("RGB", (width, height), color="white")
-    draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("NanumGothic.ttf", font_size)
-        name_font = ImageFont.truetype("NanumGothic.ttf", 18)
-    except:
-        font = ImageFont.load_default()
-        name_font = ImageFont.load_default()
-
-    # 1. 슬로건
-    max_slogan_width = int(width * 0.85)
-    multiline_slogan = split_text_to_multiline(draw, slogan, font, max_slogan_width)
-    bbox = draw.multiline_textbbox((0, 0), multiline_slogan, font=font, spacing=4)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-    x = (width - text_width) // 2
-    y = 20
-    draw.multiline_text((x, y), multiline_slogan, fill="black", font=font, spacing=4, align="center")
-
-    # 2. 메인 프로필(상단 중앙)
-    rect_w, rect_h = 80, 100
-    rect_x = (width - rect_w) // 2
-    rect_y = y + bbox[3] + 20
-    draw.rectangle([rect_x, rect_y, rect_x + rect_w, rect_y + rect_h], outline="gray", width=2)
-    try:
-        profile_img = Image.open(f"./static/img/members/{member_no}.png").resize((rect_w, rect_h))
-        img.paste(profile_img, (rect_x, rect_y))
-    except Exception as e:
-        pass
-    # 이름 사각형(중앙)
-    name_rect_w, name_rect_h = 80, 30
-    name_rect_x = (width - name_rect_w) // 2
-    name_rect_y = rect_y + rect_h + 5
-    draw.rectangle([name_rect_x, name_rect_y, name_rect_x + name_rect_w, name_rect_y + name_rect_h], outline="gray", width=2)
-    name_bbox = draw.textbbox((0, 0), name, font=name_font)
-    name_text_w = name_bbox[2] - name_bbox[0]
-    name_text_h = name_bbox[3] - name_bbox[1]
-    name_x = name_rect_x + (name_rect_w - name_text_w) // 2
-    name_y = name_rect_y + (name_rect_h - name_text_h) // 2 - name_bbox[1]
-    draw.text((name_x, name_y), name, fill="black", font=name_font)
-
-    # 3. 하단 2개 프로필(좌우 균등)
-    sub_rect_w, sub_rect_h = 80, 100
-    sub_name_rect_h = 30
-    gap = (width - 2*sub_rect_w) // 3  # 좌-중앙-우 간격
-
-    for i, (sub_no, sub_name) in enumerate(sub_members):
-        # 프로필 사각형
-        sub_rect_x = gap + i * (sub_rect_w + gap)
-        sub_rect_y = name_rect_y + name_rect_h + 20  # 상단 이름박스 아래 20px
-        draw.rectangle([sub_rect_x, sub_rect_y, sub_rect_x + sub_rect_w, sub_rect_y + sub_rect_h], outline="gray", width=2)
-        try:
-            sub_img = Image.open(f"./static/img/members/{sub_no}.png").resize((sub_rect_w, sub_rect_h))
-            img.paste(sub_img, (sub_rect_x, sub_rect_y))
-        except Exception as e:
-            pass
-        # 이름 사각형
-        sub_name_rect_x = sub_rect_x
-        sub_name_rect_y = sub_rect_y + sub_rect_h + 5
-        draw.rectangle([sub_name_rect_x, sub_name_rect_y, sub_name_rect_x + sub_rect_w, sub_name_rect_y + sub_name_rect_h], outline="gray", width=2)
-        # 이름 텍스트 중앙 정렬
-        sub_name_bbox = draw.textbbox((0, 0), sub_name, font=name_font)
-        sub_name_text_w = sub_name_bbox[2] - sub_name_bbox[0]
-        sub_name_text_h = sub_name_bbox[3] - sub_name_bbox[1]
-        sub_name_x = sub_name_rect_x + (sub_rect_w - sub_name_text_w) // 2
-        sub_name_y = sub_name_rect_y + (sub_name_rect_h - sub_name_text_h) // 2 - sub_name_bbox[1]
-        draw.text((sub_name_x, sub_name_y), sub_name, fill="black", font=name_font)
-    return img
-
-
-async def get_ranklist(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsRank where attrib not like :attpatt and rankDiv in ('CLUB','DIST') order by orderNo")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rank_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
-
-async def get_ranklistall(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsRank where attrib not like :attpatt order by orderNo")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rank_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
-
-
-async def get_ranklistcircle(db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsRank where attrib not like :attpatt and rankDiv in ('CIRC') order by orderNo")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
-        rank_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-        return rank_list
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
-
-
-async def get_userdtl(userno:int,db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsUser where userNo = :userno")
-        result = await db.execute(query, {"userno": userno })
-        user_dtl = result.fetchone()  # 클럽 데이터를 모두 가져오기
-        return user_dtl
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(userdtl)")
-
-
-async def get_rankdtl(rankno: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsRank where rankNo = :rankNo")
-        result = await db.execute(query, {"rankNo": rankno})
-        rank_dtl = result.fetchone()
-        return rank_dtl
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RANKdtl)")
-
-
-async def get_boarddtl(boardno: int, db: AsyncSession):
-    try:
-        query = text("SELECT * FROM lionsBoard where boardNo = :boardno")
-        result = await db.execute(query, {"boardno": boardno})
-        boarddtl = result.fetchone()
-        return boarddtl
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(RANK)")
-
-
-async def get_requests(db: AsyncSession):
-    try:
-        query = text(
-            "SELECT a.*, b.memberName FROM requestMessage a left join lionsMember b on a.memberNo = b.memberNo where a.attrib not like :attxxx")
-        result = await db.execute(query, {"attxxx": '%XXX%'})
-        requests = result.fetchall()
-        return requests
-    except:
-        raise HTTPException(status_code=500, detail="Database query failed(REQUEST)")
 
 
 @app.get("/favicon.ico")
@@ -622,11 +86,9 @@ async def favicon():
 
 
 @app.post("/uploaddoc/{clubno}")
-async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...),
-                     db: AsyncSession = Depends(get_db)):
+async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     try:
         contents = await file.read()
-        # 데이터베이스에 저장
         query = text("INSERT INTO lionsDoc (clubNo,cDocument) VALUES (:memno, :docs)")
         result = await db.execute(query, {"memno": clubno, "docs": contents})
         await db.commit()
@@ -635,92 +97,36 @@ async def upload_doc(request: Request, clubno: int, file: UploadFile = File(...)
         return RedirectResponse(f"/doclist/{clubno}", status_code=303)
 
 
-async def resize_image_if_needed(contents: bytes, max_bytes: int = 102400) -> bytes:
-    if len(contents) <= max_bytes:
-        return contents
-    image = Image.open(io.BytesIO(contents))
-    format = image.format if image.format else 'JPEG'
-    quality = 85  # JPEG의 경우
-    for trial in range(10):
-        buffer = io.BytesIO()
-        save_kwargs = {'format': format}
-        if format.upper() in ['JPEG', 'JPG']:
-            save_kwargs['quality'] = quality
-            save_kwargs['optimize'] = True
-        image.save(buffer, **save_kwargs)
-        data = buffer.getvalue()
-        if len(data) <= max_bytes:
-            return data
-        if format.upper() in ['JPEG', 'JPG'] and quality > 30:
-            quality -= 10
-        else:
-            w, h = image.size
-            image = image.resize((int(w * 0.9), int(h * 0.9)), Image.LANCZOS)
-    return data
-
-
 @app.post("/upload/{memberno}")
 async def upload_image(request: Request, memberno: int, file: UploadFile = File(...),
                        db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
         contents = await file.read()
-        # 이미지 사이즈 조절
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 데이터베이스에 이미지 저장
-        query = text("INSERT INTO memberPhoto (memberNo, mPhoto) VALUES (:memno, :photo)")
-        await db.execute(query, {"memno": memberno, "photo": contents})
-        await db.commit()
-        # 썸네일 생성 및 저장
-        await save_thumbnail(contents, memberno)
-        # 리다이렉트
+        os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
+        image = Image.open(io.BytesIO(contents))
+        thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"mphoto_{memberno}.png")
+        image.save(thumbnail_path, format="PNG")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
-
-
-@app.post("/upload_clogo/{circleno}")
-async def upload_logoimage(request: Request, circleno: int, file: UploadFile = File(...),
-                       db: AsyncSession = Depends(get_db)):
-    try:
-        # 이미지 파일인지 확인
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 이미지 사이즈 조절
-        contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 데이터베이스에 이미지 저장
-        await save_circlelogo(contents, circleno)
-        # 리다이렉트
-        return RedirectResponse(f"/editcircle/{circleno}", status_code=303)
-    except Exception as e:
-        print(f"Error: {e}")
-        return RedirectResponse(f"/editcircle/{circleno}", status_code=303)
 
 
 @app.post("/uploadnamecard/{memberno}")
 async def upload_ncimage(request: Request, memberno: int, file: UploadFile = File(...),
                          db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
         contents = await file.read()
-        # 이미지 사이즈 조절
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 데이터베이스에 이미지 저장
-        query = text("INSERT INTO memberNamecard (memberNo, ncardPhoto) VALUES (:memno, :photo)")
-        await db.execute(query, {"memno": memberno, "photo": contents})
-        await db.commit()
-        # 썸네일 생성 및 저장
-        await save_ncthumbnail(contents, memberno)
-        # 리다이렉트
+        os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
+        image = Image.open(io.BytesIO(contents))
+        thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"ncard_{memberno}.png")
+        image.save(thumbnail_path, format="PNG")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
     except Exception as e:
         print(f"Error: {e}")
@@ -731,25 +137,19 @@ async def upload_ncimage(request: Request, memberno: int, file: UploadFile = Fil
 async def upload_spimage(request: Request, memberno: int, file: UploadFile = File(...),
                          db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
         contents = await file.read()
-        # 사이즈 조절
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 데이터베이스에 이미지 저장
-        query = text("INSERT INTO memberSpouse (memberNo, spousePhoto) VALUES (:memno, :photo)")
-        await db.execute(query, {"memno": memberno, "photo": contents})
-        await db.commit()
-        # 리다이렉트
+        os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
+        image = Image.open(io.BytesIO(contents))
+        thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"sphoto_{memberno}.png")
+        image.save(thumbnail_path, format="PNG")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
 
-
-# 로그인 폼 페이지
 @app.get("/", response_class=HTMLResponse)
 async def login_form(request: Request):
     if request.session.get("user_No"):
@@ -757,178 +157,159 @@ async def login_form(request: Request):
     return templates.TemplateResponse("login/login.html", {"request": request})
 
 
-# 로그인 요청 처리
 @app.post("/login")
-async def login(
-        request: Request,
-        response: Response,
-        username: str = Form(...),
-        password: str = Form(...),
-        db: AsyncSession = Depends(get_db)
-):
+async def login(request: Request, response: Response, username: str = Form(...), password: str = Form(...),
+                db: AsyncSession = Depends(get_db)):
     query = text(
-        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
-    result = await db.execute(query, {"username": username, "password": password})
+        "SELECT userNo, userName, userRole, defaultRegion, defaultClubno, userPassword FROM lionsUser WHERE userId = :username")
+    result = await db.execute(query, {"username": username})
     user = result.fetchone()
-    if user is None:
+
+    if not user:
         return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
-    # 서버 세션에 사용자 ID 저장
+
+    user_no = user[0]
+    stored_password = user[5] or ""
+    authenticated = False
+
+    if verify_password(password, stored_password):
+        authenticated = True
+    elif isinstance(stored_password, str) and stored_password.strip() == password:
+        new_hashed_password = get_password_hash(password)
+        update_sql = text("UPDATE lionsUser SET userPassword = :passwd WHERE userNo = :userno")
+        await db.execute(update_sql, {"passwd": new_hashed_password, "userno": user_no})
+        await db.commit()
+        authenticated = True
+
+    if not authenticated:
+        return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
+
     request.session["user_No"] = user[0]
     request.session["user_Name"] = user[1]
     request.session["user_Role"] = user[2]
     request.session["user_Region"] = user[3]
     request.session["user_Clubno"] = user[4]
+
     return RedirectResponse(url="/success", status_code=303)
 
 
-# 로그인 성공 페이지
 @app.get("/success", response_class=HTMLResponse)
 async def success_page(request: Request):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/mainClub.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
-                                       "user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno})
+    if not user_No: return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/mainClub.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/userEdit", response_class=HTMLResponse)
 async def user_edit(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     userdtl = await get_userdtl(user_No, db)
     clublist = await get_clublist(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("login/userEdit.html",
-                                      {"request": request, "user_No": user_No,"user_Role": user_Role, "user_Name": user_Name, "user_region": user_region, "user_clubn1o": user_clubno, "userdtl": userdtl, "clublist": clublist})
+    return templates.TemplateResponse("login/userEdit.html", {
+        "request": request, "user_No": user_No, "user_Role": request.session.get("user_Role"),
+        "user_Name": request.session.get("user_Name"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "userdtl": userdtl, "clublist": clublist
+    })
+
 
 @app.post("/changeuserpass")
-async def change_password(
-    data: dict = Body(...),  # JSON body를 dict로 받음
-    db: AsyncSession = Depends(get_db)
-):
-    sql = text("UPDATE lionsUser SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
-    await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
+async def change_password(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    hashed_password = get_password_hash(data["passwd"])
+    sql = text("UPDATE lionsUser SET userPassword = :passwd WHERE userNo = :userno")
+    await db.execute(sql, {"passwd": hashed_password, "userno": data["uno"]})
     await db.commit()
     return {"result": "success"}
-
 
 
 @app.get("/userHome", response_class=HTMLResponse)
 async def user_home(request: Request):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/mainClub.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno})
+    if not user_No: return RedirectResponse(url="/")
+    return templates.TemplateResponse("member/mainClub.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/rmemberList/{regno}", response_class=HTMLResponse)
 async def rmemberList(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     rmember = await get_regionmemberlist(regno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/regionmemberList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "rmember": rmember, "user_region": user_region, "user_clubno": user_clubno})
-
-
-def row_to_dict(row):
-    d = dict(row._mapping)
-    for k, v in d.items():
-        if isinstance(v, (datetime.date, datetime.datetime)):
-            d[k] = v.isoformat()  # "YYYY-MM-DD" 또는 "YYYY-MM-DDTHH:MM:SS"
-    return d
+    return templates.TemplateResponse("member/regionmemberList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "rmember": rmember,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/getcirclemembers/{circleno}", response_class=JSONResponse)
 async def getcirclemembers(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     rows = await get_circlememberlist(circleno, db)
     members = [row_to_dict(row) for row in rows]
-    print(members)
     return JSONResponse({"members": members})
 
 
 @app.get("/circlememberList/{circleno}", response_class=HTMLResponse)
 async def ccmemberList(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     allmembers = await get_memberlist(db)
     cmember = await get_circlememberlist(circleno, db)
     circledtl = await get_circledtl(circleno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/circlememberList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "circledtl":circledtl,
-                                       "cmembers": cmember, "user_region": user_region, "user_clubno": user_clubno, "allmembers":allmembers})
+    return templates.TemplateResponse("member/circlememberList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "circledtl": circledtl, "cmembers": cmember,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "allmembers": allmembers
+    })
+
 
 @app.get("/editcirclemember/{circleno}/{memberno}", response_class=HTMLResponse)
-async def ccmemberList(request: Request, circleno:int, memberno: int, db: AsyncSession = Depends(get_db)):
+async def editcirclemember(request: Request, circleno: int, memberno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     ranks = await get_ranklistcircle(db)
     cmemberdtl = await get_circlememberdtl(circleno, memberno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/circlememberdtl.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role, "circlerank":ranks,
-                                       "cmember": cmemberdtl, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("member/circlememberdtl.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "circlerank": ranks, "cmember": cmemberdtl,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
+
 
 @app.get("/memberList", response_class=HTMLResponse)
 async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     members = await get_memberlist(db)
-    print(members)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/memberList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "members": members, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("admin/memberList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "members": members,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.api_route("/addmember", response_class=HTMLResponse, methods=["GET", "POST"])
 async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
     memberName = "신규추가 회원"
-    # 1) INSERT
     insert_q = text("INSERT INTO lionsMember (memberName) VALUES (:membername)")
     await db.execute(insert_q, {"membername": memberName})
-    # 2) 방금 INSERT된 AUTO_INCREMENT 값 가져오기
     id_q = text("SELECT LAST_INSERT_ID()")
     result = await db.execute(id_q)
-    new_memberno = result.scalar_one()  # int
+    new_memberno = result.scalar_one()
     await db.commit()
     return RedirectResponse(url=f"/memberdetail/{new_memberno}", status_code=303)
 
 
 @app.api_route("/addcircle", response_class=HTMLResponse, methods=["GET", "POST"])
-async def addcorcle(request: Request, db: AsyncSession = Depends(get_db)):
+async def addcircle(request: Request, db: AsyncSession = Depends(get_db)):
     circleName = "신규추가 써클"
     query = text(f"INSERT into lionsCircle (circleName) values (:circlename)")
     await db.execute(query, {"circlename": circleName})
@@ -937,49 +318,37 @@ async def addcorcle(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/memberdetail/{memberno}", response_class=HTMLResponse)
-async def memberList(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def memberDetail(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     memberdtl = await get_memberdetail(memberno, db)
     myphoto = await get_photo(memberno, db)
     ncphoto = await get_namecard(memberno, db)
     spphoto = await get_spphoto(memberno, db)
     clublist = await get_clublist(db)
     ranklist = await get_ranklist(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/memberDetail.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "memberdtl": memberdtl, "myphoto": myphoto, "clublist": clublist,
-                                       "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("member/memberDetail.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "memberdtl": memberdtl, "myphoto": myphoto,
+        "clublist": clublist, "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
 async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "memberName": form_data.get("membername"),
-        "memberMF": form_data.get("gender"),
+        "memberName": form_data.get("membername"), "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
-        "memberSns": form_data.get("memberSns"),
-        "memberSeccode": form_data.get("contact").replace('-',''),
+        "memberSns": form_data.get("memberSns"), "memberSeccode": form_data.get("contact").replace('-', ''),
         "memberAddress": form_data.get("home_address"),
-        "memberPhone": form_data.get("contact"),
-        "memberEmail": form_data.get("email"),
+        "memberPhone": form_data.get("contact"), "memberEmail": form_data.get("email"),
         "memberJoindate": form_data.get("joindate"),
-        "clubNo": form_data.get("clublst"),
-        "sponserNo": form_data.get("sponserNo"),
-        "addMemo": form_data.get("memo"),
-        "rankNo": form_data.get("ranklst"),
-        "officeAddress": form_data.get("office_address"),
+        "clubNo": form_data.get("clublst"), "sponserNo": form_data.get("sponserNo"), "addMemo": form_data.get("memo"),
+        "rankNo": form_data.get("ranklst"), "officeAddress": form_data.get("office_address"),
         "spouseName": form_data.get("spname"),
-        "spousePhone": form_data.get("spphone"),
-        "spouseBirth": form_data.get("spbirth"),
+        "spousePhone": form_data.get("spphone"), "spouseBirth": form_data.get("spbirth"),
         "clubRank": form_data.get("clubrank"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
@@ -992,94 +361,77 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
 
 
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
-async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
+async def clubmemberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     cmembers = await get_clubmemberlist(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/memberList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubName": clubname, "cmembers": cmembers, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("member/memberList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubName": clubname, "cmembers": cmembers,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/clubmemberCards/{clubno}/{clubname}", response_class=HTMLResponse)
-async def memberList(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
+async def clubmemberCards(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     memberList = await get_clubmembercard(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/memberCards.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubName": clubname, "memberList": memberList, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("member/memberCards.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubName": clubname, "memberList": memberList,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/clubList", response_class=HTMLResponse)
 async def clubList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM lionsClub where attrib not like '%XXXUP%'")
     result = await db.execute(query)
-    club_list = result.fetchall()  # 클럽 데이터를 모두 가져오기
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/clubList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "club_list": club_list, "user_region": user_region, "user_clubno": user_clubno})
+    club_list = result.fetchall()
+    return templates.TemplateResponse("admin/clubList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "club_list": club_list,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/editclub/{clubno}", response_class=HTMLResponse)
 async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
     clubdocs = await get_clubdocs(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/clubDetail.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubdtl": clubdtl, "clubdocs": clubdocs, "user_clubno": clubno, "user_region": user_region})
+    return templates.TemplateResponse("admin/clubDetail.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubdtl": clubdtl, "clubdocs": clubdocs,
+        "user_clubno": clubno, "user_region": request.session.get("user_Region")
+    })
 
 
 @app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
 async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
     result = await db.execute(query, {"clubNo": clubno})
     clubdtl = result.fetchone()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/clubDocs.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubdtl": clubdtl, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("admin/clubDocs.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubdtl": clubdtl,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.post("/updateclubdoc/{clubno}")
 async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4docs = {
-        "clubNo": clubno,
-        "docType": form_data.get("doctype"),
-        "docTitle": form_data.get("title"),
+        "clubNo": clubno, "docType": form_data.get("doctype"), "docTitle": form_data.get("title"),
         "cDocument": form_data.get("content"),
     }
     querys = text(f"SELECT * from lionsDoc where clubNo = :clubNo and docType = :docType")
@@ -1087,12 +439,12 @@ async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depend
     docresult = result.fetchone()
     if docresult:
         queryup = text(
-            f"UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
+            "UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
         timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         await db.execute(queryup, {"timenow": timenow, "updattrib": "XXXUPXXXUP", "clubno": clubno,
                                    "doctype": form_data.get("doctype")})
     query = text(
-        f"INSERT INTO lionsDoc (clubNo,docType,docTitle,cDocument) values (:clubNo,:docType,:docTitle,:cDocument)")
+        "INSERT INTO lionsDoc (clubNo,docType,docTitle,cDocument) values (:clubNo,:docType,:docTitle,:cDocument)")
     await db.execute(query, data4docs)
     await db.commit()
     return RedirectResponse(f"/editclub/{clubno}", status_code=303)
@@ -1101,157 +453,138 @@ async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depend
 @app.get("/popup_doc/{docno}")
 async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
     cdoc = await get_clubdoc(docno, db)
-    print(cdoc)
-    if cdoc:
-        return HTMLResponse(cdoc)
+    if cdoc: return HTMLResponse(cdoc)
 
 
 @app.get("/listnotice/{regionno}", response_class=HTMLResponse)
-async def editnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
+async def listnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM boardMessage where regionNo = :regionNo and attrib not like '%XXXUP%'")
     result = await db.execute(query, {"regionNo": regionno})
     noticelist = result.fetchall()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/noticeList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("board/noticeList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticelist,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/clubnoticeread/{messageno}", response_class=HTMLResponse)
 async def clubnoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    query = text("select cm.messageTitle , lm.memberName , na.readYN, na.attendPlan ,na.modDate from clubboardMessage cm "
-                 "left join lionsMember lm on cm.clubNo = lm.clubNo "
-                 "left join noticeAndswer na on na.noticeNo = cm.messageNo and na.memberNo = lm.memberNo "
-                 "where cm.messageNo = :messageNo order by lm.clubSortNo ")
+    if not user_No: return RedirectResponse(url="/")
+    query = text(
+        "select cm.messageTitle , lm.memberName , na.readYN, na.attendPlan ,na.modDate from clubboardMessage cm "
+        "left join lionsMember lm on cm.clubNo = lm.clubNo "
+        "left join noticeAndswer na on na.noticeNo = cm.messageNo and na.memberNo = lm.memberNo "
+        "where cm.messageNo = :messageNo order by lm.clubSortNo ")
     result = await db.execute(query, {"messageNo": messageno})
     noticeread = result.fetchall()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/clubnoticeRead.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "notices": noticeread, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("board/clubnoticeRead.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticeread,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/regionnoticeread/{messageno}", response_class=HTMLResponse)
 async def regionnoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    query = text("SELECT bm.messageTitle,lc.clubNo,lc.clubName,lm.memberNo,lm.memberName,na.readYN, na.attendPlan,na.modDate FROM boardMessage bm "
-                 "LEFT JOIN lionsClub lc ON lc.regionNo = bm.regionNo "
-                 "LEFT JOIN lionsMember lm ON lm.clubNo = lc.clubNo "
-                 "LEFT JOIN noticeAndswer na on bm.messageNo = na.noticeNo and lm.memberNo = na.memberNo "
-                 "WHERE bm.messageNo = :messageNo ORDER BY lc.clubNo, lm.memberNo")
+    if not user_No: return RedirectResponse(url="/")
+    query = text(
+        "SELECT bm.messageTitle,lc.clubNo,lc.clubName,lm.memberNo,lm.memberName,na.readYN, na.attendPlan,na.modDate FROM boardMessage bm "
+        "LEFT JOIN lionsClub lc ON lc.regionNo = bm.regionNo "
+        "LEFT JOIN lionsMember lm ON lm.clubNo = lc.clubNo "
+        "LEFT JOIN noticeAndswer na on bm.messageNo = na.noticeNo and lm.memberNo = na.memberNo "
+        "WHERE bm.messageNo = :messageNo ORDER BY lc.clubNo, lm.memberNo")
     result = await db.execute(query, {"messageNo": messageno})
     noticeread = result.fetchall()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/regionnoticeRead.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "notices": noticeread, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("board/regionnoticeRead.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticeread,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/listanswer/{noiceno}/{noticetype}", response_class=HTMLResponse)
-async def editnotice(request: Request, noticeno: int,noticetype:str, db: AsyncSession = Depends(get_db)):
+async def listanswer(request: Request, noticeno: int, noticetype: str, db: AsyncSession = Depends(get_db)):
     query = text("SELECT * FROM noticeAnswer where noticeNo = :noticeno and noticeType = :noticetype")
     result = await db.execute(query, {"noticeno": noticeno, "noticetype": noticetype})
-    answerlist = result.fetchall()
-    return answerlist
+    return result.fetchall()
 
 
 @app.get("/listclubnotice/{clubno}", response_class=HTMLResponse)
-async def editnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+async def listclubnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM clubboardMessage where clubNo = :clubNo and attrib not like '%XXXUP%'")
     result = await db.execute(query, {"clubNo": clubno})
     noticelist = result.fetchall()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/clubnoticeList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "notices": noticelist, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("board/clubnoticeList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticelist,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
+
 
 @app.get("/addnotice/{regionno}", response_class=HTMLResponse)
 async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     now = datetime.datetime.now()
     two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
-    from_date = now.strftime(fmt)
-    to_date = two_weeks.strftime(fmt)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/addnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "from_date": from_date, "to_date": to_date})
+    return templates.TemplateResponse("board/addnotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "from_date": now.strftime(fmt),
+        "to_date": two_weeks.strftime(fmt)
+    })
+
 
 @app.get("/clubsms/{clubno}", response_class=HTMLResponse)
 async def clubsms(request: Request, clubno: int):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/clubsms.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno})
+    if not user_No: return RedirectResponse(url="/")
+    return templates.TemplateResponse("board/clubsms.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno")
+    })
+
 
 @app.get("/membersms/{clubno}", response_class=HTMLResponse)
 async def membersms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     user_list = await get_clubmemberlist(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/membersms.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "user_list": user_list})
+    return templates.TemplateResponse("board/membersms.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "user_list": user_list
+    })
 
 
 @app.get("/addclubnotice/{clubno}", response_class=HTMLResponse)
-async def addcnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+async def addclubnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     now = datetime.datetime.now()
     two_weeks = now + datetime.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
-    from_date = now.strftime(fmt)
-    to_date = two_weeks.strftime(fmt)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/addclubnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "from_date": from_date, "to_date": to_date})
+    return templates.TemplateResponse("board/addclubnotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "from_date": now.strftime(fmt),
+        "to_date": two_weeks.strftime(fmt)
+    })
 
 
 @app.get("/editnotice/{messageno}", response_class=HTMLResponse)
-async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends(get_db)):
+async def editnotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM boardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
@@ -1260,18 +593,17 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/editnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
+    return templates.TemplateResponse("board/editnotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "notice": notice, "from_date": from_date, "to_date": to_date
+    })
 
 
 @app.get("/editclubnotice/{messageno}", response_class=HTMLResponse)
-async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends(get_db)):
+async def editclubnotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM clubboardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
@@ -1280,24 +612,19 @@ async def editnotice(request:Request, messageno: int, db: AsyncSession = Depends
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/editclubnotice.html",{"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"user_region": user_region, "user_clubno": user_clubno, "notice": notice, "from_date": from_date, "to_date": to_date})
+    return templates.TemplateResponse("board/editclubnotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "notice": notice, "from_date": from_date, "to_date": to_date
+    })
 
 
 @app.post("/updatecirclemember/{cmid}", response_class=HTMLResponse)
-async def update_ccirclemember(request: Request, cmid:int , db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+async def update_ccirclemember(request: Request, cmid: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "circleNo": form_data.get("circleno"),
-        "memberNo": form_data.get("memberno"),
-        "rankNo": form_data.get("rankno"),
-        "addRemark": form_data.get("memo"),
+        "circleNo": form_data.get("circleno"), "memberNo": form_data.get("memberno"),
+        "rankNo": form_data.get("rankno"), "addRemark": form_data.get("memo"),
     }
     circleno = form_data.get("circleno")
     update_fields = {key: value for key, value in data4update.items() if value is not None}
@@ -1310,18 +637,11 @@ async def update_ccirclemember(request: Request, cmid:int , db: AsyncSession = D
 
 
 @app.post("/updatenotice/{messageno}", response_class=HTMLResponse)
-async def update_clubdtl(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+async def updatenotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "messageTitle": form_data.get("nottitle"),
-        "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"),
-        "noticeFrom": form_data.get("notfrom"),
+        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
@@ -1330,22 +650,15 @@ async def update_clubdtl(request: Request, messageno: int, db: AsyncSession = De
     update_fields["messageNo"] = messageno
     await db.execute(query, update_fields)
     await db.commit()
-    return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
+    return RedirectResponse(f"/listnotice/{request.session.get('user_Region')}", status_code=303)
 
 
 @app.post("/updateclubnotice/{messageno}", response_class=HTMLResponse)
 async def update_clubnot(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
     form_data = await request.form()
     data4update = {
-        "messageTitle": form_data.get("nottitle"),
-        "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"),
-        "noticeFrom": form_data.get("notfrom"),
+        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
@@ -1354,48 +667,31 @@ async def update_clubnot(request: Request, messageno: int, db: AsyncSession = De
     update_fields["messageNo"] = messageno
     await db.execute(query, update_fields)
     await db.commit()
-    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
+    return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
 
 @app.post("/removenotice/{messageno}", response_class=HTMLResponse)
-async def remove(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+async def removenotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     query = text(f"UPDATE boardMessage SET attrib = :XXUP WHERE messageNo = :messageNo")
-    await db.execute(query, {"XXUP":"XXXUPXXXUP", "messageNo": messageno})
+    await db.execute(query, {"XXUP": "XXXUPXXXUP", "messageNo": messageno})
     await db.commit()
-    return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
+    return RedirectResponse(f"/listnotice/{request.session.get('user_Region')}", status_code=303)
+
 
 @app.post("/removeclubnotice/{messageno}", response_class=HTMLResponse)
-async def removecn(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+async def removeclubnotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     query = text(f"UPDATE clubboardMessage SET attrib = :XXUP WHERE messageNo = :messageNo")
-    await db.execute(query, {"XXUP":"XXXUPXXXUP", "messageNo": messageno})
+    await db.execute(query, {"XXUP": "XXXUPXXXUP", "messageNo": messageno})
     await db.commit()
-    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
+    return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
 
 @app.post("/insertnotice/{regionno}", response_class=HTMLResponse)
 async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
     form_data = await request.form()
     data4insert = {
-        "regionNo": regionno,
-        "messageTitle": form_data.get("nottitle"),
-        "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"),
-        "noticeFrom": form_data.get("notfrom"),
+        "regionNo": regionno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
@@ -1404,27 +700,16 @@ async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depen
     query = text(f"INSERT INTO boardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
-    await send_fcm_topic_notice_region(
-        regionno=regionno,
-        title="새로운 지역 공지사항",
-        body=form_data.get("nottitle") or "지역공지"
-    )
-    return RedirectResponse(f"/listnotice/{user_region}", status_code=303)
+    await send_fcm_topic_notice_region(regionno=regionno, title="새로운 지역 공지사항", body=form_data.get("nottitle") or "지역공지")
+    return RedirectResponse(f"/listnotice/{request.session.get('user_Region')}", status_code=303)
+
 
 @app.post("/insertclubnotice/{clubno}", response_class=HTMLResponse)
-async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+async def insertclubnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4insert = {
-        "clubNo": clubno,
-        "messageTitle": form_data.get("nottitle"),
-        "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"),
-        "noticeFrom": form_data.get("notfrom"),
+        "clubNo": clubno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
@@ -1433,60 +718,37 @@ async def insertnotice(request: Request, clubno: int, db: AsyncSession = Depends
     query = text(f"INSERT INTO clubboardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
-    await send_fcm_topic_notice(
-        clubno=clubno,
-        title="새로운 클럽 공지사항",
-        body=form_data.get("nottitle") or "클럽공지"
-    )
-    return RedirectResponse(f"/listclubnotice/{user_clubno}", status_code=303)
+    await send_fcm_topic_notice(clubno=clubno, title="새로운 클럽 공지사항", body=form_data.get("nottitle") or "클럽공지")
+    return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
+
 
 @app.post("/sendclubsms/{clubno}", response_class=HTMLResponse)
-async def sendsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    print("###SMS 호출")
-    user_clubno = request.session.get("user_Clubno")
+async def sendclubsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
-    data4insert = {
-        "clubNo": clubno,
-        "messageTitle": form_data.get("smstitle"),
-        "MessageConts": form_data.get("smsmessage"),
-    }
-    await send_fcm_topic_notice(
-        clubno=clubno,
-        title=form_data.get("smstitle") or "클럽공지",
-        body=form_data.get("smsmessage") or "클럽공지"
-    )
-    return RedirectResponse(f"/clubsms/{user_clubno}", status_code=303)
+    await send_fcm_topic_notice(clubno=clubno, title=form_data.get("smstitle") or "클럽공지",
+                                body=form_data.get("smsmessage") or "클럽공지")
+    return RedirectResponse(f"/clubsms/{request.session.get('user_Clubno')}", status_code=303)
+
 
 @app.post("/sendmembersms/{clubno}", response_class=HTMLResponse)
-async def sendsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    print("###SMS 호출")
-    user_clubno = request.session.get("user_Clubno")
+async def sendmembersms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     smstitle = form_data.get("smstitle")
     smsmessage = form_data.get("smsmessage")
     selusers = form_data.getlist("seluser")
-
     for memberno in selusers:
-        await send_fcm_topic_notice_member(
-            memberno=memberno,
-            title=smstitle or "개별통지",
-            body=smsmessage or "개별통지"
-        )
-    return RedirectResponse(f"/membersms/{user_clubno}", status_code=303)
+        await send_fcm_topic_notice_member(memberno=memberno, title=smstitle or "개별통지", body=smsmessage or "개별통지")
+    return RedirectResponse(f"/membersms/{request.session.get('user_Clubno')}", status_code=303)
 
 
 @app.post("/updateclub/{clubno}", response_class=HTMLResponse)
-async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+async def updateclub(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "clubName": form_data.get("clubname"),
-        "estDate": form_data.get("estdate"),
-        "regionNo": form_data.get("regno"),
-        "officeAddr": form_data.get("offaddr"),
-        "officeTel": form_data.get("offtel"),
+        "clubName": form_data.get("clubname"), "estDate": form_data.get("estdate"), "regionNo": form_data.get("regno"),
+        "officeAddr": form_data.get("offaddr"), "officeTel": form_data.get("offtel"),
         "officeFax": form_data.get("offfax"),
-        "officeEmail": form_data.get("offemail"),
-        "officeWeb": form_data.get("offweb"),
+        "officeEmail": form_data.get("offemail"), "officeWeb": form_data.get("offweb"),
         "modDate": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
@@ -1499,13 +761,11 @@ async def update_clubdtl(request: Request, clubno: int, db: AsyncSession = Depen
 
 
 @app.post("/updatecircle/{circleno}", response_class=HTMLResponse)
-async def update_circledtl(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+async def updatecircle(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "circleName": form_data.get("circlename"),
-        "circleType": form_data.get("circletype"),
-        "circleAddress": form_data.get("circleaddr"),
-        "circleTel": form_data.get("circletel"),
+        "circleName": form_data.get("circlename"), "circleType": form_data.get("circletype"),
+        "circleAddress": form_data.get("circleaddr"), "circleTel": form_data.get("circletel"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -1519,61 +779,48 @@ async def update_circledtl(request: Request, circleno: int, db: AsyncSession = D
 @app.get("/regionclubList/{regno}", response_class=HTMLResponse)
 async def regionclubList(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     club_list = await get_regionclublist(regno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("member/regionclubList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "club_list": club_list, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("member/regionclubList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "club_list": club_list,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/rankList", response_class=HTMLResponse)
 async def rankList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     rank_list = await get_ranklistall(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/rankList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "rank_list": rank_list, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("admin/rankList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "rank_list": rank_list,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/rankDetail/{rankno}", response_class=HTMLResponse)
-async def rankDtl(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
+async def rankDetail(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     rank_dtl = await get_rankdtl(rankno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/rankDetail.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "rank_dtl": rank_dtl, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("admin/rankDetail.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "rank_dtl": rank_dtl,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.post("/update_rank/{rankno}", response_class=HTMLResponse)
-async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
+async def update_rank(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "rankNo": rankno,
-        "rankTitlekor": form_data.get("rankkor"),
-        "rankTitleeng": form_data.get("rankeng"),
-        "rankDiv": form_data.get("ranktype"),
-        "orderNo": form_data.get("orderno"),
-        "useYN": form_data.get("useyn"),
+        "rankNo": rankno, "rankTitlekor": form_data.get("rankkor"), "rankTitleeng": form_data.get("rankeng"),
+        "rankDiv": form_data.get("ranktype"), "orderNo": form_data.get("orderno"), "useYN": form_data.get("useyn"),
     }
     query = text(
-        f"UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
+        "UPDATE lionsRank SET rankTitlekor = :rankTitlekor, rankTitleeng = :rankTitleeng, rankDiv = :rankDiv, orderNo = :orderNo, useYN = :useYN WHERE rankNo = :rankNo")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/rankDetail/{rankno}", status_code=303)
@@ -1582,172 +829,55 @@ async def update_rankdtl(request: Request, rankno: int, db: AsyncSession = Depen
 @app.get("/add_rank", response_class=HTMLResponse)
 async def add_rank(request: Request, db: AsyncSession = Depends(get_db)):
     query = text(
-        f"INSERT INTO lionsRank (rankTitlekor, rankTitleeng, rankDiv, orderNo) values (:rankTitlekor, :rankTitleeng, :rankDiv, :orderNo)")
+        "INSERT INTO lionsRank (rankTitlekor, rankTitleeng, rankDiv, orderNo) values (:rankTitlekor, :rankTitleeng, :rankDiv, :orderNo)")
     await db.execute(query,
                      {"rankTitlekor": "새로 등록된 직책", "rankTitleeng": "New Rank", "rankDiv": "CLUB", "orderNo": "0"})
     await db.commit()
     return RedirectResponse(f"/rankList", status_code=303)
 
 
-@app.get("/clubStaff/{clubno}/{clubName}", response_class=HTMLResponse)
-async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    staff_dtl = await get_clubstaff(clubno, db)
-    clubmember = await get_clubmemberlist(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/clubStaff.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubName": clubName, "clubno": clubno,
-                                       "staff_dtl": staff_dtl, "clubmember": clubmember, "user_region": user_region, "user_clubno": user_clubno})
-
-
-@app.get("/circleStaff/{circleno}", response_class=HTMLResponse)
-async def circlestaff(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/circleStaff.html", {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"circle_no":circleno,
-                                       "user_region": user_region, "user_clubno": user_clubno})
-
-
-@app.post("/updatestaff/{clubno}", response_class=HTMLResponse)
-async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
-    clubName = form_data.get("clubname")
-    data4update = {
-        "logPeriod": form_data.get("dutyyear"),
-        "clubNo": clubno,
-        "presidentNo": form_data.get("presno"),
-        "secretNo": form_data.get("secrno"),
-        "trNo": form_data.get("trsuno"),
-        "ltNo": form_data.get("ltno"),
-        "ttNo": form_data.get("ttno"),
-        "prpresidentNo": form_data.get("ppresno"),
-        "firstViceNo": form_data.get("fviceno"),
-        "secondViceNo": form_data.get("sviceno"),
-        "thirdViceNo": form_data.get("tviceno"),
-        "slog": form_data.get("slog"),
-    }
-    queryb = text(f"UPDATE lionsClubstaff set attrib = :attrib WHERE clubNo = :clubNo")
-    await db.execute(queryb, {"attrib": 'XXXUPXXXUP', "clubNo": clubno})
-    query = text(
-        f"INSERT INTO lionsClubstaff (logPeriod,clubNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,secondViceNo,thirdViceNo,slog) values (:logPeriod,:clubNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:secondViceNo,:thirdViceNo,:slog)")
-    await db.execute(query, data4update)
-    await db.commit()
-    return RedirectResponse(f"/clubStaff/{clubno}/{clubName}", status_code=303)
-
-
-@app.get("/regionList", response_class=HTMLResponse)
-async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    region_list = await get_regionlist(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/regionList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "region_list": region_list, "user_region": user_region, "user_clubno": user_clubno})
-
-
-@app.get("/circleList", response_class=HTMLResponse)
-async def circleList(request: Request, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    circle_list = await get_circlelist(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/circleList.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "circle_list": circle_list, "user_region": user_region, "user_clubno": user_clubno})
-
-
-@app.get("/editcircle/{circleno}", response_class=HTMLResponse)
-async def editcircle(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
-    query = text("SELECT * FROM lionsCircle where circleNo = :circleNo and attrib not like :atts")
-    result = await db.execute(query, {"circleNo": circleno, "atts": "%XXX%"})
-    circledtl = result.fetchone()
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/circleDetail.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "circledtl": circledtl, "user_region": user_region, "user_clubno": user_clubno})
-
-
 @app.get("/editregion/{regno}", response_class=HTMLResponse)
-async def editclub(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
+async def editregion(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM lionsRegion where regionNo = :regNo and attrib not like :atts")
     result = await db.execute(query, {"regNo": regno, "atts": "%XXX%"})
     regiondtl = result.fetchone()
     rankmembers = await get_rankmemberlist(15, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("admin/regionDetail.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "regiondtl": regiondtl, "rankmembers": rankmembers, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("admin/regionDetail.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "regiondtl": regiondtl, "rankmembers": rankmembers,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/editbis/{memberno}", response_class=HTMLResponse)
-async def editbis(request: Request, memberno: int, saved: int = 0,db: AsyncSession = Depends(get_db)):
+async def editbis(request: Request, memberno: int, saved: int = 0, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     query = text("SELECT * FROM memberBusiness where memberNo = :memberno and attrib not like :atts")
     result = await db.execute(query, {"memberno": memberno, "atts": "%XXX%"})
     bisdtl = result.fetchone()
-    return templates.TemplateResponse("business/regBis.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "memberno": memberno, "user_region": user_region, "user_clubno": user_clubno, "saved": saved,
-                                       "bisdtl": bisdtl})
+    return templates.TemplateResponse("business/regBis.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "memberno": memberno,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "saved": saved, "bisdtl": bisdtl
+    })
 
 
 @app.post("/update_business/{memberno}", response_class=HTMLResponse)
 async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "dt1": memberno,
-        "dt2": form_data.get("bistitle"),
-        "dt3": form_data.get("bisrank"),
-        "dt4": form_data.get("bistype"),
-        "dt5": form_data.get("bistypedtl"),
-        "dt6": form_data.get("offtel"),
-        "dt7": form_data.get("offaddress"),
-        "dt8": form_data.get("offemail"),
-        "dt9": form_data.get("offpost"),
-        "dt10": form_data.get("offweb"),
-        "dt11": form_data.get("offsns"),
-        "dt12": form_data.get("offmemo")
+        "dt1": memberno, "dt2": form_data.get("bistitle"), "dt3": form_data.get("bisrank"),
+        "dt4": form_data.get("bistype"), "dt5": form_data.get("bistypedtl"), "dt6": form_data.get("offtel"),
+        "dt7": form_data.get("offaddress"), "dt8": form_data.get("offemail"), "dt9": form_data.get("offpost"),
+        "dt10": form_data.get("offweb"), "dt11": form_data.get("offsns"), "dt12": form_data.get("offmemo")
     }
     queryup = text(f"UPDATE memberBusiness SET attrib = :attr WHERE memberNo = :memberno")
     await db.execute(queryup, {"memberno": memberno, "attr": "XXXUPXXXUP"})
-    query = text(
-        f"INSERT INTO memberBusiness (memberNo,bisTitle, bisRank, bisType,bistypeTitle,officeTel,officeAddress,officeEmail,officePostNo,officeWeb,officeSns,bisMemo) values (:dt1,:dt2,:dt3,:dt4,:dt5,:dt6,:dt7,:dt8,:dt9,:dt10,:dt11,:dt12)")
+    query = text("INSERT INTO memberBusiness (memberNo,bisTitle, bisRank, bisType,bistypeTitle,officeTel,officeAddress,officeEmail,officePostNo,officeWeb,officeSns,bisMemo) values (:dt1,:dt2,:dt3,:dt4,:dt5,:dt6,:dt7,:dt8,:dt9,:dt10,:dt11,:dt12)")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(url=f"/editbis/{memberno}?saved=1", status_code=303)
@@ -1757,17 +887,13 @@ async def update_bisdtl(request: Request, memberno: int, db: AsyncSession = Depe
 async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
-        "regionNo": form_data.get("regno"),
-        "chairmanNo": form_data.get("chairmno"),
-        "regionSlog": form_data.get("slog"),
-        "yearFrom": form_data.get("yearfrom"),
-        "yearTo": form_data.get("yearto"),
+        "regionNo": form_data.get("regno"), "chairmanNo": form_data.get("chairmno"),
+        "regionSlog": form_data.get("slog"), "yearFrom": form_data.get("yearfrom"), "yearTo": form_data.get("yearto"),
     }
     mdatenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     queryup = text(f"UPDATE lionsRegion SET attrib = :attr, modDate = :mdate WHERE regionNo = :regno")
     await db.execute(queryup, {"regno": regno, "attr": "XXXUPXXXUP", "mdate": mdatenow})
-    query = text(
-        f"INSERT INTO lionsRegion (regionNo,chairmanNo,regionSlog,yearFrom,yearTo) values (:regionNo,:chairmanNo,:regionSlog, :yearFrom, :yearTo)")
+    query = text("INSERT INTO lionsRegion (regionNo,chairmanNo,regionSlog,yearFrom,yearTo) values (:regionNo,:chairmanNo,:regionSlog, :yearFrom, :yearTo)")
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/editregion/{regno}", status_code=303)
@@ -1776,57 +902,44 @@ async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends
 @app.get("/boardManager/{regionno}", response_class=HTMLResponse)
 async def boardManager(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     clublist = await get_regionboardlist(regionno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/boardMain.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clublist": clublist, "user_Region": user_region, "user_Clubno": user_clubno})
+    return templates.TemplateResponse("board/boardMain.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clublist": clublist,
+        "user_Region": request.session.get("user_Region"), "user_Clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/boardList/{clubno}/{clubname}", response_class=HTMLResponse)
 async def clubboardlist(request: Request, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     clubboards = await get_clubboards(clubno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/clubboardlist.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "clubboards": clubboards, "clubname": clubname, "user_clubno": clubno, "user_region": user_region})
+    return templates.TemplateResponse("board/clubboardlist.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubboards": clubboards, "clubname": clubname,
+        "user_clubno": clubno, "user_region": request.session.get("user_Region")
+    })
 
 
 @app.get("/editboard/{boardno}/{clubname}", response_class=HTMLResponse)
 async def editboard(request: Request, boardno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     boarddtl = await get_boarddtl(boardno, db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/editboard.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "boarddtl": boarddtl, "clubname": clubname, "user_region": user_region, "user_clubno": user_clubno })
+    return templates.TemplateResponse("board/editboard.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "boarddtl": boarddtl, "clubname": clubname,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.api_route("/addboard/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
 async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
-    btitle = form_data.get("btitle")
-    if not btitle:
-        btitle = "새로 만든 게시판(제목 변경 필요)"
-    btype = form_data.get("btype")
-    if not btype:
-        btype = "BOARD"
+    btitle = form_data.get("btitle") or "새로 만든 게시판(제목 변경 필요)"
+    btype = form_data.get("btype") or "BOARD"
     query = text(f"INSERT into lionsBoard (clubNo, boardTitle, boardType) values (:clubNo, :boardTitle, :boardType)")
     await db.execute(query, {"clubNo": clubno, "boardTitle": btitle, "boardType": btype})
     await db.commit()
@@ -1836,16 +949,13 @@ async def addboard(request: Request, clubno: int, db: AsyncSession = Depends(get
 @app.get("/requestList", response_class=HTMLResponse)
 async def requestlist(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
+    if not user_No: return RedirectResponse(url="/")
     requests = await get_requests(db)
-    if not user_No:
-        return RedirectResponse(url="/")
-    return templates.TemplateResponse("board/requestlist.html",
-                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
-                                       "requests": requests, "user_region": user_region, "user_clubno": user_clubno})
+    return templates.TemplateResponse("board/requestlist.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "requests": requests,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.post("/updaterequest/{requestno}")
@@ -1905,7 +1015,7 @@ async def slogan_image(clubno: int, db: AsyncSession = Depends(get_db)):
 
 
 @app.api_route("/updateboard/{boardno}/{clubno}/{clubname}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def addboard(request: Request, boardno: int, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
+async def updateboard(request: Request, boardno: int, clubno: int, clubname: str, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     btitle = form_data.get("btitle")
     btype = form_data.get("btype")
@@ -1923,534 +1033,22 @@ async def updatesort(request: Request, memberno: int, sortno: int, db: AsyncSess
     return JSONResponse(content={"result": "ok"})
 
 
-# 로그아웃 처리
 @app.get("/logout")
 async def logout(request: Request):
-    request.session.clear()  # 세션 삭제
+    request.session.clear()
     return RedirectResponse(url="/")
 
-
-@app.get("/phapp/clubList/{regionno}")
-async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("SELECT clubNo, clubName, regionNo FROM lionsClub where regionNo = :regionNo ")
-        result = await db.execute(query, {"regionNo": regionno})
-        rows = result.fetchall()
-        result = [{"clubNo": row[0], "clubName": row[1], "regionNo": row[2]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"clubs": result}
-
-
-@app.get("/phapp/memberList/{clubno}")
-async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
-        result = await db.execute(query, {"clubno": clubno})
-        rows = result.fetchall()
-        result = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3], "clubRank":row[5]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/clubdocs/{clubno}")
-async def clubdocs(clubno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT * from lionsDoc where (clubNo = :clubno or clubNo = 999) and attrib not like :attrib order by clubNo desc")
-        result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"docNo": row[0], "docType": row[2], "docTitle": row[3]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-
-@app.get("/phapp/docviewer/{docno}")
-async def docviewer(docno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT cDocument, docTitle from lionsDoc where docNo = :docno ")
-        result = await db.execute(query, {"docno": docno})
-        row = result.fetchone()
-        result = [{"cDoc": row[0], "title": row[1]}]
-    except:
-        print("error")
-    finally:
-        return {"doc": result}
-
-
-@app.get("/phapp/notice/{regionno}")
-async def notice(regionno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT * from boardMessage where regionNo = :regionno and attrib not like :attrib")
-        result = await db.execute(query, {"regionno": regionno, "attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-@app.get("/phapp/notice/{regionno}/{memberno}")
-async def notice2(regionno: int, memberno:int ,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT a.messageNo, a.messageTitle,b.readYN, b.attendPlan from boardMessage a left join noticeAndswer b on b.noticeType = 'REGION' and a.messageNo = b.noticeNo and b.memberNo = :memberno where a.regionNo = :regionno and a.attrib not like :attrib")
-        result = await db.execute(query, {"regionno": regionno,"memberno":memberno ,"attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "noticeTitle": row[1], "readYN": row[2], "attendPlan": row[3]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-
-@app.get("/phapp/clubnotice/{clubno}")
-async def cnotice(clubno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT * from clubboardMessage where clubNo = :clubno and attrib not like :attrib")
-        result = await db.execute(query, {"clubno": clubno, "attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "writer": row[3], "noticeTitle": row[4]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-@app.get("/phapp/clubnotice/{clubno}/{memberno}")
-async def cnotice2(clubno: int,memberno:int ,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT a.messageNo, a.messageTitle,b.readYN, b.attendPlan from clubboardMessage a left join noticeAndswer b on b.noticeType = 'CLUB' and a.messageNo = b.noticeNo and b.memberNo = :memberno where a.clubNo = :clubno and a.attrib not like :attrib")
-        result = await db.execute(query, {"clubno": clubno,"memberno":memberno ,"attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "noticeTitle": row[1], "readYN": row[2], "attendPlan": row[3]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-@app.get("/phapp/clubnoticeViewer/{messageno}")
-async def cnoticev(messageno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT * from clubboardMessage where messageNo = :messageno and attrib not like :attrib")
-        result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "answerType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-@app.get("/phapp/noticeViewer/{messageno}")
-async def noticev(messageno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT * from boardMessage where messageNo = :messageno and attrib not like :attrib")
-        result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
-        rows = result.fetchall()
-        result = [{"noticeNo": row[0], "answerType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"docs": result}
-
-
-@app.get("/phapp/rmemberList/")
-async def phapprmemberlist(db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "where lm.rankNo != :rankno order by lm.memberJoindate ")
-        result = await db.execute(query, {"rankno": 19})  # 회원 제외
-        rows = result.fetchall()
-        result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
-            for row in
-            rows]
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/rnkmemberList/{regionno}")
-async def phapprnkmemberlist(regionno:int,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "where lm.rankNo != :rankno and lc.regionNo = :regionno order by lc.clubNo, lr.orderNo, lm.memberJoindate ")
-        result = await db.execute(query, {"rankno": 19, "regionno": regionno})  # 회원 제외
-        rows = result.fetchall()
-        result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
-            for row in
-            rows]
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/searchmember/{keywd}")
-async def searchmember(keywd: str, db: AsyncSession = Depends(get_db)):
-    try:
-        keywd = f"%{keywd}%"
-        print(keywd)
-        query = text(
-            "SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName FROM lionsMember lm "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
-            "where lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
-            "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
-            "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword order by lm.memberJoindate")
-        result = await db.execute(query, {"keyword": keywd})  # 키워드 검색
-        rows = result.fetchall()
-        result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": row[2], "rankTitle": row[3], "clubName": row[4]}
-            for row in rows]
-        print(result)
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/rsearchmember/{regionno}/{keywd}")
-async def rsearchmember(regionno:int, keywd: str, db: AsyncSession = Depends(get_db)):
-    try:
-        keywd = f"%{keywd}%"
-        query = text(
-            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN FROM lionsMember lm "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
-            "where lc.regionNo = :regionno AND (lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
-            "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
-            "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword) order by lm.memberJoindate")
-        result = await db.execute(query, {"keyword": keywd, "regionno":regionno})  # 키워드 검색
-        rows = result.fetchall()
-        result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4]}
-            for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/csearchmember/{clubno}/{keywd}")
-async def csearchmember(clubno:int, keywd: str, db: AsyncSession = Depends(get_db)):
-    try:
-        keywd = f"%{keywd}%"
-        query = text(
-            "SELECT DISTINCT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lc.clubName, lm.maskYN, lm.clubRank FROM lionsMember lm "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo "
-            "left join lionsClub lc on lm.clubNo = lc.clubNo "
-            "left join memberBusiness mb on lm.memberNo = mb.memberNo "
-            "where lc.clubNo = :clubno AND (lm.memberName like :keyword or lm.memberPhone like :keyword or lm.memberAddress like :keyword "
-            "or lm.memberEmail like :keyword or lm.addMemo like :keyword or lm.officeAddress like :keyword "
-            "or mb.bisTitle like :keyword or mb.bisType like :keyword or mb.bistypeTitle like :keyword or mb.bisMemo like :keyword) order by lm.memberJoindate")
-        result = await db.execute(query, {"keyword": keywd, "clubno":clubno})  # 키워드 검색
-        rows = result.fetchall()
-        result = [
-            {"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[5] in ("Y","T") else row[2], "rankTitle": row[3], "clubName": row[4], "clubRank":row[6]}
-            for row in rows]
-    except:
-        print("error")
-    finally:
-        return {"members": result}
-
-
-@app.get("/phapp/memberDtl/{memberno}")
-async def phappmemberlist(memberno: int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text(
-            "WITH LatestPhoto AS ("
-            "  SELECT mPhoto, memberNo, ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn "
-            "  FROM memberPhoto "
-            "), "
-            "LatestNC AS ( "
-            "  SELECT ncardPhoto, memberNo, ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn "
-            "  FROM memberNamecard "
-            "), "
-            "LatestSP AS ( "
-            "  SELECT spousePhoto, memberNo, ROW_NUMBER() OVER (PARTITION BY memberNo ORDER BY regDate DESC) AS rn "
-            "  FROM memberSpouse "
-            ") "
-            "SELECT "
-            "  lm.memberNo, "
-            "  lm.memberName, "
-            "  lm.memberMF, "
-            "  CASE "
-            "    WHEN DATE_FORMAT(lm.memberBirth, '%Y') = '2029' THEN '' "
-            "    WHEN DATE_FORMAT(lm.memberBirth, '%m-%d') = '01-01' THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'),'년생')"
-            "    ELSE DATE_FORMAT(lm.memberBirth, '%Y-%m-%d') "
-            "  END AS memberBirth, "
-            "  lm.memberSeccode, "
-            "  lm.memberAddress, "
-            "  lm.memberPhone, "
-            "  lm.memberEmail, "
-            "  lm.memberJoindate, "
-            "  lm.clubNo, "
-            "  lm.sponserNo, "
-            "  lm.addMemo, "
-            "  lm.rankNo, "
-            "  lm.officeAddress, "
-            "  lm.spouseName, "
-            "  lm.spousePhone, "
-            " CASE "
-            "    WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2020' THEN '' "
-            "    WHEN DATE_FORMAT(lm.spouseBirth, '%m-%d') = '01-01' THEN CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y'),'년생')"
-            "    ELSE DATE_FORMAT(lm.spouseBirth, '%Y-%m-%d') "
-            "  END AS spouseBirth, "
-            "  lm.maskYN, "
-            "  lm.funcNo, "
-            "  (TO_BASE64(lp.mPhoto)), "
-            "  lr.rankTitlekor, "
-            "  lc.clubName, "
-            "  (TO_BASE64(ln.ncardPhoto)), "
-            "  (TO_BASE64(ls.spousePhoto)), "
-            "  mb.*, "
-            "  lm.clubRank "
-            "FROM lionsMember lm "
-            "LEFT JOIN LatestPhoto lp ON lm.memberNo = lp.memberNo AND lp.rn = 1 "
-            "LEFT JOIN LatestNC ln ON lm.memberNo = ln.memberNo AND ln.rn = 1 "
-            "LEFT JOIN LatestSP ls ON lm.memberNo = ls.memberNo AND ls.rn = 1 "
-            "LEFT JOIN lionsRank lr ON lm.rankNo = lr.rankNo "
-            "LEFT JOIN lionsClub lc ON lm.clubNo = lc.clubNo "
-            "LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo and mb.attrib not like '%XXX%'"
-            "WHERE lm.memberNo = :memberno"
-        )
-        result = await db.execute(query, {"memberno": memberno})
-        rows = result.fetchone()
-        if rows[17]=='N':
-            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[19],
-                   "clubNo": rows[9],
-                   "rankTitle": rows[20], "memberMF": rows[2], "memberAddress": rows[5], "memberEmail": rows[7],
-                   "memberJoindate": rows[8],
-                   "addMemo": rows[11], "memberBirth": rows[3], "clubName": rows[21], "nameCard": rows[22],
-                   "officeAddress": rows[13],
-                   "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16], "spousePhoto": rows[23],
-                   "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
-                   "offtel": rows[30],
-                   "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                   "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
-        elif rows[17]=='S':
-            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[19],
-                       "clubNo": rows[9],
-                       "rankTitle": rows[20], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": rows[7],
-                       "memberJoindate": rows[8],
-                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[21], "nameCard": rows[22],
-                       "officeAddress": rows[13],
-                       "spouseName": rows[14], "spousePhone": rows[15], "spouseBirth": rows[16],
-                       "spousePhoto": rows[23],
-                       "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
-                       "offtel": rows[30],
-                       "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                       "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
-        elif rows[17] == 'T':
-            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": rows[6], "mPhotoBase64": rows[19],
-                       "clubNo": rows[9],
-                       "rankTitle": rows[20], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": "비공개",
-                       "memberJoindate": "비공개",
-                       "addMemo": rows[11], "memberBirth": "비공개", "clubName": rows[21], "nameCard": rows[22],
-                       "officeAddress": rows[13],
-                       "spouseName": "비공개", "spousePhone": "비공개", "spouseBirth": "비공개",
-                       "spousePhoto": "",
-                       "bisTitle": rows[26], "bisRank": rows[27], "bisType": rows[28], "bistypeTitle": rows[29],
-                       "offtel": rows[30],
-                       "offAddress": rows[31], "offEmail": rows[32], "offPost": rows[33], "offWeb": rows[34],
-                       "offSns": rows[35], "bisMemo": rows[36], "clubRank":rows[39]}]
-        else:
-            result = [{"memberNo": rows[0], "memberName": rows[1], "memberPhone": "비공개", "mPhotoBase64": rows[19],
-                       "clubNo": rows[9],
-                       "rankTitle": rows[20], "memberMF": rows[2], "memberAddress": "비공개", "memberEmail": "비공개",
-                       "memberJoindate": "비공개",
-                       "addMemo": "비공개", "memberBirth": "비공개", "clubName": rows[21], "nameCard": "",
-                       "officeAddress": "비공개",
-                       "spouseName": "비공개", "spousePhone": "비공개", "spouseBirth": "비공개",
-                       "spousePhoto": "",
-                       "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개", "bistypeTitle": "비공개",
-                       "offtel": "비공개",
-                       "offAddress": "비공개", "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
-                       "offSns": "비공개", "bisMemo": "비공개", "clubRank":rows[39]}]
-    except:
-        print("Member Detail Phone error")
-    finally:
-        return {"memberdtl": result}
-
-
-@app.get("/phapp/zlogin/{phoneno}")
-async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno")
-        result = await db.execute(query, {"phoneno": phoneno})
-        rows = result.fetchone()
-        if rows is None:
-            return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2]}
-        print(result)
-    except:
-        print("mLogin error")
-    finally:
-        return result
-
-
-@app.get("/phapp/xlogin/{phoneno}")
-async def mlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("SELECT lm.clubNo, lm.memberNo, lc.regionNo, lm.funcNo, lc.clubName from lionsMember lm left join lionsClub lc on lc.clubNo = lm.clubNo where lm.memberSeccode = :phoneno")
-        result = await db.execute(query, {"phoneno": phoneno})
-        rows = result.fetchone()
-        if rows is None:
-            return {"error": "No data found for the given phone number."}
-        result = {"clubno": rows[0], "memberno": rows[1], "regionno": rows[2], "funcno": rows[3], "clubname":rows[4]}
-        print(result)
-    except:
-        print("mLogin error")
-    finally:
-        return result
 
 class RequestMessage(BaseModel):
     memberNo: str
     message: str
-
-@app.post("/phapp/requestmessage")
-async def request_message(req: RequestMessage, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("INSERT INTO requestMessage (memberNo, message) VALUES (:memberNo, :message)")
-        await db.execute(query, {"memberNo": req.memberNo, "message": req.message})
-        await db.commit()
-        return {"status": "success"}
-    except Exception as e:
-        print("request_message error:", e)
-        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
-
-
-@app.post("/phapp/maskYN/{memberno}/{msk}")
-async def mskyn(memberno:int,msk:str, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("UPDATE lionsMember set maskYN = :msk where memberNo = :memberNo")
-        await db.execute(query, {"memberNo": memberno , "msk": msk})
-        await db.commit()
-        return {"status": "success"}
-    except Exception as e:
-        print("request_message error:", e)
-        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
-
-@app.post("/phapp/funcNo/{memberno}/{funcno}")
-async def funcno(memberno:int,funcno:int, db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("UPDATE lionsMember set funcNo = :func where memberNo = :memberNo")
-        await db.execute(query, {"memberNo": memberno , "func": funcno})
-        await db.commit()
-        return {"status": "success"}
-    except Exception as e:
-        print("request_message error:", e)
-        raise HTTPException(status_code=500, detail="DB 저장 중 오류 발생")
-
-@app.post("/phapp/noticeRead/{memberno}/{noticeno}/{noticetype}")
-async def readnot(memberno: int, noticeno: int, noticetype: str, db: AsyncSession = Depends(get_db)):
-    try:
-        check_query = text("""
-            SELECT 1 FROM noticeAndswer
-            WHERE memberNo = :memberNo
-              AND noticeNo = :notno
-              AND noticeType = :nottype
-            LIMIT 1
-        """)
-        result = await db.execute(check_query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype})
-        exists = result.scalar() is not None
-        if not exists:
-            insert_query = text("""
-                INSERT INTO noticeAndswer (memberNo, noticeNo, noticeType, readYN)
-                VALUES (:memberNo, :notno, :nottype, 'Y')
-            """)
-            await db.execute(insert_query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype})
-            await db.commit()
-            return {"status": "success"}
-        else:
-            # 이미 있으면 성공 처리(혹은 다른 메시지)
-            return {"status": "already_exists"}
-    except Exception as e:
-        print("request_message error:", e)
-        raise HTTPException(status_code=500, detail="공지 읽음 처리 오류 발생")
-
-@app.post("/phapp/noticeAttend/{memberno}/{noticeno}/{noticetype}/{attend}")
-async def attendnot(memberno:int,noticeno:int,noticetype:str,attend:str ,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("update noticeAndswer set attendPlan = :attend where memberNo = :memberNo and noticeNo = :notno and noticeType = :nottype")
-        await db.execute(query, {"memberNo": memberno, "notno": noticeno, "nottype": noticetype, "attend": attend })
-        await db.commit()
-        return {"status": "success"}
-    except Exception as e:
-        print("request_message error:", e)
-        raise HTTPException(status_code=500, detail="공지 참석 처리 오류 발생")
-
-@app.get("/phapp/getmask/{memberno}")
-async def mskyn(memberno:int,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("select maskYN from lionsMember where memberNo = :memberNo")
-        result = await db.execute(query, {"memberNo": memberno })
-        rows = result.fetchone()
-        return {"maskYN": rows[0]}
-    except Exception as e:
-        print("request_message error:", e)
-
-@app.get("/phapp/getfuncno/{memberno}")
-async def getfunc(memberno:int,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("select funcNo from lionsMember where memberNo = :memberNo")
-        result = await db.execute(query, {"memberNo": memberno })
-        rows = result.fetchone()
-        return {"funcno": rows[0]}
-    except Exception as e:
-        print("request_message error:", e)
-
-@app.get("/phapp/getmycircle/{memberno}")
-async def getcircle(memberno:int,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("select cm.circleNo, lc.circleName  from circleMember cm left join lionsCircle lc on cm.circleNo = lc.circleNo where cm.memberNo = :memberno ")
-        result = await db.execute(query, {"memberno": memberno })
-        rows = result.fetchall()
-        circles = [dict(row._mapping) for row in rows]
-        return {"circles": circles}
-    except Exception as e:
-        print("request_message error:", e)
-
-
-@app.get("/phapp/getcirclemembers/{circleno}")
-async def getcirclemember(circleno:int,db: AsyncSession = Depends(get_db)):
-    try:
-        query = text("select cm.memberNo , lm.memberName, lc.clubName , lr.rankTitlekor, lm.memberPhone  from circleMember cm left join lionsMember lm on cm.memberNo = lm.memberNo left join lionsRank lr on cm.rankNo = lr.rankNo left join lionsClub lc on lm.clubNo = lc.clubNo where cm.circleNo = :circleno order by lr.orderNo, lc.clubNo")
-        result = await db.execute(query, {"circleno": circleno })
-        rows = result.fetchall()
-        cmembers = [dict(row._mapping) for row in rows]
-        return {"cmembers": cmembers}
-    except Exception as e:
-        print("request_message error:", e)
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
     return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
 
 @app.get("/privacy2", response_class=HTMLResponse)
-async def privacy(request: Request):
+async def privacy2(request: Request):
     return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
 
 
@@ -2458,14 +1056,14 @@ async def privacy(request: Request):
 async def custom_404_handler(request: Request, exc: StarletteHTTPException):
     if exc.status_code == 404:
         return templates.TemplateResponse(
-            "/error/errorInfo.html",  # 템플릿 파일
-            {"request": request, "error_message": "페이지를 찾을 수 없습니다."},  # 템플릿에 전달할 데이터
+            "/error/errorInfo.html",
+            {"request": request, "error_message": "페이지를 찾을 수 없습니다."},
             status_code=404,
         )
     if exc.status_code == 500:
         return templates.TemplateResponse(
-            "/error/errorInfo.html",  # 템플릿 파일
-            {"request": request, "error_message": "시스템 내부 에러 발생."},  # 템플릿에 전달할 데이터
+            "/error/errorInfo.html",
+            {"request": request, "error_message": "시스템 내부 에러 발생."},
             status_code=500,
         )
     return HTMLResponse(
@@ -2476,3 +1074,9 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 @app.get("/contactus", response_class=HTMLResponse)
 async def contactus(request: Request):
     return templates.TemplateResponse("help/contactus.html", {"request": request})
+
+# ==========================================
+# 모바일 앱 라우터 등록 (순환 참조 방지를 위해 맨 아래에 위치)
+# ==========================================
+from phapphub import phapp_router
+app.include_router(phapp_router)
