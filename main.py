@@ -1123,7 +1123,7 @@ async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(
 @app.post("/updatecirclestaff/{circleno}", response_class=HTMLResponse)
 async def update_stff(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
-    data4update = {
+    raw_data = {
         "logPeriod": form_data.get("dutyyear"),
         "circleNo": circleno,
         "presidentNo": form_data.get("presno"),
@@ -1137,10 +1137,16 @@ async def update_stff(request: Request, circleno: int, db: AsyncSession = Depend
         "thirdViceNo": form_data.get("tviceno"),
         "slog": form_data.get("slog"),
     }
-    queryb = text(f"UPDATE lionsCirclestaff set attrib = :attrib WHERE circleNo = :circleNo")
+    data4update = {
+        key: value for key, value in raw_data.items()
+        if value is not None and str(value).strip() != ""
+    }
+    queryb = text("UPDATE lionsCirclestaff SET attrib = :attrib WHERE circleNo = :circleNo")
     await db.execute(queryb, {"attrib": 'XXXUPXXXUP', "circleNo": circleno})
-    query = text(
-        f"INSERT INTO lionsCirclestaff (logPeriod,circleNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,slog) values (:logPeriod,:circleNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:slog)")
+    columns = ", ".join(data4update.keys())
+    placeholders = ", ".join([f":{key}" for key in data4update.keys()])
+    insert_query_str = f"INSERT INTO lionsCirclestaff ({columns}) VALUES ({placeholders})"
+    query = text(insert_query_str)
     await db.execute(query, data4update)
     await db.commit()
     return RedirectResponse(f"/circleStaff/{circleno}", status_code=303)
