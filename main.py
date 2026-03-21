@@ -1003,11 +1003,39 @@ async def slogan_image(clubno: int, db: AsyncSession = Depends(get_db)):
     sub2 = staff[6] if staff else 0
     sub2n = staff[7]+"L" if staff else "No Name"
     sub_members = [(sub1, sub1n), (sub2, sub2n)]
-    img = make_slogan_image(slogan, memberno, name, width=400, height=400, sub_members=sub_members)
+    img = make_slogan_image(slogan, memberno, name, width=400, height=520, sub_members=sub_members)
     save_dir = "./static/img/members"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f"{clubno}logo.png")
     img.save(save_path, format="PNG")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get("/slimage_circle/{circleno}")
+async def cirslogan_image(circleno: int, db: AsyncSession = Depends(get_db)):
+    staff = await get_circlestaffwithname(circleno, db)
+
+    slogan = staff[1] if staff else "No Slogan"
+    memberno = staff[3] if staff else 0
+    name = str(staff[4]) + "L" if staff and len(staff) > 3 and staff[3] is not None else "No Name"
+
+    sub1 = staff[5] if staff and len(staff) > 4 else 0
+    sub1n = str(staff[6]) + "L" if staff and len(staff) > 5 and staff[5] is not None else "No Name"
+
+    sub2 = staff[7] if staff and len(staff) > 6 else 0
+    sub2n = str(staff[8]) + "L" if staff and len(staff) > 7 and staff[7] is not None else "No Name"
+
+    sub_members = [(sub1, sub1n), (sub2, sub2n)]
+    img = make_slogan_image(slogan, memberno, name, width=400, height=520, sub_members=sub_members)
+
+    save_dir = "./static/img/members"
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, f"{circleno}circlelogo.png")
+    img.save(save_path, format="PNG")
+
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -1031,6 +1059,140 @@ async def updatesort(request: Request, memberno: int, sortno: int, db: AsyncSess
     await db.execute(query, {"sortNo": sortno, "memberNo": memberno})
     await db.commit()
     return JSONResponse(content={"result": "ok"})
+
+
+@app.get("/clubStaff/{clubno}/{clubName}", response_class=HTMLResponse)
+async def clubstaff(request: Request, clubno: int, clubName: str, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    staff_dtl = await get_clubstaff(clubno, db)
+    clubmember = await get_clubmemberlist(clubno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/clubStaff.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "clubName": clubName, "clubno": clubno,
+                                       "staff_dtl": staff_dtl, "clubmember": clubmember, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/circleStaff/{circleno}", response_class=HTMLResponse)
+async def circlestaff(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    circlestaff = await get_circlestaffwithname(circleno, db)
+    circlembrlist = await get_circlememberlist(circleno, db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleStaff.html", {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,"circle_no":circleno,
+                                       "user_region": user_region, "user_clubno": user_clubno, "circlembrlist": circlembrlist, "circlestaff": circlestaff})
+
+
+@app.post("/updatestaff/{clubno}", response_class=HTMLResponse)
+async def update_stff(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubName = form_data.get("clubname")
+    data4update = {
+        "logPeriod": form_data.get("dutyyear"),
+        "clubNo": clubno,
+        "presidentNo": form_data.get("presno"),
+        "secretNo": form_data.get("secrno"),
+        "trNo": form_data.get("trsuno"),
+        "ltNo": form_data.get("ltno"),
+        "ttNo": form_data.get("ttno"),
+        "prpresidentNo": form_data.get("ppresno"),
+        "firstViceNo": form_data.get("fviceno"),
+        "secondViceNo": form_data.get("sviceno"),
+        "thirdViceNo": form_data.get("tviceno"),
+        "slog": form_data.get("slog"),
+    }
+    queryb = text(f"UPDATE lionsClubstaff set attrib = :attrib WHERE clubNo = :clubNo")
+    await db.execute(queryb, {"attrib": 'XXXUPXXXUP', "clubNo": clubno})
+    query = text(
+        f"INSERT INTO lionsClubstaff (logPeriod,clubNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,secondViceNo,thirdViceNo,slog) values (:logPeriod,:clubNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:secondViceNo,:thirdViceNo,:slog)")
+    await db.execute(query, data4update)
+    await db.commit()
+    return RedirectResponse(f"/clubStaff/{clubno}/{clubName}", status_code=303)
+
+
+@app.post("/updatecirclestaff/{circleno}", response_class=HTMLResponse)
+async def update_stff(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "logPeriod": form_data.get("dutyyear"),
+        "circleNo": circleno,
+        "presidentNo": form_data.get("presno"),
+        "secretNo": form_data.get("secrno"),
+        "trNo": form_data.get("trsuno"),
+        "ltNo": form_data.get("ltno"),
+        "ttNo": form_data.get("ttno"),
+        "prpresidentNo": form_data.get("ppresno"),
+        "firstViceNo": form_data.get("fviceno"),
+        "secondViceNo": form_data.get("sviceno"),
+        "thirdViceNo": form_data.get("tviceno"),
+        "slog": form_data.get("slog"),
+    }
+    queryb = text(f"UPDATE lionsCirclestaff set attrib = :attrib WHERE circleNo = :circleNo")
+    await db.execute(queryb, {"attrib": 'XXXUPXXXUP', "circleNo": circleno})
+    query = text(
+        f"INSERT INTO lionsCirclestaff (logPeriod,circleNo,presidentNo,secretNo,trNo,ltNo,ttNo,prpresidentNo,firstViceNo,slog) values (:logPeriod,:circleNo,:presidentNo,:secretNo,:trNo,:ltNo,:ttNo,:prpresidentNo,:firstViceNo,:slog)")
+    await db.execute(query, data4update)
+    await db.commit()
+    return RedirectResponse(f"/circleStaff/{circleno}", status_code=303)
+
+
+@app.get("/circleList", response_class=HTMLResponse)
+async def circleList(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    circle_list = await get_circlelist(db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "circle_list": circle_list, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/editcircle/{circleno}", response_class=HTMLResponse)
+async def editcircle(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    query = text("SELECT * FROM lionsCircle where circleNo = :circleNo and attrib not like :atts")
+    result = await db.execute(query, {"circleNo": circleno, "atts": "%XXX%"})
+    circledtl = result.fetchone()
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/circleDetail.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "circledtl": circledtl, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.get("/regionList", response_class=HTMLResponse)
+async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    region_list = await get_regionlist(db)
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("admin/regionList.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
+                                       "region_list": region_list, "user_region": user_region, "user_clubno": user_clubno})
+
+
 
 
 @app.get("/logout")

@@ -1,10 +1,11 @@
 import os
+from PIL import Image, ImageDraw, ImageFont
+import os
 import io
 import base64
 import datetime
 import asyncio
 from pathlib import Path
-from PIL import Image, ImageFont, ImageDraw
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
@@ -163,67 +164,102 @@ def split_text_to_multiline(draw, text, font, max_width):
         lines = [lines[0], ' '.join(lines[1:])]
     return '\n'.join(lines)
 
-def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=400, font_size=20, sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
-    img = Image.new("RGB", (width, height), color="white")
+
+def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=520, font_size=22,
+                      sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
+    # 🎨 라이온스클럽 상징 컬러
+    LIONS_BLUE = "#00338D"
+    LIONS_GOLD = "#F2A900"
+    BG_COLOR = "#F4F6F9"
+
+    img = Image.new("RGB", (width, height), color=BG_COLOR)
     draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("NanumGothic.ttf", font_size)
-        name_font = ImageFont.truetype("NanumGothic.ttf", 18)
-    except:
+
+    # 📝 폰트 설정 (윈도우 맑은고딕 추가)
+    font_paths = [
+        "malgunbd.ttf",  # 윈도우 맑은 고딕 볼드
+        "malgun.ttf",  # 윈도우 맑은 고딕
+        "NanumGothicBold.ttf",
+        "NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "AppleGothic.ttf"
+    ]
+
+    font = None
+    name_font = None
+    for path in font_paths:
+        try:
+            font = ImageFont.truetype(path, font_size)
+            name_font = ImageFont.truetype(path, 16)
+            break
+        except IOError:
+            continue
+
+    if font is None:
         font = ImageFont.load_default()
         name_font = ImageFont.load_default()
 
+    # 1. 상단 헤더 영역
+    header_height = 110
+    draw.rectangle([0, 0, width, header_height], fill=LIONS_BLUE)
+
     max_slogan_width = int(width * 0.85)
+    # (기존에 가지고 계신 split_text_to_multiline 함수 사용)
     multiline_slogan = split_text_to_multiline(draw, slogan, font, max_slogan_width)
-    bbox = draw.multiline_textbbox((0, 0), multiline_slogan, font=font, spacing=4)
+
+    bbox = draw.multiline_textbbox((0, 0), multiline_slogan, font=font, spacing=6)
     text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
     x = (width - text_width) // 2
-    y = 20
-    draw.multiline_text((x, y), multiline_slogan, fill="black", font=font, spacing=4, align="center")
+    y = (header_height - text_height) // 2 - bbox[1]
 
-    rect_w, rect_h = 80, 100
-    rect_x = (width - rect_w) // 2
-    rect_y = y + bbox[3] + 20
-    draw.rectangle([rect_x, rect_y, rect_x + rect_w, rect_y + rect_h], outline="gray", width=2)
-    try:
-        profile_img = Image.open(f"./static/img/members/{member_no}.png").resize((rect_w, rect_h))
-        img.paste(profile_img, (rect_x, rect_y))
-    except Exception:
-        pass
+    draw.multiline_text((x + 2, y + 2), multiline_slogan, fill="#001540", font=font, spacing=6, align="center")
+    draw.multiline_text((x, y), multiline_slogan, fill=LIONS_GOLD, font=font, spacing=6, align="center")
 
-    name_rect_w, name_rect_h = 80, 30
-    name_rect_x = (width - name_rect_w) // 2
-    name_rect_y = rect_y + rect_h + 5
-    draw.rectangle([name_rect_x, name_rect_y, name_rect_x + name_rect_w, name_rect_y + name_rect_h], outline="gray", width=2)
-    name_bbox = draw.textbbox((0, 0), name, font=name_font)
-    name_text_w = name_bbox[2] - name_bbox[0]
-    name_text_h = name_bbox[3] - name_bbox[1]
-    name_x = name_rect_x + (name_rect_w - name_text_w) // 2
-    name_y = name_rect_y + (name_rect_h - name_text_h) // 2 - name_bbox[1]
-    draw.text((name_x, name_y), name, fill="black", font=name_font)
+    # 프로필 그리기 헬퍼 함수
+    def draw_member_card(m_no, m_name, cx, cy, img_w, img_h):
+        border_w = 4
+        tag_h = 32
 
-    sub_rect_w, sub_rect_h = 80, 100
-    sub_name_rect_h = 30
-    gap = (width - 2*sub_rect_w) // 3
+        # 골드 테두리
+        draw.rectangle([cx - img_w // 2 - border_w, cy - border_w,
+                        cx + img_w // 2 + border_w, cy + img_h], fill=LIONS_GOLD)
 
-    for i, (sub_no, sub_name) in enumerate(sub_members):
-        sub_rect_x = gap + i * (sub_rect_w + gap)
-        sub_rect_y = name_rect_y + name_rect_h + 20
-        draw.rectangle([sub_rect_x, sub_rect_y, sub_rect_x + sub_rect_w, sub_rect_y + sub_rect_h], outline="gray", width=2)
+        # 프로필 이미지
         try:
-            sub_img = Image.open(f"./static/img/members/{sub_no}.png").resize((sub_rect_w, sub_rect_h))
-            img.paste(sub_img, (sub_rect_x, sub_rect_y))
+            profile_img = Image.open(f"./static/img/members/{m_no}.png").resize((img_w, img_h))
+            img.paste(profile_img, (cx - img_w // 2, cy))
         except Exception:
-            pass
-        sub_name_rect_x = sub_rect_x
-        sub_name_rect_y = sub_rect_y + sub_rect_h + 5
-        draw.rectangle([sub_name_rect_x, sub_name_rect_y, sub_name_rect_x + sub_rect_w, sub_name_rect_y + sub_name_rect_h], outline="gray", width=2)
-        sub_name_bbox = draw.textbbox((0, 0), sub_name, font=name_font)
-        sub_name_text_w = sub_name_bbox[2] - sub_name_bbox[0]
-        sub_name_text_h = sub_name_bbox[3] - sub_name_bbox[1]
-        sub_name_x = sub_name_rect_x + (sub_rect_w - sub_name_text_w) // 2
-        sub_name_y = sub_name_rect_y + (sub_name_rect_h - sub_name_text_h) // 2 - sub_name_bbox[1]
-        draw.text((sub_name_x, sub_name_y), sub_name, fill="black", font=name_font)
+            draw.rectangle([cx - img_w // 2, cy, cx + img_w // 2, cy + img_h], fill="#E0E0E0")
+
+        # 네임택
+        tag_y = cy + img_h
+        draw.rectangle([cx - img_w // 2 - border_w, tag_y,
+                        cx + img_w // 2 + border_w, tag_y + tag_h], fill=LIONS_BLUE)
+
+        n_bbox = draw.textbbox((0, 0), m_name, font=name_font)
+        n_w = n_bbox[2] - n_bbox[0]
+        n_h = n_bbox[3] - n_bbox[1]
+        nx = cx - n_w // 2
+        ny = tag_y + (tag_h - n_h) // 2 - n_bbox[1]
+        draw.text((nx, ny), m_name, fill="white", font=name_font)
+
+    # 2. 메인 멤버
+    main_y = header_height + 25
+    main_img_h = 140
+    main_tag_h = 32
+    draw_member_card(member_no, name, width // 2, main_y, 110, main_img_h)
+
+    # 3. 서브 멤버
+    if sub_members:
+        sub_y = main_y + main_img_h + main_tag_h + 25
+        gap = width // (len(sub_members) + 1)
+
+        for i, (sub_no, sub_name) in enumerate(sub_members):
+            cx = gap * (i + 1)
+            draw_member_card(sub_no, sub_name, cx, sub_y, 90, 115)
+
     return img
 
 def row_to_dict(row):
@@ -244,8 +280,8 @@ async def get_clublist(db: AsyncSession):
 
 async def get_circlelist(db: AsyncSession):
     try:
-        query = text("SELECT * FROM lionsCircle where attrib not like :attpatt")
-        result = await db.execute(query, {"attpatt": "%XXX%"})
+        query = text("SELECT * FROM lionsCircle where circleType not in (:vtoc) and attrib not like :attpatt")
+        result = await db.execute(query, {"attpatt": "%XXX%", "vtoc": 'VOTEC'})
         return result.fetchall()
     except Exception:
         raise HTTPException(status_code=500, detail="Database query failed(CIRCLELIST)")
@@ -467,6 +503,38 @@ async def get_clubstaffwithname(clubno: int, db: AsyncSession):
         return result.fetchone()
     except Exception:
         raise HTTPException(status_code=500, detail="Database query failed(CLUBSTAFFWNAME)")
+
+
+async def get_circlestaffwithname(circleno: int, db: AsyncSession):
+    try:
+        query = text(
+            "SELECT s.logPeriod, s.slog, "
+            "c.circleName AS circleName, "
+            "s.presidentNo, COALESCE(pm.memberName, '공석') AS presidentName, "
+            "s.secretNo, COALESCE(sm.memberName, '공석') AS secretName, "
+            "s.trNo, COALESCE(tm.memberName, '공석') AS trName, "
+            "s.ltNo, COALESCE(ltm.memberName, '공석') AS ltName, "
+            "s.ttNo, COALESCE(ttm.memberName, '공석') AS ttName, "
+            "s.prpresidentNo, COALESCE(prm.memberName, '공석') AS prpresidentName, "
+            "s.firstViceNo, COALESCE(fvm.memberName, '공석') AS firstViceName, "
+            "s.secondViceNo, COALESCE(svm.memberName, '공석') AS secondViceName, "
+            "s.thirdViceNo, COALESCE(tvm.memberName, '공석') AS thirdViceName "
+            "FROM lionsCirclestaff s "
+            "LEFT JOIN lionsMember pm ON s.presidentNo = pm.memberNo "
+            "LEFT JOIN lionsMember sm ON s.secretNo = sm.memberNo "
+            "LEFT JOIN lionsMember tm ON s.trNo = tm.memberNo "
+            "LEFT JOIN lionsMember ltm ON s.ltNo = ltm.memberNo "
+            "LEFT JOIN lionsMember ttm ON s.ttNo = ttm.memberNo "
+            "LEFT JOIN lionsMember prm ON s.prpresidentNo = prm.memberNo "
+            "LEFT JOIN lionsMember fvm ON s.firstViceNo = fvm.memberNo "
+            "LEFT JOIN lionsMember svm ON s.secondViceNo = svm.memberNo "
+            "LEFT JOIN lionsMember tvm ON s.thirdViceNo = tvm.memberNo "
+            "LEFT JOIN lionsCircle c ON s.circleNo = c.circleNo "
+            "WHERE s.circleNo = :circleno and s.attrib not like :attrxx")
+        result = await db.execute(query, {"circleno": circleno, "attrxx": '%XXX%'})
+        return result.fetchone()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Database query failed(CIRCLESTAFFWNAME)")
 
 async def get_ranklist(db: AsyncSession):
     try:
