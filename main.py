@@ -488,6 +488,24 @@ async def clubnoticeread(request: Request, messageno: int, db: AsyncSession = De
     })
 
 
+@app.get("/circlenoticeread/{messageno}", response_class=HTMLResponse)
+async def circlenoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    query = text(
+        "select cm.messageTitle , lm.memberName , na.readYN, na.attendPlan ,na.modDate from circleboardMessage cm "
+        "left join lionsMember lm on cm.clubNo = lm.clubNo "
+        "left join noticeAndswer na on na.noticeNo = cm.messageNo and na.noticeType = 'CIRCLE' "
+        "where cm.messageNo = :messageNo order by lm.clubSortNo ")
+    result = await db.execute(query, {"messageNo": messageno})
+    noticeread = result.fetchall()
+    return templates.TemplateResponse("board/circlenoticeRead.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticeread,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
+
+
 @app.get("/regionnoticeread/{messageno}", response_class=HTMLResponse)
 async def regionnoticeread(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -512,6 +530,23 @@ async def listanswer(request: Request, noticeno: int, noticetype: str, db: Async
     query = text("SELECT * FROM noticeAnswer where noticeNo = :noticeno and noticeType = :noticetype")
     result = await db.execute(query, {"noticeno": noticeno, "noticetype": noticetype})
     return result.fetchall()
+
+
+@app.get("/listcirclenotice/{circleno}", response_class=HTMLResponse)
+async def listcirclenotice(request: Request, circleno: int,db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    query = text("SELECT * FROM circleboardMessage where circleNo = :circleNo and attrib not like '%XXXUP%'")
+    result = await db.execute(query, {"circleNo": circleno})
+    noticelist = result.fetchall()
+    query2 = text("SELECT circleName FROM lionsCircle where circleNo = :circleNo")
+    result2 = await db.execute(query2, {"circleNo": circleno})
+    circlename = result2.fetchone()
+    return templates.TemplateResponse("board/circlenoticeList.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "notices": noticelist, "circlename":circlename[0],"circleno":circleno,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.get("/listclubnotice/{clubno}", response_class=HTMLResponse)
@@ -581,6 +616,21 @@ async def addclubnotice(request: Request, clubno: int, db: AsyncSession = Depend
     })
 
 
+@app.get("/addcirclenotice/{circleno}", response_class=HTMLResponse)
+async def addcirclenotice(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
+    fmt = '%Y-%m-%dT00:00'
+    return templates.TemplateResponse("board/addcirclenotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "from_date": now.strftime(fmt),
+        "to_date": two_weeks.strftime(fmt), "circleno": circleno
+    })
+
+
 @app.get("/editnotice/{messageno}", response_class=HTMLResponse)
 async def editnotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
@@ -613,6 +663,25 @@ async def editclubnotice(request: Request, messageno: int, db: AsyncSession = De
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
     return templates.TemplateResponse("board/editclubnotice.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"), "notice": notice, "from_date": from_date, "to_date": to_date
+    })
+
+
+@app.get("/editcirclenotice/{messageno}", response_class=HTMLResponse)
+async def editcirclenotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    query = text("SELECT * FROM circleboardMessage where messageNo = :messageno")
+    result = await db.execute(query, {"messageno": messageno})
+    notice = result.fetchone()
+    now = datetime.datetime.now()
+    two_weeks = now + datetime.timedelta(days=14)
+    fmt = '%Y-%m-%dT00:00'
+    from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
+    to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
+    return templates.TemplateResponse("board/editcirclenotice.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "user_region": request.session.get("user_Region"),
         "user_clubno": request.session.get("user_Clubno"), "notice": notice, "from_date": from_date, "to_date": to_date
@@ -670,6 +739,26 @@ async def update_clubnot(request: Request, messageno: int, db: AsyncSession = De
     return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
 
+@app.post("/updatecirclenotice/{messageno}", response_class=HTMLResponse)
+async def update_circlenot(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
+        "noticeTo": form_data.get("notto"),
+    }
+    update_fields = {key: value for key, value in data4update.items() if value is not None}
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    query = text(f"UPDATE circleboardMessage SET {set_clause} WHERE messageNo = :messageNo")
+    update_fields["messageNo"] = messageno
+    await db.execute(query, update_fields)
+    await db.commit()
+    query2 = text("SELECT circleNo FROM circleboardMessage where messageNo = :messageNo")
+    result2 = await db.execute(query2, {"messageNo": messageno})
+    circleno = result2.fetchone()[0]
+    return RedirectResponse(f"/listcirclenotice/{circleno}", status_code=303)
+
+
 @app.post("/removenotice/{messageno}", response_class=HTMLResponse)
 async def removenotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
     query = text(f"UPDATE boardMessage SET attrib = :XXUP WHERE messageNo = :messageNo")
@@ -684,6 +773,17 @@ async def removeclubnotice(request: Request, messageno: int, db: AsyncSession = 
     await db.execute(query, {"XXUP": "XXXUPXXXUP", "messageNo": messageno})
     await db.commit()
     return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
+
+
+@app.post("/removecirclenotice/{messageno}/{circleno}", response_class=HTMLResponse)
+async def removecirclenotice(request: Request, messageno: int,circleno:int,db: AsyncSession = Depends(get_db)):
+    query = text(f"UPDATE circleboardMessage SET attrib = :XXUP WHERE messageNo = :messageNo")
+    await db.execute(query, {"XXUP": "XXXUPXXXUP", "messageNo": messageno})
+    await db.commit()
+    query2 = text(f"Select circleName from lionsCircle where circleNo = :circleNo")
+    result = await db.execute(query2, {"circleNo": circleno})
+    circlename = result.fetchone()
+    return RedirectResponse(f"/listcirclenotice/{circleno}", status_code=303)
 
 
 @app.post("/insertnotice/{regionno}", response_class=HTMLResponse)
@@ -721,6 +821,26 @@ async def insertclubnotice(request: Request, clubno: int, db: AsyncSession = Dep
     await send_fcm_topic_notice(clubno=clubno, title="새로운 클럽 공지사항", body=form_data.get("nottitle") or "클럽공지")
     return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
+
+@app.post("/insertcirclenotice/{circleno}", response_class=HTMLResponse)
+async def insertcirclenotice(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4insert = {
+        "circleNo": circleno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
+        "noticeTo": form_data.get("notto"),
+    }
+    insert_fields = {key: value for key, value in data4insert.items() if value is not None}
+    columns = ", ".join(insert_fields.keys())
+    values = ", ".join([f":{key}" for key in insert_fields.keys()])
+    query = text(f"INSERT INTO circleboardMessage ({columns}) VALUES ({values})")
+    await db.execute(query, insert_fields)
+    await db.commit()
+    query2 = text(f"Select circleName from lionsCircle where circleNo = :circleNo")
+    result = await db.execute(query2, {"circleNo": circleno})
+    circlename = result.fetchone()
+#    await send_fcm_topic_notice(circleno=circleno, title="새로운 써클 공지사항", body=form_data.get("nottitle") or "써클공지")
+    return RedirectResponse(f"/listcirclenotice/{circleno}", status_code=303)
 
 @app.post("/sendclubsms/{clubno}", response_class=HTMLResponse)
 async def sendclubsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 # main.py에서 DB 세션 및 토큰 관련 함수 가져오기
 # (순환 참조를 방지하기 위해 main.py의 하단에서 이 라우터를 등록합니다)
 from main import get_db, get_current_mobile_user, create_access_token
+from sqlalchemy import text, bindparam
 
 phapp_router = APIRouter(prefix="/phapp", tags=["Mobile App"])
 
@@ -114,6 +115,67 @@ async def phappcnotice(clubno: int, db: AsyncSession = Depends(get_db), current_
         return {"docs": []}
 
 
+@phapp_router.get("/circlenotice/{memberno}")
+async def phappcirnotice(memberno: int, db: AsyncSession = Depends(get_db),
+                         current_user: str = Depends(get_current_mobile_user)):
+    try:
+        # 1. 사용자가 속한 써클 목록 조회
+        query1 = text("""
+                      SELECT a.circleNo, b.circleName
+                      FROM circleMember a
+                               LEFT JOIN lionsCircle b ON a.circleNo = b.circleNo
+                      WHERE a.memberNo = :memberno
+                        AND a.attrib NOT LIKE :attrib
+                      """)
+        result1 = await db.execute(query1, {"memberno": memberno, "attrib": "%XXX%"})
+        rows1 = result1.fetchall()
+
+        if not rows1:
+            return {"docs": [], "circlenames": []}
+
+        circle_nos = [row[0] for row in rows1]
+        circle_names = [row[1] for row in rows1]
+
+        # 써클 번호로 써클 이름을 찾기 위한 딕셔너리
+        circle_dict = {row[0]: row[1] for row in rows1}
+
+        # 2. 써클 공지사항 목록 및 읽음 여부 조회
+        # 🌟 c.* 대신 필요한 컬럼(messageNo, circleNo, writer, noticeTitle)을 명시적으로 지정
+        query2 = text("""
+                      SELECT c.messageNo,
+                             c.circleNo,
+                             c.writerNo,
+                             c.messageTitle,
+                             CASE WHEN r.noticeNo IS NOT NULL THEN 'Y' ELSE 'N' END AS readYN
+                      FROM circleboardMessage c
+                               LEFT JOIN noticeAndswer r
+                                         ON c.messageNo = r.noticeNo
+                                             AND r.memberNo = :memberno
+                                             AND r.noticeType = 'CIRCLE'
+                      WHERE c.circleNo IN :circlenos
+                        AND c.attrib NOT LIKE :attrib
+                      """)
+        query2 = query2.bindparams(bindparam('circlenos', expanding=True))
+        result2 = await db.execute(query2, {"circlenos": circle_nos, "attrib": "%XXX%", "memberno": memberno})
+        rows2 = result2.fetchall()
+
+        result_data = []
+        for row in rows2:
+            result_data.append({
+                "noticeNo": row[0],  # c.messageNo
+                "circleName": circle_dict.get(row[1], ""),  # c.circleNo (이제 무조건 매칭됨!)
+                "writer": row[2],  # c.writer
+                "noticeTitle": row[3],  # c.noticeTitle
+                "readYN": row[4]  # readYN (명시된 5번째 컬럼)
+            })
+
+        return {"docs": result_data, "circlenames": circle_names}
+
+    except Exception as e:
+        print("error:", e)
+        return {"docs": [], "circlenames": []}
+
+
 @phapp_router.get("/clubnotice/{clubno}/{memberno}")
 async def phappcnotice2(clubno: int,memberno:int ,db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_mobile_user)):
     try:
@@ -134,6 +196,19 @@ async def phappcnoticev(messageno: int, db: AsyncSession = Depends(get_db), curr
         result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
         rows = result.fetchall()
         result_data = [{"noticeNo": row[0], "answerType": row[3], "noticeTitle": row[4], "noticeCont": row[5]} for row in rows]
+        return {"docs": result_data}
+    except Exception as e:
+        print("error:", e)
+        return {"docs": []}
+
+
+@phapp_router.get("/circlenoticeViewer/{messageno}")
+async def phappcircnoticev(messageno: int, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_mobile_user)):
+    try:
+        query = text("SELECT * from circleboardMessage where messageNo = :messageno and attrib not like :attrib")
+        result = await db.execute(query, {"messageno": messageno, "attrib": "%XXX%"})
+        rows = result.fetchall()
+        result_data = [{"noticeNo": row[0], "answerType": row[3], "noticeTitle": row[5], "noticeCont": row[6]} for row in rows]
         return {"docs": result_data}
     except Exception as e:
         print("error:", e)
