@@ -66,6 +66,7 @@
         <th>소속클럽</th>
         <th>클럽직책</th>
         <th>써클직책</th>
+        <th>-</th>
     </thead>
     <tbody>
     {% for member in cmembers %}
@@ -75,6 +76,7 @@
         <td>{{ member.clubName }}</td>
         <td>{{ member.rankTitlekor }}</td>
         <td>{{ member.circleRanktitle }}</td>
+        <td><button class="btn-facebook minus-member-btn" data-circleno="{{ circledtl[0] }}" data-memberno="{{ member.memberNo }}">제거</button></td>
     </tr>
     {% endfor %}
     </tbody>
@@ -150,25 +152,56 @@ $(document).ready(function () {
             }
         });
     });
+
+    $('#rmemberlist').on('click', '.minus-member-btn', function () {
+        let circleno = $(this).data('circleno');
+        let memberno = $(this).data('memberno');
+        let $btn = $(this);
+        $.ajax({
+            url: `/membertocircleminus/${circleno}/${memberno}`,
+            type: 'POST',
+            success: function (data) {
+                if (data.result === "ok") {
+                    alert('회원이 성공적으로 제외되었습니다.');
+                    $btn.prop('disabled', true).text('제거됨');
+                    refreshCircleMemberList(circleno);
+                } else if (data.result === "already") {
+                    alert('이미 제외된 회원입니다.');
+                } else {
+                    alert('처리 중 오류가 발생했습니다.');
+                }
+            },
+            error: function () {
+                alert('서버와 통신 중 오류가 발생했습니다.');
+            }
+        });
+    });
 });
 
 function refreshCircleMemberList(circleno) {
-    $.get(`/getcirclemembers/${circleno}`, function(data) {
-        let table = $('#rmemberlist').DataTable();
-        table.clear();
-        data.members.forEach(function(member) {
-            let row = [
-                `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberNo}</a>`,
-                `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberName}</a>`,
-                member.clubName,
-                member.rankTitlekor,
-                member.circleRanktitle || '' // null이면 빈칸
-            ];
-            table.row.add(row);
-        });
+  $.get(`/getcirclemembers/${circleno}`, function (data) {
+    let table = $('#rmemberlist').DataTable();
+    table.clear();
 
-        table.draw();
+    data.members.forEach(function (member) {
+      let row = [
+        `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberNo}</a>`,
+        `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberName}</a>`,
+        member.clubName || '',
+        member.rankTitlekor || '',
+        member.circleRanktitle || '',
+        `<button class="btn-facebook minus-member-btn"
+                 data-circleno="${circleno}"
+                 data-memberno="${member.memberNo}">
+            제거
+         </button>`
+      ];
+
+      table.row.add(row);
     });
+
+    table.draw();
+  });
 }
 
 </script>

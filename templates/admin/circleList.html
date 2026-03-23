@@ -28,6 +28,7 @@
                         <th>써클종류</th>
                         <th>집행부</th>
                         <th>써클회원관리</th>
+                        <th>공지사항관리</th>
                         </thead>
                         {% for circle in circle_list %}
                             <tr style="text-align: center">
@@ -46,6 +47,7 @@
                                 </td>
                                 <td><a href="/circleStaff/{{ circle[0] }}">집행부 관리</a></td>
                                 <td><a href="/circlememberList/{{ circle[0] }}">회원관리</a></td>
+                                <td><a href="/listcirclenotice/{{ circle[0] }}">공지관리</a></td>
                             </tr>
                         {% endfor %}
                     </table>

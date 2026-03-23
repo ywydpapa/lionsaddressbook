@@ -93,50 +93,65 @@
                                 <tr>
                                     <td>써클명</td>
                                     <td><input type="text" class="form-control" name="circlename"
-                                               value="{{ circleName }}"/></td>
+                                               value="{{ circlestaff.circleName }}"/></td>
                                 </tr>
                                 <tr>
                                     <td>설정회기</td>
                                     <td><input type="text" class="form-control" name="dutyyear"
-                                               value=""/></td>
+                                               value="{{ circlestaff.logPeriod }}"/></td>
                                 </tr>
                                 <tr>
                                     <td>회장슬로건</td>
                                     <td><input type="text" class="form-control" name="slog"
-                                               value=""/>
+                                               value="{{ circlestaff.slog }}"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>써클회장</td>
                                     <td>
                                         <select id = "presidentno" class="form-control" name="presno">
-                                            <option value="0">회원 선택</option>
-                                    </select>
+                                            <option value="">회원 선택</option>
+                                            {% for member in circlembrlist %}
+                                            <option value="{{ member.memberNo }}" {% if member.memberNo == circlestaff.presidentNo %}selected{% endif %}>{{ member.memberName }}</option>
+                                            {% endfor %}
+                                        </select>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>써클총무</td>
                                     <td><select id = "secretno" class="form-control" name="secrno">
-                                        <option value="0">회원 선택</option>
+                                        <option value="">회원 선택</option>
+                                        {% for member in circlembrlist %}
+                                            <option value="{{ member.memberNo }}" {% if member.memberNo == circlestaff.secretNo %}selected{% endif %}>{{ member.memberName }}</option>
+                                        {% endfor %}
                                     </select></td>
                                 </tr>
                                 <tr>
                                     <td>써클재무</td>
                                     <td><select id = "tresuno" class="form-control" name="trsuno">
-                                        <option value="0">회원 선택</option>
+                                        <option value="">회원 선택</option>
+                                        {% for member in circlembrlist %}
+                                            <option value="{{ member.memberNo }}" {% if member.memberNo == circlestaff.trNo %}selected{% endif %}>{{ member.memberName }}</option>
+                                        {% endfor %}
                                     </select></td>
                                 </tr>
                                 <tr>
                                     <td>직전회장</td>
                                     <td><select id = "ppresidentno" class="form-control" name="ppresno">
-                                        <option value="0">회원 선택</option>
+                                            <option value="">회원 선택</option>
+                                        {% for member in circlembrlist %}
+                                            <option value="{{ member.memberNo }}" {% if member.memberNo == circlestaff.prpresidentNo %}selected{% endif %}>{{ member.memberName }}</option>
+                                        {% endfor %}
                                     </select>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>써클 제1부회장</td>
                                     <td><select id = "firstviceno" class="form-control" name="fviceno">
-                                        <option value="0">회원 선택</option>
+                                            <option value="">회원 선택</option>
+                                        {% for member in circlembrlist %}
+                                            <option value="{{ member.memberNo }}" {% if member.memberNo == circlestaff.firstViceNo %}selected{% endif %}>{{ member.memberName }}</option>
+                                        {% endfor %}
                                     </select>
                                     </td>
                                 </tr>
@@ -191,7 +206,7 @@
 <script>
 function openSloganImage(circleno) {
     // 팝업 창 크기와 옵션 지정
-    const url = `/slimage/${circleno}`;
+    const url = `/slimage_circle/${circleno}`;
     window.open(
         url,
         'sloganImagePopup',

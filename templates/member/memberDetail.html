@@ -3,75 +3,75 @@
 <head>
     {% include '/comm/adheader.html' %}
     <script>
-  function editBisdtl(memberno) {
-    document.getElementById('popup-iframe').src = `/editbis/${memberno}`;
-    document.getElementById('popup-overlay').style.display = 'block';
-    document.getElementById('popup').style.display = 'block';
-  }
+        function editBisdtl(memberno) {
+            document.getElementById('popup-iframe').src = `/editbis/${memberno}`;
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('popup').style.display = 'block';
+        }
 
-  function closePopup() {
-    document.getElementById('popup').style.display = 'none';
-    document.getElementById('popup-overlay').style.display = 'none';
-    const iframe = document.getElementById('popup-iframe');
-    iframe.src = '';
-  }
-</script>
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+            document.getElementById('popup-overlay').style.display = 'none';
+            const iframe = document.getElementById('popup-iframe');
+            iframe.src = '';
+        }
+    </script>
 
     <style>
-  #popup-overlay{
-    display:none;
-    position:fixed;
-    inset:0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-  }
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
 
-  #popup{
-    display:none;
-    position:fixed;
-    top:50%;
-    left:50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
 
-    /* 비율 기반 크기 */
-    width: 50vw;     /* 가로 비율 */
-    height: 50vh;    /* 세로 비율 */
+            /* 비율 기반 크기 */
+            width: 50vw; /* 가로 비율 */
+            height: 50vh; /* 세로 비율 */
 
-    background:#fff;
-    border:1px solid #ccc;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    box-sizing: border-box;
-    overflow: hidden;
-  }
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
 
-  /* 닫기 버튼 영역을 고정 높이로 만들고 iframe 높이를 계산 */
-  #popup-header{
-    height: 44px;
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    padding: 6px 10px;
-    border-bottom: 1px solid #eee;
-    box-sizing: border-box;
-    background: #fff;
-  }
+        /* 닫기 버튼 영역을 고정 높이로 만들고 iframe 높이를 계산 */
+        #popup-header {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+            box-sizing: border-box;
+            background: #fff;
+        }
 
-  #popup-close{
-    background:#dc3545;
-    color:#fff;
-    border:none;
-    padding:6px 10px;
-    cursor:pointer;
-  }
+        #popup-close {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
 
-  #popup iframe{
-    width:100%;
-    height: calc(100% - 44px);
-    border:0;
-    display:block;
-  }
-</style>
+        #popup iframe {
+            width: 100%;
+            height: calc(100% - 44px);
+            border: 0;
+            display: block;
+        }
+    </style>
 
     <style>
         #imagePreview {
@@ -123,11 +123,16 @@
                             </thead>
                             <tbody>
                             <tr>
-                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
+                                <td style="text-align: center; vertical-align: middle">회원사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="250"/><img
-                                            id="imagePreview" alt="Image Preview">
+                                        {% if myphoto %}
+                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="250"/>
+                                        {% else %}
+                                        <img src="https://dummyimage.com/200x250/cccccc/ffffff&text=No+Photo"
+                                             alt="No Photo" width="200" height="250"/>
+                                        {% endif %}
+                                        <img id="imagePreview" alt="Image Preview">
                                     </div>
                                 </td>
                             </tr>
@@ -145,8 +150,13 @@
                                 <td style="text-align: center; vertical-align: middle">명함</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="{{ncphoto}}" alt="Member Namecard" width="250" height="200"/><img
-                                            id="ncPreview" alt="Namecard Preview">
+                                        {% if ncphoto %}
+                                        <img src="{{ncphoto}}" alt="Member Namecard" width="250" height="200"/>
+                                        {% else %}
+                                        <img src="https://dummyimage.com/250x200/cccccc/ffffff&text=No+Namecard"
+                                             alt="No Namecard" width="250" height="200"/>
+                                        {% endif %}
+                                        <img id="ncPreview" alt="Namecard Preview">
                                     </div>
                                 </td>
                             </tr>
@@ -165,8 +175,13 @@
                                 <td style="text-align: center; vertical-align: middle">배우자 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="{{spphoto}}" alt="Spouse Namecard" width="200" height="200"/><img
-                                            id="spPreview" alt="Spouse Preview">
+                                        {% if spphoto %}
+                                        <img src="{{spphoto}}" alt="Spouse Photo" width="200" height="200"/>
+                                        {% else %}
+                                        <img src="https://dummyimage.com/200x200/cccccc/ffffff&text=No+Photo"
+                                             alt="No Photo" width="200" height="200"/>
+                                        {% endif %}
+                                        <img id="spPreview" alt="Spouse Preview">
                                     </div>
                                 </td>
                             </tr>
@@ -182,10 +197,10 @@
                                 </td>
                             </tr>
                             </tbody>
-                            </table>
-                            <form method="POST" action="/update_memberdtl/{{memberdtl[0]}}">
-                                <table class="table table-bordered text-center">
-                                    <tbody>
+                        </table>
+                        <form method="POST" action="/update_memberdtl/{{memberdtl[0]}}">
+                            <table class="table table-bordered text-center">
+                                <tbody>
                                 <tr>
                                     <td>회원 성명</td>
                                     <td><input type="text" class="form-control" name="membername"
@@ -193,7 +208,8 @@
                                 </tr>
                                 <tr>
                                     <td>소속 클럽</td>
-                                    <td><select id="clublst" class="form-control selectpicker" data-live-search ="true" name="clublst">
+                                    <td><select id="clublst" class="form-control selectpicker" data-live-search="true"
+                                                name="clublst">
                                         {% for club in clublist %}
                                         <option value="{{club[0]}}" {% if club[0]== memberdtl[9] %}selected{% endif %}>
                                             {{club[1]}}
@@ -215,7 +231,8 @@
                                 </tr>
                                 <tr>
                                     <td>클럽내부직책</td>
-                                    <td><input type="text" id="clubrank" class="form-control" name="clubrank" value="{{ memberdtl[21] }}"/></td>
+                                    <td><input type="text" id="clubrank" class="form-control" name="clubrank"
+                                               value="{{ memberdtl[21] }}"/></td>
                                     </td>
                                 </tr>
                                 <tr>
@@ -301,8 +318,8 @@
                                         </div>
                                     </td>
                                 </tr>
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
                         </form>
                     </div>
                 </div>
@@ -340,10 +357,10 @@
 </body>
 <script>
     $(document).ready(function () {
-    $('.selectpicker').selectpicker({
-      style: 'btn-inverse',
-      size: 40
-     });
+        $('.selectpicker').selectpicker({
+            style: 'btn-inverse',
+            size: 40
+        });
     });
 
 
@@ -406,6 +423,7 @@
             previewElementsp.style.display = "none"; // 이미지 숨기기
         }
     }
+
     document.addEventListener("DOMContentLoaded", function () {
         const selectBox = document.getElementById("clublst");
         const link = document.getElementById("clubMemberLink");
