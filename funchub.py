@@ -165,6 +165,9 @@ def split_text_to_multiline(draw, text, font, max_width):
     return '\n'.join(lines)
 
 
+from PIL import Image, ImageDraw, ImageFont
+
+
 def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=520, font_size=22,
                       sub_members=[(2, "서브1"), (3, "서브2")]) -> Image.Image:
     # 🎨 라이온스클럽 상징 컬러
@@ -204,7 +207,7 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
     draw.rectangle([0, 0, width, header_height], fill=LIONS_BLUE)
 
     max_slogan_width = int(width * 0.85)
-    # (기존에 가지고 계신 split_text_to_multiline 함수 사용)
+    # (기존에 가지고 계신 split_text_to_multiline 함수 사용 가정)
     multiline_slogan = split_text_to_multiline(draw, slogan, font, max_slogan_width)
 
     bbox = draw.multiline_textbbox((0, 0), multiline_slogan, font=font, spacing=6)
@@ -217,26 +220,65 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
     draw.multiline_text((x + 2, y + 2), multiline_slogan, fill="#001540", font=font, spacing=6, align="center")
     draw.multiline_text((x, y), multiline_slogan, fill=LIONS_GOLD, font=font, spacing=6, align="center")
 
-    # 프로필 그리기 헬퍼 함수
+    # 프로필 그리기 헬퍼 함수 (수정됨)
     def draw_member_card(m_no, m_name, cx, cy, img_w, img_h):
         border_w = 4
         tag_h = 32
+        radius = 15  # 모서리 라운드 값
+        shadow_offset = 5  # 그림자 위치 오프셋
+        gap = 12  # 사진과 이름표 사이의 간격
 
-        # 골드 테두리
-        draw.rectangle([cx - img_w // 2 - border_w, cy - border_w,
-                        cx + img_w // 2 + border_w, cy + img_h], fill=LIONS_GOLD)
+        # 사진 테두리 영역 계산
+        left = cx - img_w // 2 - border_w
+        top = cy - border_w
+        right = cx + img_w // 2 + border_w
+        bottom = cy + img_h + border_w
 
-        # 프로필 이미지
-        try:
-            profile_img = Image.open(f"./static/img/members/{m_no}.png").resize((img_w, img_h))
-            img.paste(profile_img, (cx - img_w // 2, cy))
-        except Exception:
-            draw.rectangle([cx - img_w // 2, cy, cx + img_w // 2, cy + img_h], fill="#E0E0E0")
+        # 1. 그림자 효과 (사진 영역 뒤에 약간 어긋나게 배치)
+        shadow_color = "#D4D8E2"  # 배경색보다 약간 어두운 그림자 색상
+        draw.rounded_rectangle(
+            [left + shadow_offset, top + shadow_offset, right + shadow_offset, bottom + shadow_offset],
+            radius=radius, fill=shadow_color
+        )
 
-        # 네임택
-        tag_y = cy + img_h
-        draw.rectangle([cx - img_w // 2 - border_w, tag_y,
-                        cx + img_w // 2 + border_w, tag_y + tag_h], fill=LIONS_BLUE)
+        # 2. 골드 테두리 (라운드 처리)
+        draw.rounded_rectangle([left, top, right, bottom], radius=radius, fill=LIONS_GOLD)
+
+        # 3. 프로필 이미지 로드 및 마스킹
+        photo_x = cx - img_w // 2
+        photo_y = cy
+
+        profile_img = None
+        # mphoto_{m_no}.jpg 또는 png 확인
+        for ext in ["jpg", "png"]:
+            try:
+                profile_img = Image.open(f"./static/img/members/mphoto_{m_no}.{ext}").convert("RGBA")
+                break
+            except Exception:
+                continue
+
+        if profile_img:
+            profile_img = profile_img.resize((img_w, img_h))
+        else:
+            # 이미지가 없을 경우 회색 배경 대체
+            profile_img = Image.new("RGBA", (img_w, img_h), "#E0E0E0")
+
+        # 이미지를 둥글게 자르기 위한 마스크 생성
+        img_mask = Image.new("L", (img_w, img_h), 0)
+        mask_draw = ImageDraw.Draw(img_mask)
+        # 테두리 두께만큼 안쪽으로 들어간 라운드 값 적용
+        mask_draw.rounded_rectangle((0, 0, img_w, img_h), radius=max(1, radius - border_w), fill=255)
+
+        # 마스크를 적용하여 이미지 합성
+        img.paste(profile_img, (photo_x, photo_y), img_mask)
+
+        # 4. 네임택 (사진과 분리됨)
+        tag_y = bottom + gap
+        tag_left = cx - img_w // 2 - border_w
+        tag_right = cx + img_w // 2 + border_w
+
+        # 네임택도 통일감을 위해 약간 둥글게 처리
+        draw.rounded_rectangle([tag_left, tag_y, tag_right, tag_y + tag_h], radius=6, fill=LIONS_BLUE)
 
         n_bbox = draw.textbbox((0, 0), m_name, font=name_font)
         n_w = n_bbox[2] - n_bbox[0]
@@ -249,18 +291,22 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
     main_y = header_height + 25
     main_img_h = 140
     main_tag_h = 32
+    border_width = 4
+    gap_between = 12
     draw_member_card(member_no, name, width // 2, main_y, 110, main_img_h)
 
     # 3. 서브 멤버
     if sub_members:
-        sub_y = main_y + main_img_h + main_tag_h + 25
-        gap = width // (len(sub_members) + 1)
+        # 사진과 네임택이 분리되면서 전체 높이가 늘어났으므로 서브 멤버의 Y좌표도 조정
+        sub_y = main_y + main_img_h + (border_width * 2) + gap_between + main_tag_h + 25
+        gap_w = width // (len(sub_members) + 1)
 
         for i, (sub_no, sub_name) in enumerate(sub_members):
-            cx = gap * (i + 1)
+            cx = gap_w * (i + 1)
             draw_member_card(sub_no, sub_name, cx, sub_y, 90, 115)
 
     return img
+
 
 def row_to_dict(row):
     d = dict(row._mapping)
