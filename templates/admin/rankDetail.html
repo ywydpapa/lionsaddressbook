@@ -43,9 +43,12 @@
                                     <td>직책 구분</td>
                                     <td>
                                         <select name="ranktype" id="ranktype" class="form-control">
-                                            <option value="CLUB" {% if rank_dtl[3]== "CLUB" %}selected{% endif %}>클럽직책</option>
-                                            <option value="DIST" {% if rank_dtl[3]== "DIST" %}selected{% endif %}>지구직책</option>
-                                            <option value="CIRC" {% if rank_dtl[3]== "CIRC" %}selected{% endif %}>써클직책</option>
+                                            <option value="CLUB" {% if rank_dtl[3]==
+                                            "CLUB" %}selected{% endif %}>클럽직책</option>
+                                            <option value="DIST" {% if rank_dtl[3]==
+                                            "DIST" %}selected{% endif %}>지구직책</option>
+                                            <option value="CIRC" {% if rank_dtl[3]==
+                                            "CIRC" %}selected{% endif %}>써클직책</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -53,8 +56,10 @@
                                     <td>사용 여부</td>
                                     <td>
                                         <select name="useyn" id="useyn" class="form-control">
-                                            <option value="Y" {% if rank_dtl[5]== "Y" %}selected{% endif %}>사용</option>
-                                            <option value="N" {% if rank_dtl[5]== "N" %}selected{% endif %}>미사용</option>
+                                            <option value="Y" {% if rank_dtl[5]==
+                                            "Y" %}selected{% endif %}>사용</option>
+                                            <option value="N" {% if rank_dtl[5]==
+                                            "N" %}selected{% endif %}>미사용</option>
                                         </select>
                                     </td>
                                 </tr>

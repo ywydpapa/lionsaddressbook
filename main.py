@@ -47,7 +47,11 @@ cred = credentials.Certificate(
     str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
 )
 
-firebase_admin.initialize_app(cred)
+cert_path = str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(cert_path) # 기존 인증서 변수 사용
+    firebase_admin.initialize_app(cred)
 security = HTTPBearer()
 
 
