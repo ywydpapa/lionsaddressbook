@@ -421,6 +421,117 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
         return {"memberdtl": []}
 
 
+@phapp_router.get("/memberDtlext/{memberno}")
+async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db)):
+    try:
+        # 사진 관련 무거운 JOIN과 TO_BASE64 제거, 매핑을 위해 컬럼명 명시
+        query = text("""
+                     SELECT lm.memberNo,
+                            le.chnName as memberName,
+                            lm.memberMF,
+                            CASE
+                                WHEN DATE_FORMAT(lm.memberBirth, '%Y') = '2029' THEN ''
+                                WHEN DATE_FORMAT(lm.memberBirth, '%m-%d') = '01-01'
+                                    THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'), '년생')
+                                ELSE DATE_FORMAT(lm.memberBirth, '%Y-%m-%d') END AS memberBirth,
+                            lm.memberSeccode,
+                            lm.memberAddress,
+                            lm.memberPhone,
+                            lm.memberEmail,
+                            lm.memberJoindate,
+                            lm.clubNo,
+                            lm.sponserNo,
+                            le.chnMemo as addMemo,
+                            lm.rankNo,
+                            lm.officeAddress,
+                            lm.spouseName,
+                            lm.spousePhone,
+                            CASE
+                                WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2020' THEN ''
+                                WHEN DATE_FORMAT(lm.spouseBirth, '%m-%d') = '01-01'
+                                    THEN CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y'), '년생')
+                                ELSE DATE_FORMAT(lm.spouseBirth, '%Y-%m-%d') END AS spouseBirth,
+                            lm.maskYN,
+                            lm.funcNo,
+                            le.chnRank as rankTitlekor,
+                            lc.clubName,
+                            mb.bisTitle,
+                            mb.bisRank,
+                            mb.bisType,
+                            mb.bistypeTitle,
+                            mb.officeTel                                         as offtel,
+                            mb.officeAddress                                     as offAddress,
+                            mb.officeEmail                                       as offEmail,
+                            mb.officePostNo                                      as offPost,
+                            mb.officeWeb                                         as offWeb,
+                            mb.officeSns                                         as offSns,
+                            mb.bisMemo,
+                            le.chnRank as clubRank
+                     FROM lionsMember lm
+                              LEFT JOIN lionsRank lr ON lm.rankNo = lr.rankNo
+                              LEFT JOIN lionsClub lc ON lm.clubNo = lc.clubNo
+                              LEFT JOIN lionsExtnames le on lm.memberNo = le.memberNo
+                              LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo and mb.attrib not like '%XXX%'
+                     WHERE lm.memberNo = :memberno
+                     """)
+        result = await db.execute(query, {"memberno": memberno})
+        row = result.fetchone()
+        if not row: return {"memberdtl": []}
+
+        # DB 인덱스 에러 방지를 위해 딕셔너리로 매핑
+        d = dict(row._mapping)
+
+        # 파일 존재 여부 확인 후 URL 생성 (도메인이 필요하다면 앞에 추가)
+        import os
+        mphoto_url = f"/static/img/members/mphoto_{memberno}.png" if os.path.exists(
+            f"./static/img/members/mphoto_{memberno}.png") else ""
+        ncard_url = f"/static/img/members/ncard_{memberno}.png" if os.path.exists(
+            f"./static/img/members/ncard_{memberno}.png") else ""
+        sphoto_url = f"/static/img/members/sphoto_{memberno}.png" if os.path.exists(
+            f"./static/img/members/sphoto_{memberno}.png") else ""
+
+        mask = d.get("maskYN", "N")
+
+        # 모바일 앱 호환성을 위해 키 이름(mPhotoBase64 등)은 그대로 유지하되, 값은 URL을 넣습니다.
+        res = {
+            "memberNo": d["memberNo"], "memberName": d["memberName"], "memberPhone": d["memberPhone"],
+            "mPhotoBase64": mphoto_url, "clubNo": d["clubNo"], "rankTitle": d["rankTitlekor"],
+            "memberMF": d["memberMF"], "memberAddress": d["memberAddress"], "memberEmail": d["memberEmail"],
+            "memberJoindate": d["memberJoindate"], "addMemo": d["addMemo"], "memberBirth": d["memberBirth"],
+            "clubName": d["clubName"], "nameCard": ncard_url, "officeAddress": d["officeAddress"],
+            "spouseName": d["spouseName"], "spousePhone": d["spousePhone"], "spouseBirth": d["spouseBirth"],
+            "spousePhoto": sphoto_url, "bisTitle": d["bisTitle"], "bisRank": d["bisRank"],
+            "bisType": d["bisType"], "bistypeTitle": d["bistypeTitle"], "offtel": d["offtel"],
+            "offAddress": d["offAddress"], "offEmail": d["offEmail"], "offPost": d["offPost"],
+            "offWeb": d["offWeb"], "offSns": d["offSns"], "bisMemo": d["bisMemo"], "clubRank": d["clubRank"]
+        }
+
+        # 마스킹(비공개) 처리 로직
+        if mask == 'S':
+            res.update({"memberAddress": "비공개", "memberBirth": "비공개"})
+        elif mask == 'T':
+            res.update({
+                "memberAddress": "비공개", "memberEmail": "비공개", "memberJoindate": "비공개",
+                "memberBirth": "비공개", "spouseName": "비공개", "spousePhone": "비공개",
+                "spouseBirth": "비공개", "spousePhoto": ""
+            })
+        elif mask not in ('N', 'S', 'T'):  # 완전 비공개
+            res.update({
+                "memberPhone": "비공개", "memberAddress": "비공개", "memberEmail": "비공개",
+                "memberJoindate": "비공개", "addMemo": "비공개", "memberBirth": "비공개",
+                "nameCard": "", "officeAddress": "비공개", "spouseName": "비공개",
+                "spousePhone": "비공개", "spouseBirth": "비공개", "spousePhoto": "",
+                "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개",
+                "bistypeTitle": "비공개", "offtel": "비공개", "offAddress": "비공개",
+                "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
+                "offSns": "비공개", "bisMemo": "비공개"
+            })
+
+        return {"memberdtl": [res]}
+    except Exception as e:
+        print("Member Detail error:", e)
+        return {"memberdtl": []}
+
 @phapp_router.get("/zlogin/{phoneno}")
 async def phappzlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
     try:
