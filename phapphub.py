@@ -54,7 +54,7 @@ async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db), curre
 async def phappmemberlistext(clubno: int, db: AsyncSession = Depends(get_db),
                          current_user: str = Depends(get_current_mobile_user)):
     try:
-        query = text("SELECT lm.memberNo, lr.chnName as memberName, lm.memberPhone, lr.chnRank as rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsExtnames lr on lm.memberNo = lr.memberNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
+        query = text("SELECT lm.memberNo, lr.chnName as memberName, lm.memberPhone, lr.chnRank as rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsExtnames lr on lm.memberNo = lr.memberNo where lm.clubNo = :clubno and lm.funcNo <4 order by lm.clubSortNo, lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
         result_data = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3], "clubRank":row[3]} for row in rows]
