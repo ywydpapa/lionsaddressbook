@@ -53,9 +53,8 @@
                     <td>
                         <select id="bisrank" class="form-control" name="bisrank">
                             <option value="CHM" {% if bisdtl[3]=='CHM' %}selected{% endif %}>회장 (Chairman)</option>
-                            <option value="VCH" {% if bisdtl[3]=='VCH' %}selected{% endif %}>부회장 (Vice Chairman)
-                            </option>
-                            <option value="CEO" {% if bisdtl[3]=='CEO' %}selected{% endif %}>대표이사/사장 (CEO)</option>
+                            <option value="VCH" {% if bisdtl[3]=='VCH' %}selected{% endif %}>부회장 (Vice Chairman)</option>
+                            <option value="CEO" {% if bisdtl[3]=='CEO' or not bisdtl[3] %}selected{% endif %}>대표이사/사장 (CEO)</option>
                             <option value="CFO" {% if bisdtl[3]=='CFO' %}selected{% endif %}>최고재무책임자 (CFO)</option>
                             <option value="CTO" {% if bisdtl[3]=='CTO' %}selected{% endif %}>최고기술책임자 (CTO)</option>
                             <option value="COO" {% if bisdtl[3]=='COO' %}selected{% endif %}>최고운영책임자 (COO)</option>
