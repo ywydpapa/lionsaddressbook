@@ -100,7 +100,10 @@ async def upload_image(request: Request, memberno: int, file: UploadFile = File(
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
         contents = await file.read()
-        contents = await resize_image_if_needed(contents, max_bytes=102400)
+
+        # 102400(100KB) -> 51200(50KB)로 변경
+        contents = await resize_image_if_needed(contents, max_bytes=51200)
+
         os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
         image = Image.open(io.BytesIO(contents))
         thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"mphoto_{memberno}.png")

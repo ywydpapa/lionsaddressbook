@@ -363,66 +363,120 @@
         });
     });
 
+    // 50KB 이하로 이미지를 압축하는 함수
+    async function compressImageTo50KB(file) {
+        const MAX_BYTES = 50 * 1024; // 50KB
+        if (file.size <= MAX_BYTES) return file;
 
-    function displayFileInfo(input) {
-        const file = input.files[0];
-        const fileSizeElement = document.getElementById("fileSize");
-        const previewElement = document.getElementById("imagePreview");
-        if (file) {
-            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
-            fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
-            // 이미지 미리보기
+        return new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = function (e) {
-                previewElement.src = e.target.result;
-                previewElement.style.display = "block"; // 이미지 보이기
-            };
             reader.readAsDataURL(file);
-        } else {
-            fileSizeElement.textContent = "";
-            previewElement.style.display = "none"; // 이미지 숨기기
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    let width = img.width;
+                    let height = img.height;
+                    let quality = 0.9;
+
+                    // 초기 해상도 조정 (너무 큰 이미지 대비)
+                    const maxDim = 800;
+                    if (width > maxDim || height > maxDim) {
+                        const ratio = Math.min(maxDim / width, maxDim / height);
+                        width = Math.round(width * ratio);
+                        height = Math.round(height * ratio);
+                    }
+
+                    const attemptCompress = () => {
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob((blob) => {
+                            // 50KB 이하가 되거나, 더 이상 줄일 수 없을 때까지 반복
+                            if (blob.size <= MAX_BYTES || (quality <= 0.1 && width < 100)) {
+                                resolve(new File([blob], file.name, {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                }));
+                            } else {
+                                // 용량이 크면 품질과 크기를 동시에 줄임
+                                quality -= 0.1;
+                                width = Math.round(width * 0.9);
+                                height = Math.round(height * 0.9);
+                                attemptCompress();
+                            }
+                        }, 'image/jpeg', Math.max(quality, 0.1));
+                    };
+
+                    attemptCompress();
+                };
+            };
+        });
+    }
+
+    // 공통 이미지 처리 및 미리보기 함수
+    async function processAndPreviewImage(input, sizeElementId, previewElementId) {
+        let file = input.files[0];
+        const sizeElement = document.getElementById(sizeElementId);
+        const previewElement = document.getElementById(previewElementId);
+
+        if (!file) {
+            sizeElement.textContent = "";
+            previewElement.style.display = "none";
+            return;
         }
+
+        // 1MB 이상일 경우 알림창 표시
+        if (file.size > 1024 * 1024) {
+            alert("1MB 이상의 파일입니다. 50KB 이하로 자동 압축하여 업로드합니다.");
+        }
+
+        sizeElement.textContent = "이미지 압축 중...";
+
+        // 50KB로 압축 진행
+        file = await compressImageTo50KB(file);
+
+        // 압축된 파일로 input 태그의 실제 파일 데이터 교체 (서버 전송용)
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+
+        // 결과 표시 (KB 단위)
+        const sizeInKB = (file.size / 1024).toFixed(2);
+        sizeElement.textContent = `Selected file size: ${sizeInKB} KB`;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            previewElement.src = e.target.result;
+            previewElement.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 각 input 태그의 onchange 이벤트에서 호출될 함수들
+    function displayFileInfo(input) {
+        processAndPreviewImage(input, "fileSize", "imagePreview");
     }
 
     function displayNamecardInfo(input) {
-        const filenc = input.files[0];
-        const fileSizeElementnc = document.getElementById("fileSizenc");
-        const previewElementnc = document.getElementById("ncPreview");
-        if (filenc) {
-            const sizeInMB = (filenc.size / (1024 * 1024)).toFixed(2); // MB로 변환
-            fileSizeElementnc.textContent = `Selected file size: ${sizeInMB} MB`;
-            // 이미지 미리보기
-            const readernc = new FileReader();
-            readernc.onload = function (e) {
-                previewElementnc.src = e.target.result;
-                previewElementnc.style.display = "block"; // 이미지 보이기
-            };
-            readernc.readAsDataURL(filenc);
-        } else {
-            fileSizeElementnc.textContent = "";
-            previewElementnc.style.display = "none"; // 이미지 숨기기
-        }
+        processAndPreviewImage(input, "fileSizenc", "ncPreview");
     }
 
     function displaySpphotoInfo(input) {
-        const filesp = input.files[0];
-        const fileSizeElementsp = document.getElementById("fileSizesp");
-        const previewElementsp = document.getElementById("spPreview");
-        if (filesp) {
-            const sizeInMB = (filesp.size / (1024 * 1024)).toFixed(2); // MB로 변환
-            fileSizeElementsp.textContent = `Selected file size: ${sizeInMB} MB`;
-            // 이미지 미리보기
-            const readersp = new FileReader();
-            readersp.onload = function (e) {
-                previewElementsp.src = e.target.result;
-                previewElementsp.style.display = "block"; // 이미지 보이기
-            };
-            readersp.readAsDataURL(filesp);
-        } else {
-            fileSizeElementsp.textContent = "";
-            previewElementsp.style.display = "none"; // 이미지 숨기기
-        }
+        processAndPreviewImage(input, "fileSizesp", "spPreview");
     }
+
+    // 기존 selectpicker 및 DOMContentLoaded 로직 유지...
+    $(document).ready(function () {
+        $('.selectpicker').selectpicker({
+            style: 'btn-inverse',
+            size: 40
+        });
+    });
 
     document.addEventListener("DOMContentLoaded", function () {
         const selectBox = document.getElementById("clublst");
@@ -434,6 +488,6 @@
         link.href = `${baseUrl}/${encodeURIComponent(selectedText)}`;
         linkc.href = `${baseUrlc}/${encodeURIComponent(selectedText)}`;
     });
-
 </script>
+
 </html>

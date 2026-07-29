@@ -5,34 +5,34 @@
     <meta charset="UTF-8">
     <title>사업정보 수정</title>
     <style>
-  html, body{
-    height: 100%;
-    margin: 0;
-  }
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
 
-  .popup-container{
-    height: 100%;
-    box-sizing: border-box;
-    padding: 12px;
-    overflow: auto;  /* 내용 길면 iframe 내부에서 스크롤 */
-    background-color: #f8f9fa;
-  }
+        .popup-container {
+            height: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            overflow: auto; /* 내용 길면 iframe 내부에서 스크롤 */
+            background-color: #f8f9fa;
+        }
 
-  .col-md-6{
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-  }
+        .col-md-6 {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
 
-  table{
-    margin: 0;
-    background: #fff;
-  }
-</style>
+        table {
+            margin: 0;
+            background: #fff;
+        }
+    </style>
 
 </head>
 <body>
@@ -50,30 +50,63 @@
                 </tr>
                 <tr>
                     <td>직책</td>
-                    <td><select id="bisrank" class="form-control" name="bisrank">
-                        <option value="CEO" {% if bisdtl[3]=='CEO' %}selected{% endif %}>CEO</option>
-                        <option value="CFO" {% if bisdtl[3]=='CFO' %}selected{% endif %}>CFO</option>
-                        <option value="CTO" {% if bisdtl[3]=='CTO' %}selected{% endif %}>CTO</option>
-                        <option value="TLD" {% if bisdtl[3]=='TLD' %}selected{% endif %}>TEAM LEADER</option>
-                        <option value="STF" {% if bisdtl[3]=='STF' %}selected{% endif %}>STAFF</option>
-                        <option value="ETC" {% if bisdtl[3]=='ETC' %}selected{% endif %}>ETC</option>
-                    </select>
+                    <td>
+                        <select id="bisrank" class="form-control" name="bisrank">
+                            <option value="CHM" {% if bisdtl[3]=='CHM' %}selected{% endif %}>회장 (Chairman)</option>
+                            <option value="VCH" {% if bisdtl[3]=='VCH' %}selected{% endif %}>부회장 (Vice Chairman)
+                            </option>
+                            <option value="CEO" {% if bisdtl[3]=='CEO' %}selected{% endif %}>대표이사/사장 (CEO)</option>
+                            <option value="CFO" {% if bisdtl[3]=='CFO' %}selected{% endif %}>최고재무책임자 (CFO)</option>
+                            <option value="CTO" {% if bisdtl[3]=='CTO' %}selected{% endif %}>최고기술책임자 (CTO)</option>
+                            <option value="COO" {% if bisdtl[3]=='COO' %}selected{% endif %}>최고운영책임자 (COO)</option>
+                            <option value="EVP" {% if bisdtl[3]=='EVP' %}selected{% endif %}>전무 (EVP)</option>
+                            <option value="SVP" {% if bisdtl[3]=='SVP' %}selected{% endif %}>상무 (SVP)</option>
+                            <option value="DIR" {% if bisdtl[3]=='DIR' %}selected{% endif %}>이사 (Director)</option>
+                            <option value="AUD" {% if bisdtl[3]=='AUD' %}selected{% endif %}>감사 (Auditor)</option>
+                            <option value="HDV" {% if bisdtl[3]=='HDV' %}selected{% endif %}>본부장 (Head of Div.)</option>
+                            <option value="GMG" {% if bisdtl[3]=='GMG' %}selected{% endif %}>부장 (General Manager)
+                            </option>
+                            <option value="DGM" {% if bisdtl[3]=='DGM' %}selected{% endif %}>차장 (Deputy General
+                                Manager)
+                            </option>
+                            <option value="MGR" {% if bisdtl[3]=='MGR' %}selected{% endif %}>과장 (Manager)</option>
+                            <option value="TLD" {% if bisdtl[3]=='TLD' %}selected{% endif %}>팀장 (Team Leader)</option>
+                            <option value="AMG" {% if bisdtl[3]=='AMG' %}selected{% endif %}>대리 (Assistant Manager)
+                            </option>
+                            <option value="SNT" {% if bisdtl[3]=='SNT' %}selected{% endif %}>주임 (Senior Staff)</option>
+                            <option value="STF" {% if bisdtl[3]=='STF' %}selected{% endif %}>사원 (Staff)</option>
+                            <option value="ETC" {% if bisdtl[3]=='ETC' %}selected{% endif %}>기타 (ETC)</option>
+                        </select>
                     </td>
+
                 </tr>
                 <tr>
                     <td>사업업종</td>
-                    <td><select id="bistype" class="form-control" name="bistype">
-                        <option value="제조업" {% if bisdtl[4]=='제조업' %}selected{% endif %}>제조업</option>
-                        <option value="물류업" {% if bisdtl[4]=='물류업' %}selected{% endif %}>물류업</option>
-                        <option value="도매업" {% if bisdtl[4]=='도매업' %}selected{% endif %}>도매업</option>
-                        <option value="소매업" {% if bisdtl[4]=='소매업' %}selected{% endif %}>소매업</option>
-                        <option value="의료업" {% if bisdtl[4]=='의료업' %}selected{% endif %}>의료업</option>
-                        <option value="농업" {% if bisdtl[4]=='농업' %}selected{% endif %}>농업</option>
-                        <option value="수산업" {% if bisdtl[4]=='수산업' %}selected{% endif %}>수산업</option>
-                        <option value="서비스업" {% if bisdtl[4]=='서비스업' %}selected{% endif %}>서비스업</option>
-                        <option value="기타" {% if bisdtl[4]=='기타' %}selected{% endif %}>기타</option>
-                        <option value="SELF" {% if bisdtl[4]=='SELF' %}selected{% endif %}>직접입력</option>
-                    </select>
+                    <td>
+                        <select id="bistype" class="form-control" name="bistype">
+                            <option value="제조업" {% if bisdtl[4]=='제조업' %}selected{% endif %}>제조업</option>
+                            <option value="건설업" {% if bisdtl[4]=='건설업' %}selected{% endif %}>건설업</option>
+                            <option value="도매업" {% if bisdtl[4]=='도매업' %}selected{% endif %}>도매업</option>
+                            <option value="소매업" {% if bisdtl[4]=='소매업' %}selected{% endif %}>소매업</option>
+                            <option value="무역업" {% if bisdtl[4]=='무역업' %}selected{% endif %}>무역업</option>
+                            <option value="물류업" {% if bisdtl[4]=='물류업' %}selected{% endif %}>물류업</option>
+                            <option value="운수업" {% if bisdtl[4]=='운수업' %}selected{% endif %}>운수업 (여객/화물)</option>
+                            <option value="정보통신업" {% if bisdtl[4]=='정보통신업' %}selected{% endif %}>정보통신업 (IT/SW)</option>
+                            <option value="금융/보험업" {% if bisdtl[4]=='금융/보험업' %}selected{% endif %}>금융/보험업</option>
+                            <option value="부동산업" {% if bisdtl[4]=='부동산업' %}selected{% endif %}>부동산업</option>
+                            <option value="전문직" {% if bisdtl[4]=='전문직' %}selected{% endif %}>전문직 (법률/회계/세무 등)</option>
+                            <option value="교육업" {% if bisdtl[4]=='교육업' %}selected{% endif %}>교육업</option>
+                            <option value="의료업" {% if bisdtl[4]=='의료업' %}selected{% endif %}>의료업</option>
+                            <option value="외식/음식점업" {% if bisdtl[4]=='외식/음식점업' %}selected{% endif %}>외식/음식점업</option>
+                            <option value="숙박업" {% if bisdtl[4]=='숙박업' %}selected{% endif %}>숙박업</option>
+                            <option value="문화/예술/스포츠" {% if bisdtl[4]=='문화/예술/스포츠' %}selected{% endif %}>문화/예술/스포츠</option>
+                            <option value="서비스업" {% if bisdtl[4]=='서비스업' %}selected{% endif %}>서비스업 (일반)</option>
+                            <option value="농업" {% if bisdtl[4]=='농업' %}selected{% endif %}>농업</option>
+                            <option value="수산업" {% if bisdtl[4]=='수산업' %}selected{% endif %}>수산업</option>
+                            <option value="축산업" {% if bisdtl[4]=='축산업' %}selected{% endif %}>축산업</option>
+                            <option value="기타" {% if bisdtl[4]=='기타' %}selected{% endif %}>기타</option>
+                            <option value="SELF" {% if bisdtl[4]=='SELF' %}selected{% endif %}>직접입력</option>
+                        </select>
                     </td>
                 </tr>
                 <tr>
@@ -94,7 +127,8 @@
                 <tr>
                     <td>사무실 주소</td>
                     <td style="display: flex; align-items: center;">
-                        <input type="text" class="form-control" name="offaddress" value="{{ bisdtl[7] if bisdtl[7] else '주소 없음' }}"/>
+                        <input type="text" class="form-control" name="offaddress"
+                               value="{{ bisdtl[7] if bisdtl[7] else '주소 없음' }}"/>
                     </td>
                 </tr>
                 <tr>
@@ -134,7 +168,7 @@
 {% include '/comm/adscript.html' %}
 {% if saved %}
 <script>
-  alert("성공적으로 저장되었습니다.");
+    alert("성공적으로 저장되었습니다.");
 </script>
 {% endif %}
 </body>

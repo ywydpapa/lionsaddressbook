@@ -109,7 +109,7 @@ async def save_circlelogo(image_data: bytes, circleno: int, size=(200, 200)):
         return thumbnail_path
     return await asyncio.to_thread(process)
 
-async def resize_image_if_needed(contents: bytes, max_bytes: int = 102400) -> bytes:
+async def resize_image_if_needed(contents: bytes, max_bytes: int = 51200) -> bytes:
     if len(contents) <= max_bytes:
         return contents
     def process():
