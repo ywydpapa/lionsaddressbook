@@ -40,7 +40,7 @@ async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
 @phapp_router.get("/memberList/{clubno}")
 async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_mobile_user)):
     try:
-        query = text("SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
+        query = text("SELECT lm.memberNo, lm.memberName, lm.memberPhone, lr.rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo = :clubno and lm.funcNo < 4 order by lm.clubSortNo, lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
         result_data = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3], "clubRank":row[5]} for row in rows]
@@ -51,9 +51,10 @@ async def phappmemberlist(clubno: int, db: AsyncSession = Depends(get_db), curre
 
 
 @phapp_router.get("/memberListext/{clubno}")
-async def phappmemberlistext(clubno: int, db: AsyncSession = Depends(get_db)):
+async def phappmemberlistext(clubno: int, db: AsyncSession = Depends(get_db),
+                         current_user: str = Depends(get_current_mobile_user)):
     try:
-        query = text("SELECT lm.memberNo, lr.chnName as memberName, lm.memberPhone, lr.chnRank as rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsExtnames lr on lm.memberNo = lr.memberNo where lm.clubNo = :clubno order by lm.clubSortNo, lm.memberJoindate")
+        query = text("SELECT lm.memberNo, lr.chnName as memberName, lm.memberPhone, lr.chnRank as rankTitlekor, lm.maskYN, lm.clubRank FROM lionsMember lm left join lionsExtnames lr on lm.memberNo = lr.memberNo where lm.clubNo = :clubno and lm.funcNo <4 order by lm.clubSortNo, lm.memberJoindate")
         result = await db.execute(query, {"clubno": clubno})
         rows = result.fetchall()
         result_data = [{"memberNo": row[0], "memberName": row[1], "memberPhone": "비공개" if row[4] == "Y" else row[2], "rankTitle": row[3], "clubRank":row[3]} for row in rows]
@@ -422,7 +423,8 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
 
 
 @phapp_router.get("/memberDtlext/{memberno}")
-async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db)):
+async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db),
+                         current_user: str = Depends(get_current_mobile_user)):
     try:
         # 사진 관련 무거운 JOIN과 TO_BASE64 제거, 매핑을 위해 컬럼명 명시
         query = text("""
