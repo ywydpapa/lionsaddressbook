@@ -195,19 +195,26 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td colspan="2">
-                                        <div class="col-12"
-                                             style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/clubList'; return false;"
-                                               class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">클럽 목록으로 돌아가기</a>
-                                            <a href="#" onclick="openSloganImage({{ clubno }})" class="btn btn-danger"
-                                               role="button" style="flex: 0 0 30%;">클럽 이미지 생성</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 40%;">저장
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+    <td colspan="2">
+        <div class="col-12" style="display: flex; gap: 10px; width: 100%;">
+            <a href="#" onclick="window.location.href='/clubList'; return false;"
+               class="btn btn-dark" role="button" style="flex: 1;">클럽 목록으로 돌아가기</a>
+
+            <!-- 파일 선택 창을 띄우는 버튼 -->
+            <a href="#" onclick="document.getElementById('clubImageInput').click(); return false;"
+               class="btn btn-danger" role="button" style="flex: 1;">클럽 이미지 업로드</a>
+
+            <a href="#" onclick="openSloganImage({{ clubno }})"
+               class="btn btn-danger" role="button" style="flex: 1;">클럽 이미지 자동 생성</a>
+
+            <button type="submit" class="btn btn-primary" style="flex: 1;">저장</button>
+        </div>
+    </td>
+</tr>
+
+<!-- 숨겨진 파일 입력 필드 -->
+<input type="file" id="clubImageInput" accept="image/*" style="display: none;" onchange="uploadClubImage({{ clubno }})">
+
                             </form>
                             </tbody>
                         </table>
@@ -252,6 +259,103 @@ function openSloganImage(clubno) {
         'width=420,height=420,scrollbars=no,resizable=no'
     );
 }
+
+async function compressImageTo50KB(file) {
+    const MAX_BYTES = 50 * 1024; // 50KB
+    if (file.size <= MAX_BYTES) return file;
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function (event) {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                let width = img.width;
+                let height = img.height;
+                let quality = 0.9;
+
+                // 초기 해상도 조정 (너무 큰 이미지 대비)
+                const maxDim = 800;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                const attemptCompress = () => {
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        // 50KB 이하가 되거나, 더 이상 줄일 수 없을 때까지 반복
+                        if (blob.size <= MAX_BYTES || (quality <= 0.1 && width < 100)) {
+                            resolve(new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        } else {
+                            // 용량이 크면 품질과 크기를 동시에 줄임
+                            quality -= 0.1;
+                            width = Math.round(width * 0.9);
+                            height = Math.round(height * 0.9);
+                            attemptCompress();
+                        }
+                    }, 'image/jpeg', Math.max(quality, 0.1));
+                };
+
+                attemptCompress();
+            };
+        };
+    });
+}
+
+// 2. 클럽 이미지 업로드 처리 함수 (압축 후 백엔드로 전송)
+async function uploadClubImage(clubno) {
+    const fileInput = document.getElementById('clubImageInput');
+    let file = fileInput.files[0];
+
+    if (!file) return; // 취소한 경우
+
+    // 1MB 이상일 경우 알림창 표시
+    if (file.size > 1024 * 1024) {
+        alert("1MB 이상의 파일입니다. 50KB 이하로 자동 압축하여 업로드합니다.");
+    }
+
+    try {
+        // 프런트엔드에서 50KB로 압축 진행
+        file = await compressImageTo50KB(file);
+
+        // 압축된 파일을 FormData에 담기
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // 백엔드로 POST 요청 전송
+        const response = await fetch(`/clubimage/${clubno}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            alert("클럽 이미지가 성공적으로 업로드되었습니다.");
+            // 필요시 페이지 새로고침
+            // window.location.reload();
+        } else {
+            alert("이미지 업로드에 실패했습니다.");
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("업로드 중 오류가 발생했습니다.");
+    } finally {
+        // 같은 파일을 다시 선택해도 이벤트가 발생하도록 input 값 초기화
+        fileInput.value = '';
+    }
+}
+
 </script>
 </body>
 </html>

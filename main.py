@@ -1133,28 +1133,38 @@ async def slogan_image(clubno: int, db: AsyncSession = Depends(get_db)):
     return StreamingResponse(buf, media_type="image/png")
 
 
+@app.post("/clubimage/{clubno}")
+async def club_image(clubno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    try:
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        contents = await file.read()
+        os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
+        thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"clubImage{clubno}.jpg")
+        with open(thumbnail_path, "wb") as f:
+            f.write(contents)
+        return JSONResponse(content={"message": "Upload successful"}, status_code=200)
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Upload failed")
+
+
 @app.get("/slimage_circle/{circleno}")
 async def cirslogan_image(circleno: int, db: AsyncSession = Depends(get_db)):
     staff = await get_circlestaffwithname(circleno, db)
-
     slogan = staff[1] if staff else "No Slogan"
     memberno = staff[3] if staff else 0
     name = str(staff[4]) + "L" if staff and len(staff) > 3 and staff[3] is not None else "No Name"
-
     sub1 = staff[5] if staff and len(staff) > 4 else 0
     sub1n = str(staff[6]) + "L" if staff and len(staff) > 5 and staff[5] is not None else "No Name"
-
     sub2 = staff[7] if staff and len(staff) > 6 else 0
     sub2n = str(staff[8]) + "L" if staff and len(staff) > 7 and staff[7] is not None else "No Name"
-
     sub_members = [(sub1, sub1n), (sub2, sub2n)]
     img = make_slogan_image(slogan, memberno, name, width=400, height=520, sub_members=sub_members)
-
     save_dir = "./static/img/members"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f"{circleno}circlelogo.png")
     img.save(save_path, format="PNG")
-
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
