@@ -98,17 +98,24 @@
 document.getElementById('editor-form').addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    // Quill 내용 input에 넣기
-    document.getElementById('notmessage').value = quill.root.innerHTML;
-
-    // 폼 데이터 수집
     const form = event.target;
-    const formData = new FormData(form);
 
-    // fetch로 전송
+    // 1. 전송할 데이터를 JSON 객체로 직접 만듭니다.
+    const payload = {
+        nottitle: document.getElementById('nottitle').value,
+        notmessage: quill.root.innerHTML,
+        notfrom: document.getElementById('notfrom').value,
+        notto: document.getElementById('notto').value,
+        nottype: document.getElementById('nottype').value
+    };
+
+    // 2. fetch로 전송할 때 Content-Type을 JSON으로 설정하고 보냅니다.
     const response = await fetch(form.action, {
         method: 'POST',
-        body: formData
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
     });
 
     if (response.redirected) {
@@ -122,6 +129,7 @@ document.getElementById('editor-form').addEventListener('submit', async (event) 
         }
     }
 });
+
 
 
 </script>

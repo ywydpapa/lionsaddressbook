@@ -706,55 +706,78 @@ async def update_ccirclemember(request: Request, cmid: int, db: AsyncSession = D
 
 @app.post("/updatenotice/{messageno}", response_class=HTMLResponse)
 async def updatenotice(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # form() 대신 json()으로 데이터를 받습니다.
+    json_data = await request.json()
+
     data4update = {
-        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
-        "noticeTo": form_data.get("notto"),
+        "messageTitle": json_data.get("nottitle"),
+        "MessageConts": json_data.get("notmessage"),
+        "MessageType": json_data.get("nottype"),
+        "noticeFrom": json_data.get("notfrom"),
+        "noticeTo": json_data.get("notto"),
     }
+
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+
     query = text(f"UPDATE boardMessage SET {set_clause} WHERE messageNo = :messageNo")
     update_fields["messageNo"] = messageno
+
     await db.execute(query, update_fields)
     await db.commit()
+
     return RedirectResponse(f"/listnotice/{request.session.get('user_Region')}", status_code=303)
 
 
 @app.post("/updateclubnotice/{messageno}", response_class=HTMLResponse)
 async def update_clubnot(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # 수정된 부분: form() 대신 json()으로 데이터를 받습니다.
+    form_data = await request.json()
+
     data4update = {
-        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
+        "messageTitle": form_data.get("nottitle"),
+        "MessageConts": form_data.get("notmessage"),
+        "MessageType": form_data.get("nottype"),
+        "noticeFrom": form_data.get("notfrom"),
         "noticeTo": form_data.get("notto"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
     query = text(f"UPDATE clubboardMessage SET {set_clause} WHERE messageNo = :messageNo")
     update_fields["messageNo"] = messageno
+
     await db.execute(query, update_fields)
     await db.commit()
+
     return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
 
 @app.post("/updatecirclenotice/{messageno}", response_class=HTMLResponse)
 async def update_circlenot(request: Request, messageno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # form() 대신 json()으로 데이터를 받습니다.
+    json_data = await request.json()
+
     data4update = {
-        "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
-        "noticeTo": form_data.get("notto"),
+        "messageTitle": json_data.get("nottitle"),
+        "MessageConts": json_data.get("notmessage"),
+        "MessageType": json_data.get("nottype"),
+        "noticeFrom": json_data.get("notfrom"),
+        "noticeTo": json_data.get("notto"),
     }
+
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+
     query = text(f"UPDATE circleboardMessage SET {set_clause} WHERE messageNo = :messageNo")
     update_fields["messageNo"] = messageno
+
     await db.execute(query, update_fields)
     await db.commit()
+
     query2 = text("SELECT circleNo FROM circleboardMessage where messageNo = :messageNo")
     result2 = await db.execute(query2, {"messageNo": messageno})
     circleno = result2.fetchone()[0]
+
     return RedirectResponse(f"/listcirclenotice/{circleno}", status_code=303)
 
 
@@ -787,59 +810,91 @@ async def removecirclenotice(request: Request, messageno: int,circleno:int,db: A
 
 @app.post("/insertnotice/{regionno}", response_class=HTMLResponse)
 async def insertnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # form() 대신 json()으로 데이터를 받습니다.
+    json_data = await request.json()
+
     data4insert = {
-        "regionNo": regionno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
-        "noticeTo": form_data.get("notto"),
+        "regionNo": regionno,
+        "messageTitle": json_data.get("nottitle"),
+        "MessageConts": json_data.get("notmessage"),
+        "MessageType": json_data.get("nottype"),
+        "noticeFrom": json_data.get("notfrom"),
+        "noticeTo": json_data.get("notto"),
     }
+
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
+
     query = text(f"INSERT INTO boardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
-    await send_fcm_topic_notice_region(regionno=regionno, title="새로운 지역 공지사항", body=form_data.get("nottitle") or "지역공지")
+
+    # FCM 알림 전송 시에도 json_data에서 제목을 가져옵니다.
+    await send_fcm_topic_notice_region(regionno=regionno, title="새로운 지역 공지사항", body=json_data.get("nottitle") or "지역공지")
+
     return RedirectResponse(f"/listnotice/{request.session.get('user_Region')}", status_code=303)
 
 
 @app.post("/insertclubnotice/{clubno}", response_class=HTMLResponse)
 async def insertclubnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # form() 대신 json()으로 데이터를 받습니다.
+    json_data = await request.json()
+
     data4insert = {
-        "clubNo": clubno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
-        "noticeTo": form_data.get("notto"),
+        "clubNo": clubno,
+        "messageTitle": json_data.get("nottitle"),
+        "MessageConts": json_data.get("notmessage"),
+        "MessageType": json_data.get("nottype"),
+        "noticeFrom": json_data.get("notfrom"),
+        "noticeTo": json_data.get("notto"),
     }
+
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
+
     query = text(f"INSERT INTO clubboardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
-    await send_fcm_topic_notice(clubno=clubno, title="새로운 클럽 공지사항", body=form_data.get("nottitle") or "클럽공지")
+
+    # FCM 알림 전송 시에도 json_data에서 제목을 가져옵니다.
+    await send_fcm_topic_notice(clubno=clubno, title="새로운 클럽 공지사항", body=json_data.get("nottitle") or "클럽공지")
+
     return RedirectResponse(f"/listclubnotice/{request.session.get('user_Clubno')}", status_code=303)
 
 
 @app.post("/insertcirclenotice/{circleno}", response_class=HTMLResponse)
 async def insertcirclenotice(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
-    form_data = await request.form()
+    # form() 대신 json()으로 데이터를 받습니다.
+    json_data = await request.json()
+
     data4insert = {
-        "circleNo": circleno, "messageTitle": form_data.get("nottitle"), "MessageConts": form_data.get("notmessage"),
-        "MessageType": form_data.get("nottype"), "noticeFrom": form_data.get("notfrom"),
-        "noticeTo": form_data.get("notto"),
+        "circleNo": circleno,
+        "messageTitle": json_data.get("nottitle"),
+        "MessageConts": json_data.get("notmessage"),
+        "MessageType": json_data.get("nottype"),
+        "noticeFrom": json_data.get("notfrom"),
+        "noticeTo": json_data.get("notto"),
     }
+
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
+
     query = text(f"INSERT INTO circleboardMessage ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
     await db.commit()
+
     query2 = text(f"Select circleName from lionsCircle where circleNo = :circleNo")
     result = await db.execute(query2, {"circleNo": circleno})
     circlename = result.fetchone()
-#    await send_fcm_topic_notice(circleno=circleno, title="새로운 써클 공지사항", body=form_data.get("nottitle") or "써클공지")
+
+    # 나중에 주석을 해제할 경우를 대비해 json_data로 변경해 두었습니다.
+    #    await send_fcm_topic_notice(circleno=circleno, title="새로운 써클 공지사항", body=json_data.get("nottitle") or "써클공지")
+
     return RedirectResponse(f"/listcirclenotice/{circleno}", status_code=303)
+
 
 @app.post("/sendclubsms/{clubno}", response_class=HTMLResponse)
 async def sendclubsms(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
