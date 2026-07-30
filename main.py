@@ -1204,6 +1204,22 @@ async def club_image(clubno: int, file: UploadFile = File(...), db: AsyncSession
         raise HTTPException(status_code=500, detail="Upload failed")
 
 
+@app.post("/upload_clogo/{circleno}")
+async def circle_image(circleno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    try:
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        contents = await file.read()
+        os.makedirs(MEMBERPHOTO_DIR, exist_ok=True)
+        thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"{circleno}circlelogo.png")
+        with open(thumbnail_path, "wb") as f:
+            f.write(contents)
+        return JSONResponse(content={"message": "Upload successful"}, status_code=200)
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Upload failed")
+
+
 @app.get("/slimage_circle/{circleno}")
 async def cirslogan_image(circleno: int, db: AsyncSession = Depends(get_db)):
     staff = await get_circlestaffwithname(circleno, db)

@@ -108,18 +108,22 @@
                                 <td style="text-align: center; vertical-align: middle">써클 로고 </td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="/static/img/members/{{circledtl[0]}}circlelogo.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Circle Logo"><img id="imagePreview" alt="Image Preview">
+                                        <!-- ID 추가 (circleLogoImg) -->
+                                        <img id="circleLogoImg" src="/static/img/members/{{circledtl[0]}}circlelogo.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Circle Logo">
+                                        <img id="imagePreview" alt="Image Preview">
                                     </div>
                                 </td>
                             </tr>
                             <tr>
                                 <td>로고 변경</td>
                                 <td>
-                                    <form action="/upload_clogo/{{circledtl[0]}}" method="post" enctype="multipart/form-data">
-                                        <input type="file" name="file" accept="image/*" required
+                                    <!-- 폼 전송 방식을 비동기(AJAX)로 변경 -->
+                                    <form id="logoForm" onsubmit="uploadLogo(event, '{{circledtl[0]}}')">
+                                        <input type="file" id="logoInput" name="file" accept="image/*" required
                                                onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
-                                        <input type="submit" value="써클로고 Upload"></form>
+                                        <input type="submit" value="써클로고 Upload">
+                                    </form>
                                 </td>
                             </tr>
                             <form method="POST" action="/updatecircle/{{circledtl[0]}}">
@@ -198,7 +202,16 @@
 {% include '/comm/adscript.html' %}
 </body>
 <script>
-function displayFileInfo(input) {
+    // 브라우저 캐시 방지: 페이지 로드 시 이미지 URL 뒤에 현재 시간을 붙여 항상 최신 이미지를 불러오게 함
+    document.addEventListener("DOMContentLoaded", function() {
+        const logoImg = document.getElementById("circleLogoImg");
+        // 기본 이미지가 아닌 경우에만 캐시 방지 파라미터 추가
+        if (logoImg.src.indexOf('defaultphoto.png') === -1) {
+            logoImg.src = logoImg.src.split('?')[0] + '?t=' + new Date().getTime();
+        }
+    });
+
+    function displayFileInfo(input) {
         const file = input.files[0];
         const fileSizeElement = document.getElementById("fileSize");
         const previewElement = document.getElementById("imagePreview");
@@ -217,6 +230,40 @@ function displayFileInfo(input) {
             previewElement.style.display = "none"; // 이미지 숨기기
         }
     }
-</script>
 
+    // 로고 업로드 비동기 처리 함수
+    async function uploadLogo(event, circleNo) {
+        event.preventDefault(); // 기본 폼 전송 방지 (페이지 이동 방지)
+
+        const fileInput = document.getElementById('logoInput');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("파일을 선택해주세요.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            // FastAPI 백엔드로 파일 전송
+            const response = await fetch(`/upload_clogo/${circleNo}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok || response.redirected) {
+                alert("로고가 성공적으로 업로드되었습니다.");
+                // 업로드 성공 시 editcircle 라우터로 명시적으로 이동 (다시 읽기)
+                window.location.href = `/editcircle/${circleNo}`;
+            } else {
+                alert("업로드에 실패했습니다.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("업로드 중 오류가 발생했습니다.");
+        }
+    }
+</script>
 </html>
