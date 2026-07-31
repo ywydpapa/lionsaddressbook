@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">회원 리스트</h1>
+                <div class="container">
+                    <div>
+                    <div style="float:right"></div>
+                    <table class="table" id="rmemberlist">
+                        <thead style="text-align: center">
+                        <th>회원번호</th>
+                        <th>회원사진</th>
+                        <th>회원성명</th>
+                        <th>연락처</th>
+                        <th>공식직책</th>
+                        <th>클럽직책</th>
+                        <th>배치순서</th>
+                        </thead>
+                        <tbody>
+                        {% for member in cmembers %}
+                            <tr style="text-align: center; vertical-align: middle;">
+                                <td style="text-align: center; vertical-align: middle;"><a href="/mymemberdetail/{{ member[0]}}">{{ member[0] }}</a></td>
+                                <td style="text-align: center; vertical-align: middle;">
+                                        <img src="/static/img/members/mphoto_{{member[0]}}.png" onerror="handleTableImageFallback(this, '{{member[0]}}')" alt="Member Image" style="width: 70px; height: 70px; object-fit: cover; border-radius: 10px;">
+                                </td>
+                                <td style="text-align: center; vertical-align: middle;"><a href="/mymemberdetail/{{ member[0]}}">{{ member[1] }}</a></td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[6] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[22] }}</td>
+                                <td style="text-align: center; vertical-align: middle;">{{ member[21] }}</td>
+                                <td style="text-align: center; vertical-align: middle;"> <input class="form-control-sm sort-input" style="text-align: right; border: none" type="number" min=0 max=300 value="{{ member[19] }}" data-memberno="{{ member[0] }}"></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
+            </div>
+        </div>
+        <!-- /.container-fluid -->
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
+</body>
+</html>
+<script>
+    // [추가됨] 이미지 로드 실패 시 png -> jpg -> default.png 처리 함수
+    function handleTableImageFallback(imgElement, memberNo) {
+        if (!imgElement.dataset.triedJpg) {
+            imgElement.dataset.triedJpg = 'true';
+            imgElement.src = `/static/img/members/mphoto_${memberNo}.jpg`;
+        } else {
+            imgElement.onerror = null;
+            imgElement.src = '/static/img/members/default.png';
+        }
+    }
+
+    $(document).ready(function () {
+        $('#rmemberlist').DataTable({
+            "pageLength": 15,
+            order: [[6, "asc"]]
+        });
+    });
+
+    // 배치순서 input blur 이벤트 핸들러
+    $('.sort-input').on('blur', function() {
+        const memberNo = $(this).data('memberno');
+        const sortNo = $(this).val();
+
+        // AJAX 요청
+        $.ajax({
+            url: `/updateclubsort/${memberNo}/${sortNo}`,
+            type: 'POST',
+            success: function(response) {
+                if(response.result === "ok") {
+                    // alert('배치순서가 변경되었습니다.');
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('배치순서 변경 실패');
+            }
+        });
+    });
+</script>
