@@ -490,6 +490,20 @@ async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(
     })
 
 
+@app.get("/editclubdocs/{docno}", response_class=HTMLResponse)
+async def editclubdocs(request: Request, docno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    query = text("SELECT a.*, b.clubName FROM lionsDoc a left join lionsClub b on a.clubNo = b.clubNo where docNo = :docNo")
+    result = await db.execute(query, {"docNo": docno})
+    docdtl = result.fetchone()
+    return templates.TemplateResponse("admin/editclubDocs.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "docdtl": docdtl,
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
+
+
 @app.post("/updateclubdoc/{clubno}")
 async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -513,10 +527,44 @@ async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depend
     return RedirectResponse(f"/editclub/{clubno}", status_code=303)
 
 
+@app.post("/updateclubdocs/{docno}")
+async def updateclubdocs(request: Request, docno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubno = form_data.get("clubno")
+    data4docs = {
+        "docNo": docno,
+        "clubNo": clubno,
+        "docType": form_data.get("doctype"),
+        "docTitle": form_data.get("title"),
+        "cDocument": form_data.get("content"),
+    }
+    querys = text("SELECT * from lionsDoc where clubNo = :clubNo and docType = :docType")
+    result = await db.execute(querys, data4docs)
+    docresult = result.fetchone()
+    if docresult:
+        queryup = text(
+            "UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
+        timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        await db.execute(queryup, {
+            "timenow": timenow,
+            "updattrib": "XXXUPXXXUP",
+            "clubno": clubno,
+            "doctype": form_data.get("doctype")
+        })
+    query = text(
+        "INSERT INTO lionsDoc (clubNo,docType,docTitle,cDocument) values (:clubNo,:docType,:docTitle,:cDocument)")
+    await db.execute(query, data4docs)
+    await db.commit()
+    return RedirectResponse(f"/editclub/{clubno}", status_code=303)
+
+
 @app.get("/popup_doc/{docno}")
 async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
     cdoc = await get_clubdoc(docno, db)
     if cdoc: return HTMLResponse(cdoc)
+
+
+
 
 
 @app.get("/listnotice/{regionno}", response_class=HTMLResponse)

@@ -152,8 +152,10 @@
                                 </tr>
                                 {% for clubdoc in clubdocs %}
                                 <tr>
-                                    <td style="background-color: #f1eeee ">{{ clubdoc[3] }}</td>
-                                    <td><a href="#" onclick="showHtmlViewer({{ clubdoc[0] }})">문서보기</a></td>
+                                    <td style="background-color: #f1eeee ">{{ clubdoc[3] }}({{ clubdoc[2] }})</td>
+                                    <td> <a href="#" class="btn btn-primary btn-sm" onclick="showHtmlViewer({{ clubdoc[0] }})">문서보기</a>
+                                        <a href="/editclubdocs/{{ clubdoc[0] }}" class="btn btn-secondary btn-sm">문서수정</a>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                                 <tr>
