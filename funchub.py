@@ -382,7 +382,7 @@ async def get_regionmemberlist(region: int, db: AsyncSession):
     try:
         query = text(
             "SELECT lm.*, lcc.clubName, lr.rankTitlekor FROM lionsMember lm left join lionsClub lcc on lm.clubNo = lcc.clubNo "
-            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno) order by lm.clubNo, lm.memberJoindate")
+            "left join lionsRank lr on lm.rankNo = lr.rankNo where lm.clubNo in (select lc.clubno from lionsClub lc where lc.regionNo = :regno) order by lm.membername")
         result = await db.execute(query, {"regno": region})
         return result.fetchall()
     except Exception:
@@ -396,7 +396,7 @@ async def get_circlememberlist(circleno: int, db: AsyncSession):
             "left join lionsRank lr on lm.rankNo = lr.rankNo "
             "left join circleMember cm on lm.memberNo = cm.memberNo "
             "LEFT JOIN lionsRank lr2 ON cm.rankNo = lr2.rankNo "
-            "where cm.circleNo = :circleno and cm.attrib = :attr order by lm.clubNo, lm.memberJoindate")
+            "where cm.circleNo = :circleno and cm.attrib = :attr order by lm.memberName")
         result = await db.execute(query, {"circleno": circleno, "attr": "1000010000"})
         return result.fetchall()
     except Exception as e:
@@ -456,7 +456,7 @@ async def get_memberdetail(memberon: int, db: AsyncSession):
 async def get_clubmembercard(clubno: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no")
+            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no order by lm.memberName")
         result = await db.execute(query, {"club_no": clubno})
         member_list = result.fetchall()
         member = [
@@ -477,7 +477,7 @@ async def get_clubmembercard(clubno: int, db: AsyncSession):
 async def get_clubmemberlist(clubno: int, db: AsyncSession):
     try:
         query = text(
-            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no order by lm.clubSortNo")
+            "SELECT lm.*, lr.rankTitlekor FROM lionsMember lm LEFT join lionsRank lr on lm.rankNo = lr.rankNo where clubNo = :club_no order by lm.clubSortNo, lm.memberName")
         result = await db.execute(query, {"club_no": clubno})
         return result.fetchall()
     except Exception:

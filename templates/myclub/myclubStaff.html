@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+    <script>
+        function showHtmlViewer(docno) {
+            // Set the iframe source to the FastAPI endpoint with the document ID
+            const iframe = document.getElementById('popup-iframe');
+            iframe.src = `/popup_doc/${docno}`;
+
+            // Display the popup
+            const popup = document.getElementById('popup');
+            popup.style.display = 'block';
+        }
+
+        function closePopup() {
+            const popup = document.getElementById('popup');
+            popup.style.display = 'none';
+
+            // Clear iframe source to stop loading
+            const iframe = document.getElementById('popup-iframe');
+            iframe.src = '';
+        }
+    </script>
+    <style>
+        /* Popup styling */
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 0;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            width: 80%;
+            height: 80%;
+        }
+
+        #popup iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f00;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+    </style>
+
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">클럽 집행부 관리</h1>
+                <div class="d-flex justify-content-center" style="min-height: 100vh;">
+                    <div class="col-md-9">
+                        <table class="table table-bordered text-center">
+                            <thead>
+                            </thead>
+                            <tbody>
+                            <form method="POST" action="/updatemystaff/{{ clubno }}">
+                                <tr style="display: none;">
+                                    <td>클럽명</td>
+                                    <td><input type="text" class="form-control" name="clubname"
+                                               value=""/></td>
+                                </tr>
+                                <tr>
+                                    <td>설정회기</td>
+                                    <td><input type="text" class="form-control" name="dutyyear"
+                                               value="{{ staff_dtl[1] if staff_dtl[1] else '2025'}}"/></td>
+                                </tr>
+                                <tr>
+                                    <td>회장슬로건</td>
+                                    <td><input type="text" class="form-control" name="slog"
+                                               value="{{ staff_dtl[12] if staff_dtl[12] else '클럽 슬로건'}}"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽회장</td>
+                                    <td>
+                                        <select id = "presidentno" class="form-control" name="presno">
+                                            <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[3]%} selected {% endif %} >{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽총무</td>
+                                    <td><select id = "secretno" class="form-control" name="secrno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[4] %} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select></td>
+                                </tr>
+                                <tr>
+                                    <td>클럽재무</td>
+                                    <td><select id = "tresuno" class="form-control" name="trsuno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[5]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select></td>
+                                </tr>
+                                <tr>
+                                    <td>클럽 L.T.</td>
+                                    <td><select id = "ltno" class="form-control" name="ltno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[6]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select></td>
+                                </tr>
+                                <tr>
+                                    <td>클럽 T.T.</td>
+                                    <td><select id = "ttno" class="form-control" name="ttno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[7]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>직전회장</td>
+                                    <td><select id = "ppresidentno" class="form-control" name="ppresno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[8]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽 제1부회장</td>
+                                    <td><select id = "firstviceno" class="form-control" name="fviceno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}" {% if member[0] == staff_dtl[9]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽 제2부회장</td>
+                                    <td><select id = "secondviceno" class="form-control" name="sviceno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}"{% if member[0] == staff_dtl[10]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>클럽 제3부회장</td>
+                                    <td><select id = "thirdviceno" class="form-control" name="tviceno">
+                                        <option value="0">회원 선택</option>
+                                        {% for member in clubmember %}
+                                        <option value="{{member[0]}}"{% if member[0] == staff_dtl[11]%} selected {% endif %}>{{member[1]}}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+    <td colspan="2">
+        <div class="col-12" style="display: flex; gap: 10px; width: 100%;">
+            <a href="#" onclick="window.location.href='/userHome'; return false;"
+               class="btn btn-dark" role="button" style="flex: 1;">홈으로 돌아가기</a>
+
+            <!-- 파일 선택 창을 띄우는 버튼 -->
+            <a href="#" onclick="document.getElementById('clubImageInput').click(); return false;"
+               class="btn btn-danger" role="button" style="flex: 1;">클럽 이미지 업로드</a>
+
+            <a href="#" onclick="openSloganImage({{ clubno }})"
+               class="btn btn-danger" role="button" style="flex: 1;">클럽 이미지 자동 생성</a>
+
+            <button type="submit" class="btn btn-primary" style="flex: 1;">저장</button>
+        </div>
+    </td>
+</tr>
+
+<!-- 숨겨진 파일 입력 필드 -->
+<input type="file" id="clubImageInput" accept="image/*" style="display: none;" onchange="uploadClubImage({{ clubno }})">
+
+                            </form>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Popup -->
+        <div id="popup-overlay" onclick="closePopup()"></div>
+        <div id="popup">
+            <button id="popup-close" onclick="closePopup()">Close</button>
+            <iframe id="popup-iframe"></iframe>
+        </div>
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/comm/adscript.html' %}
+<script>
+function openSloganImage(clubno) {
+    // 팝업 창 크기와 옵션 지정
+    const url = `/slimage/${clubno}`;
+    window.open(
+        url,
+        'sloganImagePopup',
+        'width=420,height=420,scrollbars=no,resizable=no'
+    );
+}
+
+async function compressImageTo50KB(file) {
+    const MAX_BYTES = 50 * 1024; // 50KB
+    if (file.size <= MAX_BYTES) return file;
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function (event) {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                let width = img.width;
+                let height = img.height;
+                let quality = 0.9;
+
+                // 초기 해상도 조정 (너무 큰 이미지 대비)
+                const maxDim = 800;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                const attemptCompress = () => {
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        // 50KB 이하가 되거나, 더 이상 줄일 수 없을 때까지 반복
+                        if (blob.size <= MAX_BYTES || (quality <= 0.1 && width < 100)) {
+                            resolve(new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        } else {
+                            // 용량이 크면 품질과 크기를 동시에 줄임
+                            quality -= 0.1;
+                            width = Math.round(width * 0.9);
+                            height = Math.round(height * 0.9);
+                            attemptCompress();
+                        }
+                    }, 'image/jpeg', Math.max(quality, 0.1));
+                };
+
+                attemptCompress();
+            };
+        };
+    });
+}
+
+// 2. 클럽 이미지 업로드 처리 함수 (압축 후 백엔드로 전송)
+async function uploadClubImage(clubno) {
+    const fileInput = document.getElementById('clubImageInput');
+    let file = fileInput.files[0];
+
+    if (!file) return; // 취소한 경우
+
+    // 1MB 이상일 경우 알림창 표시
+    if (file.size > 1024 * 1024) {
+        alert("1MB 이상의 파일입니다. 50KB 이하로 자동 압축하여 업로드합니다.");
+    }
+
+    try {
+        // 프런트엔드에서 50KB로 압축 진행
+        file = await compressImageTo50KB(file);
+
+        // 압축된 파일을 FormData에 담기
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // 백엔드로 POST 요청 전송
+        const response = await fetch(`/clubimage/${clubno}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            alert("클럽 이미지가 성공적으로 업로드되었습니다.");
+            // 필요시 페이지 새로고침
+            // window.location.reload();
+        } else {
+            alert("이미지 업로드에 실패했습니다.");
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("업로드 중 오류가 발생했습니다.");
+    } finally {
+        // 같은 파일을 다시 선택해도 이벤트가 발생하도록 input 값 초기화
+        fileInput.value = '';
+    }
+}
+
+</script>
+</body>
+</html>
