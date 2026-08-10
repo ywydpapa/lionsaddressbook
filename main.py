@@ -288,7 +288,7 @@ async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
     members = await get_memberlist(db)
-    return templates.TemplateResponse("admin/mymemberList.html", {
+    return templates.TemplateResponse("admin/memberList.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "members": members,
         "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
