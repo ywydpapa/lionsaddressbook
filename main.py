@@ -295,6 +295,8 @@ async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     })
 
 
+
+
 @app.api_route("/addmember", response_class=HTMLResponse, methods=["GET", "POST"])
 async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
     memberName = "신규추가 회원"
