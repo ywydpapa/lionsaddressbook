@@ -42,6 +42,24 @@ class EventAttendanceUpdate(BaseModel):
     delayTime: Optional[int] = None               # 지각 시간 (분 단위)
     joinMemo: Optional[str] = Field(None, max_length=1000)
 
+class ClubEventAttendModel(BaseModel):
+    eventNo: int
+    memberNo: int
+    responseType: str  # 'YES' or 'NO'
+    delayTime: int = 0
+    joinMemo: str = ""
+
+class ClubEventInsertModel(BaseModel):
+    clubNo: int
+    eventTitle: str
+    eventType: str = "MONEV"
+    eventDatefrom: str
+    eventDateto: str
+    eventTimefrom: str = "09:00:00"
+    eventTimeto: str = "18:00:00"
+    eventPlace: str = ""
+    eventMemo: str = ""
+
 
 @phapp_router.get("/clubList/{regionno}")
 async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
@@ -931,3 +949,241 @@ async def get_my_event_attendance(
     except Exception as e:
         print("get_my_event_attendance error:", e)
         raise HTTPException(status_code=500, detail="개인 참석 정보 조회 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 1. 클럽별 행사 목록 조회 API
+# =========================================================
+@phapp_router.get("/getclubevents/{clubNo}")
+async def get_club_events(
+        clubNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+                     SELECT eventNo,
+                            clubNo,
+                            eventTitle,
+                            eventType,
+                            DATE_FORMAT(eventDatefrom, '%Y-%m-%d') as eventDatefrom,
+                            DATE_FORMAT(eventDateto, '%Y-%m-%d')   as eventDateto,
+                            TIME_FORMAT(eventTimefrom, '%H:%i:%s') as eventTimefrom,
+                            TIME_FORMAT(eventTimeto, '%H:%i:%s')   as eventTimeto,
+                            eventPlace,
+                            eventMemo
+                     FROM clubEvents
+                     WHERE clubNo = :clubNo
+                       AND attrib = '1000010000'
+                     ORDER BY eventDatefrom DESC, eventTimefrom DESC
+                     """)
+        result = await db.execute(query, {"clubNo": clubNo})
+        rows = result.mappings().all()
+
+        events_list = []
+        for row in rows:
+            events_list.append({
+                "eventNo": row["eventNo"],
+                "clubNo": row["clubNo"],
+                "eventTitle": row["eventTitle"] or "제목 없음",
+                "eventType": row["eventType"] or "MONEV",
+                "eventDatefrom": row["eventDatefrom"] or "",
+                "eventDateto": row["eventDateto"] or "",
+                "eventTimefrom": row["eventTimefrom"] or "",
+                "eventTimeto": row["eventTimeto"] or "",
+                "eventPlace": row["eventPlace"] or "",
+                "eventMemo": row["eventMemo"] or ""
+            })
+
+        return {"events": events_list}
+    except Exception as e:
+        print("get_club_events error:", e)
+        raise HTTPException(status_code=500, detail="클럽 행사 목록 조회 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 2. 새 클럽 행사 등록 API
+# =========================================================
+
+
+@phapp_router.post("/insertclubEvent")
+async def insert_club_event(
+        payload: ClubEventInsertModel,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+                     INSERT INTO clubEvents (clubNo, eventTitle, eventType,
+                                             eventDatefrom, eventDateto, eventTimefrom, eventTimeto,
+                                             eventPlace, eventMemo, regDate, attrib)
+                     VALUES (:clubNo, :eventTitle, :eventType,
+                             :eventDatefrom, :eventDateto, :eventTimefrom, :eventTimeto,
+                             :eventPlace, :eventMemo, NOW(), '1000010000')
+                     """)
+        await db.execute(query, {
+            "clubNo": payload.clubNo,
+            "eventTitle": payload.eventTitle,
+            "eventType": payload.eventType,
+            "eventDatefrom": payload.eventDatefrom,
+            "eventDateto": payload.eventDateto,
+            "eventTimefrom": payload.eventTimefrom,
+            "eventTimeto": payload.eventTimeto,
+            "eventPlace": payload.eventPlace,
+            "eventMemo": payload.eventMemo
+        })
+        await db.commit()
+        return {"status": "success", "message": "클럽 행사가 성공적으로 등록되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("insert_club_event error:", e)
+        raise HTTPException(status_code=500, detail="클럽 행사 등록 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 3. 본인의 개별 참석 정보 조회 API
+# =========================================================
+@phapp_router.get("/club/event/my-attend")
+async def get_my_club_event_attendance(
+        eventNo: int,
+        memberNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+                     SELECT responseType, delayTime, joinMemo
+                     FROM clubEventMember
+                     WHERE eventNo = :eventNo
+                       AND memberNo = :memberNo
+                       AND attrib = '1000010000'
+                     """)
+        result = await db.execute(query, {"eventNo": eventNo, "memberNo": memberNo})
+        row = result.mappings().first()
+
+        if row:
+            return {
+                "status": "success",
+                "exists": True,
+                "responseType": row["responseType"] or "NONE",
+                "delayTime": row["delayTime"] or 0,
+                "joinMemo": row["joinMemo"] or ""
+            }
+        else:
+            return {
+                "status": "success",
+                "exists": False,
+                "responseType": "NONE",
+                "delayTime": 0,
+                "joinMemo": ""
+            }
+    except Exception as e:
+        print("get_my_club_event_attendance error:", e)
+        raise HTTPException(status_code=500, detail="개인 참석 정보 조회 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 4. 참석 여부 등록 및 업데이트 API (UPSERT)
+# =========================================================
+
+@phapp_router.post("/club/event/attend")
+async def save_club_event_attendance(
+        payload: ClubEventAttendModel,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # 기존 등록 여부 확인
+        check_query = text("""
+                           SELECT joinNo
+                           FROM clubEventMember
+                           WHERE eventNo = :eventNo
+                             AND memberNo = :memberNo
+                           """)
+        result = await db.execute(check_query, {"eventNo": payload.eventNo, "memberNo": payload.memberNo})
+        row = result.fetchone()
+
+        if row:
+            # 존재하면 UPDATE
+            update_query = text("""
+                                UPDATE clubEventMember
+                                SET responseType      = :responseType,
+                                    delayTime         = :delayTime,
+                                    joinMemo          = :joinMemo,
+                                    responseTimestamp = NOW(),
+                                    modDate           = NOW()
+                                WHERE eventNo = :eventNo
+                                  AND memberNo = :memberNo
+                                """)
+            await db.execute(update_query, {
+                "responseType": payload.responseType,
+                "delayTime": payload.delayTime,
+                "joinMemo": payload.joinMemo,
+                "eventNo": payload.eventNo,
+                "memberNo": payload.memberNo
+            })
+        else:
+            # 존재하지 않으면 INSERT
+            insert_query = text("""
+                                INSERT INTO clubEventMember (eventNo, memberNo, responseType, delayTime, joinMemo,
+                                                             responseTimestamp, regDate, attrib)
+                                VALUES (:eventNo, :memberNo, :responseType, :delayTime, :joinMemo, NOW(), NOW(),
+                                        '1000010000')
+                                """)
+            await db.execute(insert_query, {
+                "eventNo": payload.eventNo,
+                "memberNo": payload.memberNo,
+                "responseType": payload.responseType,
+                "delayTime": payload.delayTime,
+                "joinMemo": payload.joinMemo
+            })
+
+        await db.commit()
+        return {"status": "success", "message": "참석 정보가 성공적으로 반영되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("save_club_event_attendance error:", e)
+        raise HTTPException(status_code=500, detail="참석 정보 저장 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 5. 행사별 전체 참석자 명단 조회 API
+# =========================================================
+@phapp_router.get("/club/event/members/{eventNo}")
+async def get_club_event_attendees(
+        eventNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # clubEventMember 테이블을 기준으로 가입한 사람들의 명단을 확실하게 매핑하여 조회
+        query = text("""
+                     SELECT cem.memberNo,
+                            COALESCE(m.memberName, '이름없음') as memberName,
+                            cem.responseType,
+                            cem.delayTime,
+                            cem.joinMemo
+                     FROM clubEventMember cem
+                              LEFT JOIN lionsMember m ON cem.memberNo = m.memberNo
+                     WHERE cem.eventNo = :eventNo
+                       AND cem.attrib = '1000010000'
+                     ORDER BY m.memberName ASC, cem.regDate DESC
+                     """)
+
+        result = await db.execute(query, {"eventNo": eventNo})
+        rows = result.mappings().all()
+
+        attendees_list = []
+        for row in rows:
+            attendees_list.append({
+                "memberNo": row["memberNo"],
+                "memberName": row["memberName"],
+                "status": row["responseType"] if row["responseType"] is not None else "NONE",
+                "delayTime": row["delayTime"] or 0,
+                "joinMemo": row["joinMemo"] or ""
+            })
+
+        return {"attendees": attendees_list}
+    except Exception as e:
+        print("get_club_event_attendees error:", e)
+        raise HTTPException(status_code=500, detail="참석자 명단 조회 중 오류 발생")
