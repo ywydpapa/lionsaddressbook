@@ -1,9 +1,10 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 
 # main.py에서 DB 세션 및 토큰 관련 함수 가져오기
 # (순환 참조를 방지하기 위해 main.py의 하단에서 이 라우터를 등록합니다)
@@ -22,6 +23,17 @@ def row_to_dict(row):
 class RequestMessage(BaseModel):
     memberNo: str
     message: str
+
+class CircleEventCreate(BaseModel):
+    circleNo: int
+    eventTitle: str = Field(..., max_length=100)
+    eventType: str = Field("MONEV", max_length=5)
+    eventDatefrom: str  # YYYY-MM-DD 형식 문자열
+    eventDateto: str    # YYYY-MM-DD 형식 문자열
+    eventTimefrom: str  # HH:MM:00 형식 문자열
+    eventTimeto: str    # HH:MM:00 형식 문자열
+    eventPlace: Optional[str] = Field(None, max_length=100)
+    eventMemo: Optional[str] = Field(None, max_length=2000)
 
 
 @phapp_router.get("/clubList/{regionno}")
@@ -694,3 +706,47 @@ async def phappgetcircleevents(circleno: int, db: AsyncSession = Depends(get_db)
         return {"cevents": cevents}
     except Exception as e:
         print("getcirclemembers error:", e)
+
+
+@phapp_router.post("/insertcircleEvent")
+async def insert_circle_event(
+        req: CircleEventCreate,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # DB의 default 값들을 활용하고, 입력받은 값들을 바인딩하여 INSERT 실행
+        query = text("""
+                     INSERT INTO circleEvents (circleNo, eventTitle, eventType,
+                                               eventDatefrom, eventDateto,
+                                               eventTimefrom, eventTimeto,
+                                               eventPlace, eventMemo,
+                                               regDate, attrib)
+                     VALUES (:circleNo, :eventTitle, :eventType,
+                             :eventDatefrom, :eventDateto,
+                             :eventTimefrom, :eventTimeto,
+                             :eventPlace, :eventMemo,
+                             NOW(), '1000010000')
+                     """)
+
+        await db.execute(query, {
+            "circleNo": req.circleNo,
+            "eventTitle": req.eventTitle,
+            "eventType": req.eventType,
+            "eventDatefrom": req.eventDatefrom,
+            "eventDateto": req.eventDateto,
+            "eventTimefrom": req.eventTimefrom,
+            "eventTimeto": req.eventTimeto,
+            "eventPlace": req.eventPlace,
+            "eventMemo": req.eventMemo
+        })
+        await db.commit()
+        return {"status": "success", "message": "행사가 성공적으로 등록되었습니다."}
+
+    except Exception as e:
+        print("insert_circle_event error:", e)
+        await db.rollback()  # 에러 발생 시 롤백 처리
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="DB 저장 중 오류 발생"
+        )
