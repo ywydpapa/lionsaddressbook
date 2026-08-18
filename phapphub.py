@@ -951,19 +951,25 @@ async def get_my_event_attendance(
         raise HTTPException(status_code=500, detail="개인 참석 정보 조회 중 오류 발생")
 
 
+from typing import Optional
+
+
 # =========================================================
-# [클럽 행사] 1. 클럽별 행사 목록 조회 API (isAnswered 추가)
+# [클럽 행사] 1. 클럽별 행사 목록 조회 API (더 안전한 응답 판별)
 # =========================================================
 @phapp_router.get("/getclubevents/{clubNo}")
 async def get_club_events(
         clubNo: int,
-        memberNo: int,  # 💡 현재 로그인한 사용자의 memberNo를 필수로 받습니다.
+        memberNo: Optional[int] = None,  # 💡 Optional로 변경하여 에러 방지
         db: AsyncSession = Depends(get_db),
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        # 💡 LEFT JOIN을 통해 로그인한 사용자의 응답 데이터가 있는지 확인하고,
-        # responseType이 존재하며 'NONE'이 아닌 경우 응답 완료(isAnswered = 1)로 판단합니다.
+        # memberNo가 없을 경우 임시로 0 처리
+        target_member = memberNo if memberNo is not None else 0
+
+        # 💡 확실하게 'YES' 또는 'NO'로 응답한 기록이 있을 때만 isAnswered = 1로 판별합니다.
+        # 그 외에 데이터가 없거나, 'NONE', NULL, 빈 값인 경우는 모두 미응답(0) 처리됩니다.
         query = text("""
                      SELECT e.eventNo,
                             e.clubNo,
@@ -976,7 +982,7 @@ async def get_club_events(
                             e.eventPlace,
                             e.eventMemo,
                             CASE
-                                WHEN cem.responseType IS NOT NULL AND cem.responseType != 'NONE' THEN 1
+                                WHEN cem.responseType IN ('YES', 'NO') THEN 1
                                 ELSE 0
                                 END                                  as isAnswered
                      FROM clubEvents e
@@ -987,7 +993,8 @@ async def get_club_events(
                        AND e.attrib = '1000010000'
                      ORDER BY e.eventDatefrom DESC, e.eventTimefrom DESC
                      """)
-        result = await db.execute(query, {"clubNo": clubNo, "memberNo": memberNo})
+
+        result = await db.execute(query, {"clubNo": clubNo, "memberNo": target_member})
         rows = result.mappings().all()
 
         events_list = []
@@ -1003,7 +1010,7 @@ async def get_club_events(
                 "eventTimeto": row["eventTimeto"] or "",
                 "eventPlace": row["eventPlace"] or "",
                 "eventMemo": row["eventMemo"] or "",
-                "isAnswered": row["isAnswered"] == 1  # 💡 True/False 변환
+                "isAnswered": row["isAnswered"] == 1
             })
 
         return {"events": events_list}
