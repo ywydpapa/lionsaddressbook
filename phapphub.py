@@ -955,21 +955,21 @@ from typing import Optional
 
 
 # =========================================================
-# [클럽 행사] 1. 클럽별 행사 목록 조회 API (더 안전한 응답 판별)
+# [클럽 행사] 1. 클럽별 행사 목록 조회 API (완벽한 미응답 판별)
 # =========================================================
 @phapp_router.get("/getclubevents/{clubNo}")
 async def get_club_events(
         clubNo: int,
-        memberNo: Optional[int] = None,  # 💡 Optional로 변경하여 에러 방지
+        memberNo: Optional[int] = None,
         db: AsyncSession = Depends(get_db),
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        # memberNo가 없을 경우 임시로 0 처리
         target_member = memberNo if memberNo is not None else 0
 
-        # 💡 확실하게 'YES' 또는 'NO'로 응답한 기록이 있을 때만 isAnswered = 1로 판별합니다.
-        # 그 외에 데이터가 없거나, 'NONE', NULL, 빈 값인 경우는 모두 미응답(0) 처리됩니다.
+        # 💡 핵심: EXISTS 서브쿼리를 사용하여, 해당 회원이 이 행사에 'YES' 또는 'NO'로
+        # 명확하게 응답한 정상 데이터(attrib='1000010000')가 존재할 때만 1(True)을 반환합니다.
+        # 데이터가 아예 없거나, responseType이 'NONE'인 경우는 모두 0(False)이 됩니다.
         query = text("""
                      SELECT e.eventNo,
                             e.clubNo,
@@ -982,13 +982,15 @@ async def get_club_events(
                             e.eventPlace,
                             e.eventMemo,
                             CASE
-                                WHEN cem.responseType IN ('YES', 'NO') THEN 1
+                                WHEN EXISTS (SELECT 1
+                                             FROM clubEventMember cem
+                                             WHERE cem.eventNo = e.eventNo
+                                               AND cem.memberNo = :memberNo
+                                               AND cem.responseType IN ('YES', 'NO')
+                                               AND cem.attrib = '1000010000') THEN 1
                                 ELSE 0
                                 END                                  as isAnswered
                      FROM clubEvents e
-                              LEFT JOIN clubEventMember cem ON e.eventNo = cem.eventNo
-                         AND cem.memberNo = :memberNo
-                         AND cem.attrib = '1000010000'
                      WHERE e.clubNo = :clubNo
                        AND e.attrib = '1000010000'
                      ORDER BY e.eventDatefrom DESC, e.eventTimefrom DESC
