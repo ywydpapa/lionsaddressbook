@@ -694,18 +694,41 @@ async def phappgetcirclemembers(circleno: int, db: AsyncSession = Depends(get_db
         print("getcirclemembers error:", e)
 
 
-@phapp_router.get("/getcircleevents/{circleno}")
-async def phappgetcircleevents(circleno: int, db: AsyncSession = Depends(get_db),
-                                current_user: str = Depends(get_current_mobile_user)):
+@phapp_router.get("/getcircleevents/{circleNo}")
+async def get_circle_events(
+        circleNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
     try:
-        query = text(
-            "select ce.*, lc.circleName from circleEvents ce left join lionsCircle lc on ce.circleNo = lc.circleNo where cm.circleNo = :circleno order by ce.eventDatefr")
-        result = await db.execute(query, {"circleno": circleno})
-        rows = result.fetchall()
-        cevents = [dict(row._mapping) for row in rows]
-        return {"cevents": cevents}
+        query = text("""
+                     SELECT ce.eventNo,
+                            ce.circleNo,
+                            ce.eventTitle,
+                            ce.eventType,
+                            DATE_FORMAT(ce.eventDatefrom, '%Y-%m-%d') as eventDatefrom,
+                            DATE_FORMAT(ce.eventDateto, '%Y-%m-%d')   as eventDateto,
+                            TIME_FORMAT(ce.eventTimefrom, '%H:%i:%s') as eventTimefrom,
+                            TIME_FORMAT(ce.eventTimeto, '%H:%i:%s')   as eventTimeto,
+                            ce.eventPlace,
+                            ce.eventMemo,
+                            lc.circleName
+                     FROM circleEvents ce
+                              LEFT JOIN lionsCircle lc ON ce.circleNo = lc.circleNo
+                     WHERE ce.circleNo = :circleNo
+                     ORDER BY ce.eventDatefrom DESC, ce.eventTimefrom DESC
+                     """)
+
+        result = await db.execute(query, {"circleNo": circleNo})
+        rows = result.mappings().all()
+        events_list = [dict(row) for row in rows]
+        return {"events": events_list}
     except Exception as e:
-        print("getcirclemembers error:", e)
+        print("get_circle_events error:", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="행사 목록 조회 중 오류 발생"
+        )
 
 
 @phapp_router.post("/insertcircleEvent")
