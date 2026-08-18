@@ -785,6 +785,9 @@ async def insert_circle_event(
 # =========================================================
 # 1. 행사별 참석자 명단 조회 API (GET /phapp/circle/event/members/{eventNo})
 # =========================================================
+# =========================================================
+# 1. 행사별 참석자 명단 조회 API (GET /phapp/circle/event/members/{eventNo})
+# =========================================================
 @phapp_router.get("/circle/event/members/{eventNo}")
 async def get_event_attendees(
         eventNo: int,
@@ -792,18 +795,21 @@ async def get_event_attendees(
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
+        # 💡 [개선된 쿼리]
+        # circleEventMember 테이블을 기준으로 lionsMember를 JOIN하여
+        # 참석 등록을 한 사람들의 데이터를 확실하게 100% 가져옵니다.
         query = text("""
-                     SELECT m.memberNo,
-                            m.memberName,
+                     SELECT cem.memberNo,
+                            COALESCE(m.memberName, '이름없음') as memberName,
                             cem.responseType,
                             cem.delayTime,
                             cem.joinMemo
-                     FROM lionsMember m
-                              LEFT JOIN circleEventMember cem
-                                        ON m.memberNo = cem.memberNo AND cem.eventNo = :eventNo
-                     WHERE m.attrib = '1000010000'
-                     ORDER BY m.memberName ASC
+                     FROM circleEventMember cem
+                              LEFT JOIN lionsMember m ON cem.memberNo = m.memberNo
+                     WHERE cem.eventNo = :eventNo
+                     ORDER BY m.memberName ASC, cem.regDate DESC
                      """)
+
         result = await db.execute(query, {"eventNo": eventNo})
         rows = result.mappings().all()
 
@@ -812,7 +818,7 @@ async def get_event_attendees(
             attendees_list.append({
                 "memberNo": row["memberNo"],
                 "memberName": row["memberName"],
-                "status": row["responseType"] if row["responseType"] is not None else "NONE",  # 'YES', 'NO', 'NONE'
+                "status": row["responseType"] if row["responseType"] is not None else "NONE",
                 "delayTime": row["delayTime"] or 0,
                 "joinMemo": row["joinMemo"] or ""
             })
