@@ -931,7 +931,48 @@ async def get_my_event_attendance(
         raise HTTPException(status_code=500, detail="개인 참석 정보 조회 중 오류 발생")
 
 
-from typing import Optional
+# =========================================================
+# [써클 행사] 4. 행사별 전체 참석자 명단 조회 API 추가
+# =========================================================
+@phapp_router.get("/circle/event/members/{eventNo}")
+async def get_circle_event_attendees(
+    eventNo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # circleEventMember 테이블을 기준으로 가입한 사람들의 명단을 매핑하여 조회
+        query = text("""
+            SELECT cem.memberNo,
+                   COALESCE(m.memberName, '이름없음') as memberName,
+                   cem.responseType,
+                   cem.delayTime,
+                   cem.joinMemo
+            FROM circleEventMember cem
+                     LEFT JOIN lionsMember m ON cem.memberNo = m.memberNo
+            WHERE cem.eventNo = :eventNo
+              AND cem.attrib = '1000010000'
+            ORDER BY m.memberName ASC, cem.regDate DESC
+        """)
+
+        result = await db.execute(query, {"eventNo": eventNo})
+        rows = result.mappings().all()
+
+        attendees_list = []
+        for row in rows:
+            attendees_list.append({
+                "memberNo": row["memberNo"],
+                "memberName": row["memberName"],
+                "status": row["responseType"] if row["responseType"] is not None else "NONE",
+                "delayTime": row["delayTime"] or 0,
+                "joinMemo": row["joinMemo"] or ""
+            })
+
+        return {"attendees": attendees_list}
+    except Exception as e:
+        print("get_circle_event_attendees error:", e)
+        raise HTTPException(status_code=500, detail="써클 참석자 명단 조회 중 오류 발생")
+
 
 
 # =========================================================
