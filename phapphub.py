@@ -952,32 +952,42 @@ async def get_my_event_attendance(
 
 
 # =========================================================
-# [클럽 행사] 1. 클럽별 행사 목록 조회 API
+# [클럽 행사] 1. 클럽별 행사 목록 조회 API (isAnswered 추가)
 # =========================================================
 @phapp_router.get("/getclubevents/{clubNo}")
 async def get_club_events(
         clubNo: int,
+        memberNo: int,  # 💡 현재 로그인한 사용자의 memberNo를 필수로 받습니다.
         db: AsyncSession = Depends(get_db),
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
+        # 💡 LEFT JOIN을 통해 로그인한 사용자의 응답 데이터가 있는지 확인하고,
+        # responseType이 존재하며 'NONE'이 아닌 경우 응답 완료(isAnswered = 1)로 판단합니다.
         query = text("""
-                     SELECT eventNo,
-                            clubNo,
-                            eventTitle,
-                            eventType,
-                            DATE_FORMAT(eventDatefrom, '%Y-%m-%d') as eventDatefrom,
-                            DATE_FORMAT(eventDateto, '%Y-%m-%d')   as eventDateto,
-                            TIME_FORMAT(eventTimefrom, '%H:%i:%s') as eventTimefrom,
-                            TIME_FORMAT(eventTimeto, '%H:%i:%s')   as eventTimeto,
-                            eventPlace,
-                            eventMemo
-                     FROM clubEvents
-                     WHERE clubNo = :clubNo
-                       AND attrib = '1000010000'
-                     ORDER BY eventDatefrom DESC, eventTimefrom DESC
+                     SELECT e.eventNo,
+                            e.clubNo,
+                            e.eventTitle,
+                            e.eventType,
+                            DATE_FORMAT(e.eventDatefrom, '%Y-%m-%d') as eventDatefrom,
+                            DATE_FORMAT(e.eventDateto, '%Y-%m-%d')   as eventDateto,
+                            TIME_FORMAT(e.eventTimefrom, '%H:%i:%s') as eventTimefrom,
+                            TIME_FORMAT(e.eventTimeto, '%H:%i:%s')   as eventTimeto,
+                            e.eventPlace,
+                            e.eventMemo,
+                            CASE
+                                WHEN cem.responseType IS NOT NULL AND cem.responseType != 'NONE' THEN 1
+                                ELSE 0
+                                END                                  as isAnswered
+                     FROM clubEvents e
+                              LEFT JOIN clubEventMember cem ON e.eventNo = cem.eventNo
+                         AND cem.memberNo = :memberNo
+                         AND cem.attrib = '1000010000'
+                     WHERE e.clubNo = :clubNo
+                       AND e.attrib = '1000010000'
+                     ORDER BY e.eventDatefrom DESC, e.eventTimefrom DESC
                      """)
-        result = await db.execute(query, {"clubNo": clubNo})
+        result = await db.execute(query, {"clubNo": clubNo, "memberNo": memberNo})
         rows = result.mappings().all()
 
         events_list = []
@@ -992,7 +1002,8 @@ async def get_club_events(
                 "eventTimefrom": row["eventTimefrom"] or "",
                 "eventTimeto": row["eventTimeto"] or "",
                 "eventPlace": row["eventPlace"] or "",
-                "eventMemo": row["eventMemo"] or ""
+                "eventMemo": row["eventMemo"] or "",
+                "isAnswered": row["isAnswered"] == 1  # 💡 True/False 변환
             })
 
         return {"events": events_list}
