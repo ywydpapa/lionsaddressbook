@@ -680,3 +680,17 @@ async def phappgetcirclemembers(circleno: int, db: AsyncSession = Depends(get_db
         return {"cmembers": cmembers}
     except Exception as e:
         print("getcirclemembers error:", e)
+
+
+@phapp_router.get("/getcircleevents/{circleno}")
+async def phappgetcircleevents(circleno: int, db: AsyncSession = Depends(get_db),
+                                current_user: str = Depends(get_current_mobile_user)):
+    try:
+        query = text(
+            "select ce.*, lc.circleName from circleEvents ce left join lionsCircle lc on ce.circleNo = lc.circleNo where cm.circleNo = :circleno order by ce.eventDatefr")
+        result = await db.execute(query, {"circleno": circleno})
+        rows = result.fetchall()
+        cevents = [dict(row._mapping) for row in rows]
+        return {"cevents": cevents}
+    except Exception as e:
+        print("getcirclemembers error:", e)
