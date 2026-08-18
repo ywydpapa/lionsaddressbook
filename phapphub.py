@@ -801,51 +801,69 @@ async def insert_circle_event(
 
 
 # =========================================================
-# 1. 행사별 참석자 명단 조회 API (GET /phapp/circle/event/members/{eventNo})
+# [써클 행사] 1. 써클별 행사 목록 조회 API (완벽한 미응답 판별)
 # =========================================================
-# =========================================================
-# 1. 행사별 참석자 명단 조회 API (GET /phapp/circle/event/members/{eventNo})
-# =========================================================
-@phapp_router.get("/circle/event/members/{eventNo}")
-async def get_event_attendees(
-        eventNo: int,
+@phapp_router.get("/getcircleevents/{circleNo}")
+async def get_circle_events(
+        circleNo: int,
+        memberNo: Optional[int] = None,
         db: AsyncSession = Depends(get_db),
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        # 💡 [개선된 쿼리]
-        # circleEventMember 테이블을 기준으로 lionsMember를 JOIN하여
-        # 참석 등록을 한 사람들의 데이터를 확실하게 100% 가져옵니다.
+        target_member = memberNo if memberNo is not None else 0
+
+        # 💡 핵심: EXISTS 서브쿼리를 사용하여, 해당 회원이 이 행사에 'YES' 또는 'NO'로
+        # 명확하게 응답한 정상 데이터(attrib='1000010000')가 존재할 때만 1(True)을 반환합니다.
         query = text("""
-                     SELECT cem.memberNo,
-                            COALESCE(m.memberName, '이름없음') as memberName,
-                            cem.responseType,
-                            cem.delayTime,
-                            cem.joinMemo
-                     FROM circleEventMember cem
-                              LEFT JOIN lionsMember m ON cem.memberNo = m.memberNo
-                     WHERE cem.eventNo = :eventNo
-                     ORDER BY m.memberName ASC, cem.regDate DESC
+                     SELECT e.eventNo,
+                            e.circleNo,
+                            e.eventTitle,
+                            e.eventType,
+                            DATE_FORMAT(e.eventDatefrom, '%Y-%m-%d') as eventDatefrom,
+                            DATE_FORMAT(e.eventDateto, '%Y-%m-%d')   as eventDateto,
+                            TIME_FORMAT(e.eventTimefrom, '%H:%i:%s') as eventTimefrom,
+                            TIME_FORMAT(e.eventTimeto, '%H:%i:%s')   as eventTimeto,
+                            e.eventPlace,
+                            e.eventMemo,
+                            CASE
+                                WHEN EXISTS (SELECT 1
+                                             FROM circleEventMember cem
+                                             WHERE cem.eventNo = e.eventNo
+                                               AND cem.memberNo = :memberNo
+                                               AND cem.responseType IN ('YES', 'NO')
+                                               AND cem.attrib = '1000010000') THEN 1
+                                ELSE 0
+                                END                                  as isAnswered
+                     FROM circleEvents e
+                     WHERE e.circleNo = :circleNo
+                       AND e.attrib = '1000010000'
+                     ORDER BY e.eventDatefrom DESC, e.eventTimefrom DESC
                      """)
 
-        result = await db.execute(query, {"eventNo": eventNo})
+        result = await db.execute(query, {"circleNo": circleNo, "memberNo": target_member})
         rows = result.mappings().all()
 
-        attendees_list = []
+        events_list = []
         for row in rows:
-            attendees_list.append({
-                "memberNo": row["memberNo"],
-                "memberName": row["memberName"],
-                "status": row["responseType"] if row["responseType"] is not None else "NONE",
-                "delayTime": row["delayTime"] or 0,
-                "joinMemo": row["joinMemo"] or ""
+            events_list.append({
+                "eventNo": row["eventNo"],
+                "circleNo": row["circleNo"],
+                "eventTitle": row["eventTitle"] or "제목 없음",
+                "eventType": row["eventType"] or "MONEV",
+                "eventDatefrom": row["eventDatefrom"] or "",
+                "eventDateto": row["eventDateto"] or "",
+                "eventTimefrom": row["eventTimefrom"] or "",
+                "eventTimeto": row["eventTimeto"] or "",
+                "eventPlace": row["eventPlace"] or "",
+                "eventMemo": row["eventMemo"] or "",
+                "isAnswered": row["isAnswered"] == 1
             })
 
-        return {"attendees": attendees_list}
-
+        return {"events": events_list}
     except Exception as e:
-        print("get_event_attendees error:", e)
-        raise HTTPException(status_code=500, detail="참석자 명단 조회 중 오류 발생")
+        print("get_circle_events error:", e)
+        raise HTTPException(status_code=500, detail="써클 행사 목록 조회 중 오류 발생")
 
 
 # =========================================================
