@@ -35,6 +35,13 @@ class CircleEventCreate(BaseModel):
     eventPlace: Optional[str] = Field(None, max_length=100)
     eventMemo: Optional[str] = Field(None, max_length=2000)
 
+class EventAttendanceUpdate(BaseModel):
+    eventNo: int
+    memberNo: int
+    responseType: str = Field(..., max_length=3)  # 'YES' 또는 'NO'
+    delayTime: Optional[int] = None               # 지각 시간 (분 단위)
+    joinMemo: Optional[str] = Field(None, max_length=1000)
+
 
 @phapp_router.get("/clubList/{regionno}")
 async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
@@ -773,3 +780,112 @@ async def insert_circle_event(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="DB 저장 중 오류 발생"
         )
+
+
+# =========================================================
+# 1. 행사별 참석자 명단 조회 API (GET /phapp/circle/event/members/{eventNo})
+# =========================================================
+@phapp_router.get("/circle/event/members/{eventNo}")
+async def get_event_attendees(
+        eventNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # 써클 회원 정보(lionsMember 등 테이블명에 맞춰 JOIN 필요)와 참석 정보를 함께 조회합니다.
+        # 여기서는 회원 테이블명을 'lionsMember'로 가정하며, 필드는 memberNo, memberName으로 가정합니다.
+        query = text("""
+                     SELECT m.memberNo,
+                            m.memberName,
+                            cem.responseType,
+                            cem.delayTime,
+                            cem.joinMemo
+                     FROM lionsMember m
+                              -- 해당 써클에 소속된 회원만 나오도록 하거나, 전체 회원 대상일 경우에 맞춰 JOIN을 구성합니다.
+                              -- 여기서는 해당 행사의 참석 여부를 등록한 사람 위주로 보되, 미응답자도 나오게 하려면 LEFT JOIN을 씁니다.
+                              LEFT JOIN circleEventMember cem
+                                        ON m.memberNo = cem.memberNo AND cem.eventNo = :eventNo
+                     WHERE m.attrib = '1000010000' -- 활성 회원 조건 (필요시 추가)
+                     ORDER BY m.memberName ASC
+                     """)
+
+        result = await db.execute(query, {"eventNo": eventNo})
+        rows = result.mappings().all()
+
+        attendees_list = []
+        for row in rows:
+            attendees_list.append({
+                "memberNo": row["memberNo"],
+                "memberName": row["memberName"],
+                "status": row["responseType"] if row["responseType"] is not None else "NONE",  # 'YES', 'NO', 'NONE'
+                "delayTime": row["delayTime"] or 0,
+                "joinMemo": row["joinMemo"] or ""
+            })
+
+        return {"attendees": attendees_list}
+
+    except Exception as e:
+        print("get_event_attendees error:", e)
+        raise HTTPException(status_code=500, detail="참석자 명단 조회 중 오류 발생")
+
+
+# =========================================================
+# 2. 참석 여부 및 상세 정보 등록/수정 API (POST /phapp/circle/event/attend)
+# =========================================================
+@phapp_router.post("/circle/event/attend")
+async def update_event_attendance(
+        req: EventAttendanceUpdate,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        check_query = text("""
+                           SELECT joinNo
+                           FROM circleEventMember
+                           WHERE eventNo = :eventNo
+                             AND memberNo = :memberNo
+                           """)
+        result = await db.execute(check_query, {"eventNo": req.eventNo, "memberNo": req.memberNo})
+        exists = result.scalar()
+
+        if exists:
+            update_query = text("""
+                                UPDATE circleEventMember
+                                SET responseType      = :responseType,
+                                    delayTime         = :delayTime,
+                                    joinMemo          = :joinMemo,
+                                    responseTimestamp = NOW(),
+                                    modDate           = NOW()
+                                WHERE eventNo = :eventNo
+                                  AND memberNo = :memberNo
+                                """)
+            await db.execute(update_query, {
+                "responseType": req.responseType,
+                "delayTime": req.delayTime,
+                "joinMemo": req.joinMemo,
+                "eventNo": req.eventNo,
+                "memberNo": req.memberNo
+            })
+        else:
+            insert_query = text("""
+                                INSERT INTO circleEventMember (eventNo, memberNo, responseType, delayTime, joinMemo,
+                                                               responseTimestamp, regDate, attrib)
+                                VALUES (:eventNo, :memberNo, :responseType, :delayTime, :joinMemo, NOW(), NOW(),
+                                        '1000010000')
+                                """)
+            await db.execute(insert_query, {
+                "eventNo": req.eventNo,
+                "memberNo": req.memberNo,
+                "responseType": req.responseType,
+                "delayTime": req.delayTime,
+                "joinMemo": req.joinMemo
+            })
+
+        await db.commit()
+        return {"status": "success", "message": "참석 정보가 저장되었습니다."}
+
+    except Exception as e:
+        print("update_event_attendance error:", e)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="참석 정보 저장 중 오류 발생")
+
