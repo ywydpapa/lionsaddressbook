@@ -792,8 +792,6 @@ async def get_event_attendees(
         current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        # 써클 회원 정보(lionsMember 등 테이블명에 맞춰 JOIN 필요)와 참석 정보를 함께 조회합니다.
-        # 여기서는 회원 테이블명을 'lionsMember'로 가정하며, 필드는 memberNo, memberName으로 가정합니다.
         query = text("""
                      SELECT m.memberNo,
                             m.memberName,
@@ -801,14 +799,11 @@ async def get_event_attendees(
                             cem.delayTime,
                             cem.joinMemo
                      FROM lionsMember m
-                              -- 해당 써클에 소속된 회원만 나오도록 하거나, 전체 회원 대상일 경우에 맞춰 JOIN을 구성합니다.
-                              -- 여기서는 해당 행사의 참석 여부를 등록한 사람 위주로 보되, 미응답자도 나오게 하려면 LEFT JOIN을 씁니다.
                               LEFT JOIN circleEventMember cem
                                         ON m.memberNo = cem.memberNo AND cem.eventNo = :eventNo
-                     WHERE m.attrib = '1000010000' -- 활성 회원 조건 (필요시 추가)
+                     WHERE m.attrib = '1000010000'
                      ORDER BY m.memberName ASC
                      """)
-
         result = await db.execute(query, {"eventNo": eventNo})
         rows = result.mappings().all()
 
@@ -889,3 +884,44 @@ async def update_event_attendance(
         await db.rollback()
         raise HTTPException(status_code=500, detail="참석 정보 저장 중 오류 발생")
 
+
+# =========================================================
+# 3. 본인의 개별 참석 정보 조회 API (GET /phapp/circle/event/my-attend)
+# =========================================================
+@phapp_router.get("/circle/event/my-attend")
+async def get_my_event_attendance(
+        eventNo: int,
+        memberNo: int,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+                     SELECT responseType, delayTime, joinMemo
+                     FROM circleEventMember
+                     WHERE eventNo = :eventNo
+                       AND memberNo = :memberNo
+                     """)
+        result = await db.execute(query, {"eventNo": eventNo, "memberNo": memberNo})
+        row = result.mappings().first()
+
+        if row:
+            return {
+                "status": "success",
+                "exists": True,
+                "responseType": row["responseType"] or "NONE",
+                "delayTime": row["delayTime"] or 0,
+                "joinMemo": row["joinMemo"] or ""
+            }
+        else:
+            return {
+                "status": "success",
+                "exists": False,
+                "responseType": "NONE",
+                "delayTime": 0,
+                "joinMemo": ""
+            }
+
+    except Exception as e:
+        print("get_my_event_attendance error:", e)
+        raise HTTPException(status_code=500, detail="개인 참석 정보 조회 중 오류 발생")
