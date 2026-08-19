@@ -1228,3 +1228,81 @@ async def get_club_event_attendees(
     except Exception as e:
         print("get_club_event_attendees error:", e)
         raise HTTPException(status_code=500, detail="참석자 명단 조회 중 오류 발생")
+
+# =========================================================
+# [써클 행사] 5. 써클 행사 삭제 API (소프트 딜리트)
+# =========================================================
+@phapp_router.post("/circle/event/delete/{eventNo}")
+async def delete_circle_event(
+    eventNo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # 1. 해당 행사가 존재하는지 먼저 확인
+        check_query = text("""
+            SELECT eventNo FROM circleEvents 
+            WHERE eventNo = :eventNo AND attrib = '1000010000'
+        """)
+        result = await db.execute(check_query, {"eventNo": eventNo})
+        exists = result.scalar()
+
+        if not exists:
+            raise HTTPException(status_code=404, detail="존재하지 않거나 이미 삭제된 써클 행사입니다.")
+
+        # 2. attrib 값을 'XXXUPXXXUP'로 변경하여 소프트 딜리트 처리
+        delete_query = text("""
+            UPDATE circleEvents
+            SET attrib = 'XXXUPXXXUP',
+                modDate = NOW()
+            WHERE eventNo = :eventNo
+        """)
+        await db.execute(delete_query, {"eventNo": eventNo})
+        await db.commit()
+
+        return {"status": "success", "message": "써클 행사가 성공적으로 삭제(제외)되었습니다."}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        print("delete_circle_event error:", e)
+        raise HTTPException(status_code=500, detail="써클 행사 삭제 처리 중 오류 발생")
+
+
+# =========================================================
+# [클럽 행사] 6. 클럽 행사 삭제 API (소프트 딜리트)
+# =========================================================
+@phapp_router.post("/club/event/delete/{eventNo}")
+async def delete_club_event(
+    eventNo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        # 1. 해당 행사가 존재하는지 먼저 확인
+        check_query = text("""
+            SELECT eventNo FROM clubEvents 
+            WHERE eventNo = :eventNo AND attrib = '1000010000'
+        """)
+        result = await db.execute(check_query, {"eventNo": eventNo})
+        exists = result.scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="존재하지 않거나 이미 삭제된 클럽 행사입니다.")
+
+        # 2. attrib 값을 'XXXUPXXXUP'로 변경하여 소프트 딜리트 처리
+        delete_query = text("""
+            UPDATE clubEvents
+            SET attrib = 'XXXUPXXXUP',
+                modDate = NOW()
+            WHERE eventNo = :eventNo
+        """)
+        await db.execute(delete_query, {"eventNo": eventNo})
+        await db.commit()
+        return {"status": "success", "message": "클럽 행사가 성공적으로 삭제(제외)되었습니다."}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        print("delete_club_event error:", e)
+        raise HTTPException(status_code=500, detail="클럽 행사 삭제 처리 중 오류 발생")
