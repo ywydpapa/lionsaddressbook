@@ -188,7 +188,8 @@ async def login(request: Request, response: Response, username: str = Form(...),
     request.session["user_Role"] = user[2]
     request.session["user_Region"] = user[3]
     request.session["user_Clubno"] = user[4]
-
+    if user[2] == 'CUSER':
+        request.session["user_Circleno"] = user[4]
     return RedirectResponse(url="/success", status_code=303)
 
 
@@ -209,10 +210,12 @@ async def user_edit(request: Request, db: AsyncSession = Depends(get_db)):
     if not user_No: return RedirectResponse(url="/")
     userdtl = await get_userdtl(user_No, db)
     clublist = await get_clublist(db)
+    circlelist = await get_circlelist(db)
+    print(circlelist)
     return templates.TemplateResponse("login/userEdit.html", {
         "request": request, "user_No": user_No, "user_Role": request.session.get("user_Role"),
         "user_Name": request.session.get("user_Name"), "user_region": request.session.get("user_Region"),
-        "user_clubno": request.session.get("user_Clubno"), "userdtl": userdtl, "clublist": clublist
+        "user_clubno": request.session.get("user_Clubno"), "userdtl": userdtl, "clublist": clublist, "circlelist": circlelist
     })
 
 

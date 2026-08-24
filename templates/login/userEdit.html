@@ -52,7 +52,7 @@
                          권한
                          </td>
                          <td>
-                         {% if userdtl[4]=="ADMIN" %}지역관리자{% else %}클럽관리자{% endif %}
+                         {% if userdtl[4]=="ADMIN" %}지역관리자{% elif userdtl[4]=="USER" %}클럽관리자{% else %}써클관리자{% endif %}
                          </td>
                          </td>
                          <td></td>
@@ -68,6 +68,7 @@
                          <td></td>
                      </tr>
                      <tr>
+                         {% if user_Role != 'CUSER' %}
                          <td>소속클럽</td>
                          <td><select id="clublst" class="form-control selectpicker" data-live-search ="true" name="clublst">
                                         {% for club in clublist %}
@@ -77,6 +78,18 @@
                                         {% endfor %}
                                     </select></td>
                          <td></td>
+                         {% endif %}
+                         {% if user_Role == 'CUSER' %}
+                         <td>소속써클</td>
+                         <td><select id="circlelist" class="form-control selectpicker" data-live-search ="true" name="circlelst">
+                                        {% for circle in circlelist %}
+                                        <option value="{{circle[0]}}" {% if circle[0]== userdtl[7] %}selected{% endif %}>
+                                            {{circle[1]}}
+                                        </option>
+                                        {% endfor %}
+                                    </select></td>
+                         <td></td>
+                         {% endif %}
                      </tr>
                     </table>
                  </form>

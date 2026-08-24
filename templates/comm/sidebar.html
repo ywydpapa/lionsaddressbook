@@ -38,10 +38,22 @@
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">관리 가능 목록</h6>
+                {% if user_Role == 'USER' %}
                 <a class="collapse-item" href="/regionclubList/{{ user_region}}">지역클럽목록</a>
                 <a class="collapse-item" href="/rmemberList/{{ user_region}}">지역회원목록</a>
                 <a class="collapse-item" href="/myclubStaff/{{ user_clubno}}">클럽집행부 관리</a>
                 <a class="collapse-item" href="/myclubmemberList/{{ user_clubno}}">클럽회원 관리</a>
+                {% endif %}
+                {% if user_Role == 'CUSER' %}
+                <a class="collapse-item" href="/rmemberList/{{ user_region}}">써클 회원 목록</a>
+                <a class="collapse-item" href="/myclubStaff/{{ user_clubno}}">써클 행사 관리</a>
+                {% endif %}
+                {% if user_Role == 'ADMIN' %}
+                <a class="collapse-item" href="/regionclubList/{{ user_region}}">지역클럽목록</a>
+                <a class="collapse-item" href="/rmemberList/{{ user_region}}">지역회원목록</a>
+                <a class="collapse-item" href="/myclubStaff/{{ user_clubno}}">클럽집행부 관리</a>
+                <a class="collapse-item" href="/myclubmemberList/{{ user_clubno}}">클럽회원 관리</a>
+                {% endif %}
             </div>
         </div>
     </li>
@@ -56,9 +68,17 @@
              data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">설정 가능 목록</h6>
+                {% if user_Role == 'CUSER' %}
+                <a class="collapse-item" href="/CircleDetail">써클 정보</a>
+                <a class="collapse-item" href="/circlememberListedit">써클 회원 목록</a>
+                {% endif %}
+                {% if user_Role == 'USER' %}
                 <a class="collapse-item" href="/rankList">직책목록</a>
                 <a class="collapse-item" href="/memberList">회원목록</a>
+                {% endif %}
                 {% if user_Role == 'ADMIN' %}
+                <a class="collapse-item" href="/rankList">직책목록</a>
+                <a class="collapse-item" href="/memberList">회원목록</a>
                 <a class="collapse-item" href="/clubList">클럽목록</a>
                 <a class="collapse-item" href="/regionList"> 지역목록</a>
                 <a class="collapse-item" href="/circleList"> 써클목록</a>
