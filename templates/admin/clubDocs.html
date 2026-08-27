@@ -70,6 +70,7 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
+                                            {% if user_Role == 'ADMIN' %}
                                             <a href="#" onclick="window.location.href='/clubList'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">클럽목록으로 돌아가기</a>
@@ -77,6 +78,13 @@
                                                onclick="window.location.href='/editclub/{{clubdtl[0]}}'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">클럽관리로 돌아가기</a>
+                                            {% endif %}
+                                            {% if user_Role != 'ADMIN' %}
+                                            <a href="#"
+                                               onclick="window.location.href='/editmyclub/{{clubdtl[0]}}'; return false;"
+                                               class="btn btn-dark"
+                                               role="button" style="flex: 0 0 30%;">클럽관리로 돌아가기</a>
+                                            {% endif %}
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
                                             </button>
                                         </div>

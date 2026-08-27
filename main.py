@@ -481,6 +481,21 @@ async def editclub(request: Request, clubno: int, db: AsyncSession = Depends(get
     })
 
 
+@app.get("/editmyclub/{clubno}", response_class=HTMLResponse)
+async def editmyclub(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No: return RedirectResponse(url="/")
+    query = text("SELECT * FROM lionsClub where clubNo = :clubNo")
+    result = await db.execute(query, {"clubNo": clubno})
+    clubdtl = result.fetchone()
+    clubdocs = await get_clubdocs(clubno, db)
+    return templates.TemplateResponse("myclub/myclubDetail.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "clubdtl": clubdtl, "clubdocs": clubdocs,
+        "user_clubno": clubno, "user_region": request.session.get("user_Region")
+    })
+
+
 @app.get("/editclubdoc/{clubno}", response_class=HTMLResponse)
 async def editclubdoc(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
