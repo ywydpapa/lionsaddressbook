@@ -578,13 +578,19 @@ async def updateclubdocs(request: Request, docno: int, db: AsyncSession = Depend
     return RedirectResponse(f"/editclub/{clubno}", status_code=303)
 
 
+@app.post("/deleteclubdocs/{docno}/{clubno}")
+async def deleteclubdocs(request: Request, docno: int, clubno:int,db: AsyncSession = Depends(get_db)):
+    queryup = text("UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE docNo = :docno")
+    timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    await db.execute(queryup, {"timenow": timenow,"updattrib": "XXXUPXXXUP", "docno": docno})
+    await db.commit()
+    return RedirectResponse(f"/editmyclub/{clubno}", status_code=303)
+
+
 @app.get("/popup_doc/{docno}")
 async def get_popup_content(docno: int, db: AsyncSession = Depends(get_db)):
     cdoc = await get_clubdoc(docno, db)
     if cdoc: return HTMLResponse(cdoc)
-
-
-
 
 
 @app.get("/listnotice/{regionno}", response_class=HTMLResponse)

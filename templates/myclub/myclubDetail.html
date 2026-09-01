@@ -155,6 +155,7 @@
                                     <td style="background-color: #f1eeee ">{{ clubdoc[3] }}({{ clubdoc[2] }})</td>
                                     <td> <a href="#" class="btn btn-primary btn-sm" onclick="showHtmlViewer({{ clubdoc[0] }})">문서보기</a>
                                         <a href="/editclubdocs/{{ clubdoc[0] }}" class="btn btn-secondary btn-sm">문서수정</a>
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteDocument('{{ clubdoc[0] }}', '{{clubdtl[0]}}')">문서삭제</button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -204,5 +205,16 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
+<script>
+     function deleteDocument(docId, clubId) {
+        if (confirm("정말 이 문서를 삭제하시겠습니까?")) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/deleteclubdocs/${docId}/${clubId}`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
 </body>
 </html>
