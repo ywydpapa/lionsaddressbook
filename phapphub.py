@@ -424,6 +424,7 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
             "mPhotoBase64": mphoto_url, "clubNo": d["clubNo"], "rankTitle": d["rankTitlekor"],
             "memberMF": d["memberMF"], "memberAddress": d["memberAddress"], "memberEmail": d["memberEmail"],
             "memberJoindate": d["memberJoindate"], "addMemo": d["addMemo"], "memberBirth": d["memberBirth"],
+            "sponserNo": d["sponserNo"],
             "clubName": d["clubName"], "nameCard": ncard_url, "officeAddress": d["officeAddress"],
             "spouseName": d["spouseName"], "spousePhone": d["spousePhone"], "spouseBirth": d["spouseBirth"],
             "spousePhoto": sphoto_url, "bisTitle": d["bisTitle"], "bisRank": d["bisRank"],
@@ -434,12 +435,12 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
 
         # 마스킹(비공개) 처리 로직
         if mask == 'S':
-            res.update({"memberAddress": "비공개", "memberBirth": "비공개"})
+            res.update({"memberAddress": "비공개", "memberBirth": "비공개", "sponserNo": "비공개", "memberJoindate": "비공개"})
         elif mask == 'T':
             res.update({
                 "memberAddress": "비공개", "memberEmail": "비공개", "memberJoindate": "비공개",
                 "memberBirth": "비공개", "spouseName": "비공개", "spousePhone": "비공개",
-                "spouseBirth": "비공개", "spousePhoto": ""
+                "spouseBirth": "비공개", "spousePhoto": "" , "sponserNo": "비공개", "memberJoindate": "비공개"
             })
         elif mask not in ('N', 'S', 'T'):  # 완전 비공개
             res.update({
@@ -450,7 +451,7 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
                 "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개",
                 "bistypeTitle": "비공개", "offtel": "비공개", "offAddress": "비공개",
                 "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
-                "offSns": "비공개", "bisMemo": "비공개"
+                "offSns": "비공개", "bisMemo": "비공개", "sponserNo": "비공개", "memberJoindate": "비공개"
             })
 
         return {"memberdtl": [res]}
@@ -537,6 +538,7 @@ async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db),
             "mPhotoBase64": mphoto_url, "clubNo": d["clubNo"], "rankTitle": d["rankTitlekor"],
             "memberMF": d["memberMF"], "memberAddress": d["memberAddress"], "memberEmail": d["memberEmail"],
             "memberJoindate": d["memberJoindate"], "addMemo": d["addMemo"], "memberBirth": d["memberBirth"],
+            "sponserNo": d["sponserNo"],
             "clubName": d["clubName"], "nameCard": ncard_url, "officeAddress": d["officeAddress"],
             "spouseName": d["spouseName"], "spousePhone": d["spousePhone"], "spouseBirth": d["spouseBirth"],
             "spousePhoto": sphoto_url, "bisTitle": d["bisTitle"], "bisRank": d["bisRank"],
@@ -547,12 +549,12 @@ async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db),
 
         # 마스킹(비공개) 처리 로직
         if mask == 'S':
-            res.update({"memberAddress": "비공개", "memberBirth": "비공개"})
+            res.update({"memberAddress": "비공개", "memberBirth": "비공개", "sponserNo": "비공개", "memberJoindate": "비공개"})
         elif mask == 'T':
             res.update({
                 "memberAddress": "비공개", "memberEmail": "비공개", "memberJoindate": "비공개",
                 "memberBirth": "비공개", "spouseName": "비공개", "spousePhone": "비공개",
-                "spouseBirth": "비공개", "spousePhoto": ""
+                "spouseBirth": "비공개", "spousePhoto": "", "sponserNo": "비공개", "memberJoindate": "비공개"
             })
         elif mask not in ('N', 'S', 'T'):  # 완전 비공개
             res.update({
@@ -563,7 +565,7 @@ async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db),
                 "bisTitle": "비공개", "bisRank": "비공개", "bisType": "비공개",
                 "bistypeTitle": "비공개", "offtel": "비공개", "offAddress": "비공개",
                 "offEmail": "비공개", "offPost": "비공개", "offWeb": "비공개",
-                "offSns": "비공개", "bisMemo": "비공개"
+                "offSns": "비공개", "bisMemo": "비공개", "sponserNo": "비공개", "memberJoindate": "비공개"
             })
 
         return {"memberdtl": [res]}
