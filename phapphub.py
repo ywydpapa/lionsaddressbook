@@ -775,6 +775,19 @@ async def checkrightcevent(clubno: int,sec_key:str ,db: AsyncSession = Depends(g
         print("getRights error:", e)
 
 
+@phapp_router.get("/chkrightcircleevent/{circleno}/{sec_key}")
+async def checkrightcircleevent(circleno: int,sec_key:str ,db: AsyncSession = Depends(get_db),
+                                current_user: str = Depends(get_current_mobile_user)):
+    try:
+        query = text(
+            "select count(*) from lionsCircle where circleNo = :circleno and secCode = :skey")
+        result = await db.execute(query, {"circleno": circleno, "skey":sec_key})
+        rows = result.fetchone()
+        return {"chkkey": rows[0]}
+    except Exception as e:
+        print("getRights error:", e)
+
+
 
 # =========================================================
 # [써클 행사] 1. 써클별 행사 목록 조회 API (완벽한 미응답 판별)
