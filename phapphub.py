@@ -359,8 +359,9 @@ async def phappmemberdtl(memberno: int, db: AsyncSession = Depends(get_db),
                             CASE
                                 WHEN DATE_FORMAT(lm.memberBirth, '%Y') = '2029' THEN ''
                                 WHEN DATE_FORMAT(lm.memberBirth, '%m-%d') = '01-01'
-                                    THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'), '년생')
-                                ELSE DATE_FORMAT(lm.memberBirth, '%Y-%m-%d') END AS memberBirth,
+                                    THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'), '년생 ', IF(lm.isSolarbirth = 1, '(+)', '(-)'))
+                            ELSE CONCAT(DATE_FORMAT(lm.memberBirth, '%Y-%m-%d'), ' ', IF(lm.isSolarbirth = 1, '(+)', '(-)')) 
+                            END AS memberBirth,
                             lm.memberSeccode,
                             lm.memberAddress,
                             lm.memberPhone,
@@ -467,52 +468,54 @@ async def phappmemberdtlext(memberno: int, db: AsyncSession = Depends(get_db),
         # 사진 관련 무거운 JOIN과 TO_BASE64 제거, 매핑을 위해 컬럼명 명시
         query = text("""
                      SELECT lm.memberNo,
-                            le.chnName as memberName,
-                            lm.memberMF,
-                            CASE
-                                WHEN DATE_FORMAT(lm.memberBirth, '%Y') = '2029' THEN ''
-                                WHEN DATE_FORMAT(lm.memberBirth, '%m-%d') = '01-01'
-                                    THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'), '년생')
-                                ELSE DATE_FORMAT(lm.memberBirth, '%Y-%m-%d') END AS memberBirth,
-                            lm.memberSeccode,
-                            lm.memberAddress,
-                            lm.memberPhone,
-                            lm.memberEmail,
-                            lm.memberJoindate,
-                            lm.clubNo,
-                            lm.sponserNo,
-                            le.chnMemo as addMemo,
-                            lm.rankNo,
-                            lm.officeAddress,
-                            lm.spouseName,
-                            lm.spousePhone,
-                            CASE
-                                WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2020' THEN ''
-                                WHEN DATE_FORMAT(lm.spouseBirth, '%m-%d') = '01-01'
-                                    THEN CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y'), '년생')
-                                ELSE DATE_FORMAT(lm.spouseBirth, '%Y-%m-%d') END AS spouseBirth,
-                            lm.maskYN,
-                            lm.funcNo,
-                            le.chnRank as rankTitlekor,
-                            lc.clubName,
-                            mb.bisTitle,
-                            mb.bisRank,
-                            mb.bisType,
-                            mb.bistypeTitle,
-                            mb.officeTel                                         as offtel,
-                            mb.officeAddress                                     as offAddress,
-                            mb.officeEmail                                       as offEmail,
-                            mb.officePostNo                                      as offPost,
-                            mb.officeWeb                                         as offWeb,
-                            mb.officeSns                                         as offSns,
-                            mb.bisMemo,
-                            le.chnRank as clubRank
-                     FROM lionsMember lm
-                              LEFT JOIN lionsRank lr ON lm.rankNo = lr.rankNo
-                              LEFT JOIN lionsClub lc ON lm.clubNo = lc.clubNo
-                              LEFT JOIN lionsExtnames le on lm.memberNo = le.memberNo
-                              LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo and mb.attrib not like '%XXX%'
-                     WHERE lm.memberNo = :memberno
+       le.chnName as memberName,
+       lm.memberMF,
+       CASE
+           WHEN DATE_FORMAT(lm.memberBirth, '%Y') = '2029' THEN ''
+           WHEN DATE_FORMAT(lm.memberBirth, '%m-%d') = '01-01'
+               THEN CONCAT(DATE_FORMAT(lm.memberBirth, '%Y'), '년생 ', IF(lm.isSolarbirth = 1, '(+)', '(-)'))
+           ELSE CONCAT(DATE_FORMAT(lm.memberBirth, '%Y-%m-%d'), ' ', IF(lm.isSolarbirth = 1, '(+)', '(-)')) 
+       END AS memberBirth,
+       lm.memberSeccode,
+       lm.memberAddress,
+       lm.memberPhone,
+       lm.memberEmail,
+       lm.memberJoindate,
+       lm.clubNo,
+       lm.sponserNo,
+       le.chnMemo as addMemo,
+       lm.rankNo,
+       lm.officeAddress,
+       lm.spouseName,
+       lm.spousePhone,
+       CASE
+           WHEN DATE_FORMAT(lm.spouseBirth, '%Y') = '2020' THEN ''
+           WHEN DATE_FORMAT(lm.spouseBirth, '%m-%d') = '01-01'
+               THEN CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y'), '년생 ', IF(lm.isSpSolarbirth = 1, '(+)', '(-)'))
+           ELSE CONCAT(DATE_FORMAT(lm.spouseBirth, '%Y-%m-%d'), ' ', IF(lm.isSpSolarbirth = 1, '(+)', '(-)')) 
+       END AS spouseBirth,
+       lm.maskYN,
+       lm.funcNo,
+       le.chnRank as rankTitlekor,
+       lc.clubName,
+       mb.bisTitle,
+       mb.bisRank,
+       mb.bisType,
+       mb.bistypeTitle,
+       mb.officeTel                                         as offtel,
+       mb.officeAddress                                     as offAddress,
+       mb.officeEmail                                       as offEmail,
+       mb.officePostNo                                      as offPost,
+       mb.officeWeb                                         as offWeb,
+       mb.officeSns                                         as offSns,
+       mb.bisMemo,
+       le.chnRank as clubRank
+FROM lionsMember lm
+         LEFT JOIN lionsRank lr ON lm.rankNo = lr.rankNo
+         LEFT JOIN lionsClub lc ON lm.clubNo = lc.clubNo
+         LEFT JOIN lionsExtnames le on lm.memberNo = le.memberNo
+         LEFT JOIN memberBusiness mb ON lm.memberNo = mb.memberNo and mb.attrib not like '%XXX%'
+WHERE lm.memberNo = :memberno
                      """)
         result = await db.execute(query, {"memberno": memberno})
         row = result.fetchone()

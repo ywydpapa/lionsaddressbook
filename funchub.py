@@ -14,6 +14,9 @@ from passlib.context import CryptContext
 from passlib.exc import UnknownHashError
 import jwt
 import dotenv
+from korean_lunar_calendar import KoreanLunarCalendar
+import re
+from datetime import datetime, date
 
 dotenv.load_dotenv()
 
@@ -638,3 +641,84 @@ async def get_requests(db: AsyncSession):
         return result.fetchall()
     except Exception:
         raise HTTPException(status_code=500, detail="Database query failed(REQUEST)")
+
+
+async def get_upcoming_birthdays(db: AsyncSession, start_date_str: str, end_date_str: str, clubno: int):
+    """
+    지정된 날짜 범위 내에 생일이 있는 회원 목록을 반환합니다. (음력 생일 자동 변환)
+    :param db: AsyncSession 객체
+    :param start_date_str: 검색 시작일 (YYYY-MM-DD)
+    :param end_date_str: 검색 종료일 (YYYY-MM-DD)
+    :param clubno: 클럽 번호
+    :return: 생일자 딕셔너리 리스트
+    """
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    target_year = start_date.year
+    calendar = KoreanLunarCalendar()
+    upcoming_birthdays = []
+
+    try:
+        # DB에서 memberBirth(날짜)와 isSolarbirth(양/음력 구분) 컬럼을 함께 조회
+        query = text(
+            """
+            SELECT m.memberNo, m.memberName, m.memberBirth, m.isSolarbirth
+            FROM lionsMember m
+            WHERE m.clubNo = :clubno and m.memberBirth < '2020-01-01'
+            """
+        )
+        result = await db.execute(query, {"clubno": clubno})
+        rows = result.fetchall()
+
+        for row in rows:
+            member_no = row.memberNo
+            member_name = row.memberName
+            birth_date = row.memberBirth
+
+            # 생일 데이터가 없는 회원은 건너뜀
+            if not birth_date:
+                continue
+            # isSolarbirth 값이 1이면 양력, 0이거나 NULL이면 음력(기본값)
+            is_solar = row.isSolarbirth if row.isSolarbirth is not None else 0
+
+            birth_month = birth_date.month
+            birth_day = birth_date.day
+
+            this_year_birthday = None
+
+            if is_solar == 1:
+                # 양력 생일
+                try:
+                    this_year_birthday = date(target_year, birth_month, birth_day)
+                except ValueError:
+                    # 윤달(2월 29일) 생일자가 평년일 경우 3월 1일로 처리
+                    this_year_birthday = date(target_year, 3, 1)
+                birth_type_str = "양력"
+            else:
+                # 음력 생일 (올해 양력 날짜로 변환)
+                is_valid = calendar.setLunarDate(target_year, birth_month, birth_day, False)
+                if is_valid:
+                    this_year_birthday = date(calendar.solarYear, calendar.solarMonth, calendar.solarDay)
+                birth_type_str = "음력"
+
+            # 변환된 올해 생일이 검색 기간(start_date ~ end_date) 내에 포함되는지 확인
+            if this_year_birthday and start_date <= this_year_birthday <= end_date:
+                upcoming_birthdays.append({
+                    "memberNo": member_no,
+                    "memberName": member_name,
+                    "originalBirth": birth_date.isoformat(),  # YYYY-MM-DD 형태로 출력
+                    "thisYearBirthday": this_year_birthday.isoformat(),
+                    "birthType": birth_type_str
+                })
+
+        # 날짜순으로 정렬
+        upcoming_birthdays.sort(key=lambda x: x["thisYearBirthday"])
+        return upcoming_birthdays
+
+    except Exception as e:
+        print(f"Error in get_upcoming_birthdays: {e}")
+        raise HTTPException(status_code=500, detail="Database query failed(UPCOMING_BIRTHDAYS)")

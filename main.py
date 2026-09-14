@@ -395,7 +395,7 @@ async def update_mymemberdtl(request: Request, memberno: int, db: AsyncSession =
         "rankNo": form_data.get("ranklst"), "officeAddress": form_data.get("office_address"),
         "spouseName": form_data.get("spname"),
         "spousePhone": form_data.get("spphone"), "spouseBirth": form_data.get("spbirth"),
-        "clubRank": form_data.get("clubrank"),
+        "clubRank": form_data.get("clubrank"),"isSolarbirth": form_data.get("isSolarbirth"),"isSpSolarbirth": form_data.get("isSpSolarbirth"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -1578,6 +1578,20 @@ async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "region_list": region_list, "user_region": user_region, "user_clubno": user_clubno})
 
+
+@app.get("/birthday_list/{clubno}", response_class=HTMLResponse)
+async def birthday_list(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    current_year = date.today().year
+    start_date = f"{current_year}-01-01"
+    end_date = f"{current_year}-12-31"
+    try:
+        birthdays = await get_upcoming_birthdays(db, start_date, end_date, clubno)
+    except Exception as e:
+        print(f"생일자 목록 조회 오류: {e}")
+        birthdays = []
+
+    return templates.TemplateResponse(
+        name="myclub/birthday_list.html", context={"request": request, "birthday_list": birthdays})
 
 
 
