@@ -47,7 +47,7 @@
                     <td>{{ amember[1] }}</td>
                     <td>{{ amember[2] }}</td>
                     <td>{{ amember[3] }}</td>
-                    <td><button class="btn-facebook add-member-btn" data-circleno="{{ circledtl[0] }}" data-memberno="{{ amember[0] }}"> 회원으로 추가 </button></td>
+                    <td><button class="btn-facebook add-member-btn" data-circleno="{{ circledtl[0] }}" data-memberno="{{ amember[0] }}" data-membername="{{ amember[1] }}" data-clubname="{{ amember[2] }}" data-ranktitle="{{ amember[3] }}"> 회원으로 추가 </button></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -70,7 +70,7 @@
     </thead>
     <tbody>
     {% for member in cmembers %}
-    <tr style="text-align: center">
+    <tr style="text-align: center" data-memberno="{{ member.memberNo }}">
         <td><a href="/editcirclemember/{{circledtl[0]}}/{{ member.memberNo }}">{{ member.memberNo }}</a></td>
         <td><a href="/editcirclemember/{{circledtl[0]}}/{{ member.memberNo }}">{{ member.memberName }}</a></td>
         <td>{{ member.clubName }}</td>
@@ -115,7 +115,7 @@
 </html>
 <script>
 $(document).ready(function () {
-    $('#rmemberlist').DataTable({
+    const circleMemberTable = $('#rmemberlist').DataTable({
     "pageLength": 25,
     order: [[0, "asc"]],
     "columnDefs": [
@@ -126,83 +126,106 @@ $(document).ready(function () {
         "pageLength": 5,
         order: [[1, "asc"]]
     });
+    const circleMemberIds = new Set();
+    const pendingCircleAdds = new Set();
+    circleMemberTable.rows().every(function () {
+        const memberNo = $(this.node()).attr('data-memberno');
+        if (memberNo) circleMemberIds.add(String(memberNo));
+    });
+    $('#allmemberlist').on('draw.dt', syncAddMemberButtons);
+    syncAddMemberButtons();
 
     // 이벤트 위임 방식으로 변경!
     $('#allmemberlist').on('click', '.add-member-btn', function () {
-        let circleno = $(this).data('circleno');
-        let memberno = $(this).data('memberno');
-        let $btn = $(this);
+        const $btn = $(this);
+        const circleno = $btn.data('circleno');
+        const memberno = String($btn.data('memberno'));
+        pendingCircleAdds.add(memberno);
+        syncAddMemberButtons();
 
         $.ajax({
             url: `/membertocircle/${circleno}/${memberno}`,
             type: 'POST',
             success: function (data) {
                 if (data.result === "ok") {
-                    alert('회원이 성공적으로 추가되었습니다.');
-                    $btn.prop('disabled', true).text('추가됨');
-                    refreshCircleMemberList(circleno);
+                    pendingCircleAdds.delete(memberno);
+                    circleMemberIds.add(memberno);
+                    const editUrl = `/editcirclemember/${encodeURIComponent(circleno)}/${encodeURIComponent(memberno)}`;
+                    const cells = [
+                        `<a href="${editUrl}">${escapeHtml(memberno)}</a>`,
+                        `<a href="${editUrl}">${escapeHtml($btn.attr('data-membername'))}</a>`,
+                        escapeHtml($btn.attr('data-clubname')),
+                        escapeHtml($btn.attr('data-ranktitle')),
+                        '',
+                        `<button class="btn-facebook minus-member-btn"
+                                 data-circleno="${escapeHtml(circleno)}"
+                                 data-memberno="${escapeHtml(memberno)}">제거</button>`
+                    ];
+                    const addedRow = circleMemberTable.row.add(cells).draw(false).node();
+                    $(addedRow).attr('data-memberno', memberno);
+                    syncAddMemberButtons();
                 } else if (data.result === "already") {
                     alert('이미 등록된 회원입니다.');
+                    pendingCircleAdds.delete(memberno);
+                    circleMemberIds.add(memberno);
+                    syncAddMemberButtons();
                 } else {
+                    pendingCircleAdds.delete(memberno);
+                    syncAddMemberButtons();
                     alert('처리 중 오류가 발생했습니다.');
                 }
             },
             error: function () {
+                pendingCircleAdds.delete(memberno);
+                syncAddMemberButtons();
                 alert('서버와 통신 중 오류가 발생했습니다.');
             }
         });
     });
 
     $('#rmemberlist').on('click', '.minus-member-btn', function () {
-        let circleno = $(this).data('circleno');
-        let memberno = $(this).data('memberno');
-        let $btn = $(this);
+        const $btn = $(this);
+        const circleno = $btn.data('circleno');
+        const memberno = String($btn.data('memberno'));
+        $btn.prop('disabled', true);
         $.ajax({
             url: `/membertocircleminus/${circleno}/${memberno}`,
             type: 'POST',
             success: function (data) {
                 if (data.result === "ok") {
-                    alert('회원이 성공적으로 제외되었습니다.');
-                    $btn.prop('disabled', true).text('제거됨');
-                    refreshCircleMemberList(circleno);
+                    circleMemberTable.row($btn.closest('tr')).remove().draw(false);
+                    circleMemberIds.delete(memberno);
+                    syncAddMemberButtons();
                 } else if (data.result === "already") {
                     alert('이미 제외된 회원입니다.');
+                    circleMemberTable.row($btn.closest('tr')).remove().draw(false);
+                    circleMemberIds.delete(memberno);
+                    syncAddMemberButtons();
                 } else {
+                    $btn.prop('disabled', false);
                     alert('처리 중 오류가 발생했습니다.');
                 }
             },
             error: function () {
+                $btn.prop('disabled', false);
                 alert('서버와 통신 중 오류가 발생했습니다.');
             }
         });
     });
+
+    function syncAddMemberButtons() {
+        $('#allmemberlist .add-member-btn').each(function () {
+            const memberNo = String($(this).data('memberno'));
+            const isPending = pendingCircleAdds.has(memberNo);
+            const isMember = circleMemberIds.has(memberNo);
+            $(this).prop('disabled', isPending || isMember)
+                .text(isPending ? '추가 중...' : isMember ? '추가됨' : '회원으로 추가');
+        });
+    }
+
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : String(value)).html();
+    }
 });
 
-function refreshCircleMemberList(circleno) {
-  $.get(`/getcirclemembers/${circleno}`, function (data) {
-    let table = $('#rmemberlist').DataTable();
-    table.clear();
-
-    data.members.forEach(function (member) {
-      let row = [
-        `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberNo}</a>`,
-        `<a href="/editcirclemember/${circleno}/${member.memberNo}">${member.memberName}</a>`,
-        member.clubName || '',
-        member.rankTitlekor || '',
-        member.circleRanktitle || '',
-        `<button class="btn-facebook minus-member-btn"
-                 data-circleno="${circleno}"
-                 data-memberno="${member.memberNo}">
-            제거
-         </button>`
-      ];
-
-      table.row.add(row);
-    });
-
-    table.draw();
-  });
-}
-
 </script>
-

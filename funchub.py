@@ -314,7 +314,7 @@ def make_slogan_image(slogan: str, member_no: int, name: str, width=400, height=
 def row_to_dict(row):
     d = dict(row._mapping)
     for k, v in d.items():
-        if isinstance(v, (datetime.date, datetime.datetime)):
+        if isinstance(v, (date, datetime)):
             d[k] = v.isoformat()
     return d
 

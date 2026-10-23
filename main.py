@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy import bindparam
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
@@ -314,9 +315,19 @@ async def addmember(request: Request, db: AsyncSession = Depends(get_db)):
 
 @app.api_route("/addcircle", response_class=HTMLResponse, methods=["GET", "POST"])
 async def addcircle(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="/")
+    if request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자만 써클을 추가할 수 있습니다.")
     circleName = "신규추가 써클"
-    query = text(f"INSERT into lionsCircle (circleName) values (:circlename)")
+    query = text("INSERT INTO lionsCircle (circleName) VALUES (:circlename)")
     await db.execute(query, {"circlename": circleName})
+    result = await db.execute(text("SELECT LAST_INSERT_ID()"))
+    circle_no = result.scalar_one()
+    await db.execute(
+        text("INSERT INTO circleManager (userNo, circleNo) VALUES (:userno, :circleno)"),
+        {"userno": request.session["user_No"], "circleno": circle_no},
+    )
     await db.commit()
     return RedirectResponse("/circleList", status_code=303)
 
@@ -1539,9 +1550,20 @@ async def circleList(request: Request, db: AsyncSession = Depends(get_db)):
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
-    circle_list = await get_circlelist(db)
     if not user_No:
         return RedirectResponse(url="/")
+    query = text(
+        "SELECT DISTINCT lc.* FROM circleManager cm "
+        "JOIN lionsCircle lc ON lc.circleNo = cm.circleNo "
+        "WHERE cm.userNo = :userno AND COALESCE(cm.attrib, '') NOT LIKE :attpatt "
+        "AND COALESCE(lc.circleType, '') <> :votoc "
+        "AND COALESCE(lc.attrib, '') NOT LIKE :attpatt "
+        "ORDER BY lc.circleNo"
+    )
+    result = await db.execute(
+        query, {"userno": user_No, "attpatt": "%XXX%", "votoc": "VOTEC"}
+    )
+    circle_list = result.fetchall()
     return templates.TemplateResponse("admin/circleList.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "circle_list": circle_list, "user_region": user_region, "user_clubno": user_clubno})
@@ -1581,6 +1603,14 @@ async def dictList(request: Request, db: AsyncSession = Depends(get_db)):
 
 @app.get("/birthday_list/{clubno}", response_class=HTMLResponse)
 async def birthday_list(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Role = request.session.get("user_Role")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    if user_Role != "ADMIN" and int(user_clubno or 0) != clubno:
+        raise HTTPException(status_code=403, detail="소속 클럽의 생일자만 조회할 수 있습니다.")
+
     current_year = date.today().year
     start_date = f"{current_year}-01-01"
     end_date = f"{current_year}-12-31"
@@ -1591,7 +1621,63 @@ async def birthday_list(request: Request,clubno:int, db: AsyncSession = Depends(
         birthdays = []
 
     return templates.TemplateResponse(
-        name="myclub/birthday_list.html", context={"request": request, "birthday_list": birthdays})
+        name="myclub/birthday_list.html",
+        context={
+            "request": request,
+            "birthday_list": birthdays,
+            "clubno": clubno,
+            "user_No": user_No,
+            "user_Name": request.session.get("user_Name"),
+            "user_Role": user_Role,
+            "user_region": request.session.get("user_Region"),
+            "user_clubno": user_clubno,
+            "sent_count": request.query_params.get("sent"),
+        },
+    )
+
+
+@app.post("/send_birthday_message/{clubno}")
+async def send_birthday_message(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Role = request.session.get("user_Role")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    if user_Role != "ADMIN" and int(user_clubno or 0) != clubno:
+        raise HTTPException(status_code=403, detail="소속 클럽의 회원에게만 발송할 수 있습니다.")
+
+    form_data = await request.form()
+    selected_members = form_data.get("selected_members", "")
+    try:
+        member_numbers = list(dict.fromkeys(
+            int(value.strip()) for value in selected_members.split(",") if value.strip()
+        ))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="잘못된 회원 번호가 포함되어 있습니다.") from exc
+
+    if not member_numbers:
+        raise HTTPException(status_code=400, detail="메시지를 발송할 회원을 선택해주세요.")
+
+    current_year = date.today().year
+    birthdays = await get_upcoming_birthdays(
+        db, f"{current_year}-01-01", f"{current_year}-12-31", clubno
+    )
+    eligible_members = {int(birthday["memberNo"]) for birthday in birthdays}
+    if any(memberno not in eligible_members for memberno in member_numbers):
+        raise HTTPException(status_code=400, detail="선택 목록에 해당 클럽의 생일자가 아닌 회원이 포함되어 있습니다.")
+
+    message = form_data.get("birthday_message", "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="생일 축하 메시지를 입력해주세요.")
+
+    for memberno in member_numbers:
+        await send_fcm_topic_notice_member(
+            memberno=memberno,
+            title="생일 축하",
+            body=message,
+        )
+
+    return RedirectResponse(f"/birthday_list/{clubno}?sent={len(member_numbers)}", status_code=303)
 
 
 
