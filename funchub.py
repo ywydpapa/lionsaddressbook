@@ -16,7 +16,7 @@ import jwt
 import dotenv
 from korean_lunar_calendar import KoreanLunarCalendar
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 dotenv.load_dotenv()
 
@@ -45,7 +45,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # 토큰 생성 함수
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + datetime.timedelta(days=30)
+    expire = datetime.utcnow() + timedelta(days=30)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
