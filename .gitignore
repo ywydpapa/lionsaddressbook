@@ -3,3 +3,9 @@
 test.py
 /common/*.json
 memo.txt
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
