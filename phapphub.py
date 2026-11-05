@@ -1,15 +1,14 @@
+import os
 import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from typing import Optional
 
-# main.py에서 DB 세션 및 토큰 관련 함수 가져오기
-# (순환 참조를 방지하기 위해 main.py의 하단에서 이 라우터를 등록합니다)
-from main import get_db, get_current_mobile_user, create_access_token
-from sqlalchemy import text, bindparam
+from database import get_db
+from funchub import get_current_mobile_user, create_access_token
 
 phapp_router = APIRouter(prefix="/phapp", tags=["Mobile App"])
 

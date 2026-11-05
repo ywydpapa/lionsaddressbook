@@ -8,7 +8,8 @@ import asyncio
 from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import messaging
 from passlib.context import CryptContext
 from passlib.exc import UnknownHashError
@@ -49,6 +50,22 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+security = HTTPBearer()
+
+# 모바일 사용자 토큰 검증 함수
+async def get_current_mobile_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        memberno: str = payload.get("sub")
+        if memberno is None:
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+        return memberno
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="토큰이 만료되었습니다. 다시 로그인해주세요.")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="잘못된 토큰입니다.")
 
 # FCM 발송 함수
 async def send_fcm_topic_notice(clubno: int, title: str, body: str):
@@ -507,9 +524,9 @@ async def get_clubdoc(docno: int, db: AsyncSession):
 async def get_regionlist(db: AsyncSession):
     try:
         query = text(
-            "SELECT lr.*, GROUP_CONCAT(lc.clubName SEPARATOR ', ') AS clubNames, lm.memberName FROM lionsaddr.lionsRegion lr "
-            "LEFT JOIN lionsaddr.lionsClub lc ON lr.regionNo = lc.regionNo "
-            "LEFT JOIN lionsaddr.lionsMember lm ON lr.chairmanNo = lm.memberNo "
+            "SELECT lr.*, GROUP_CONCAT(lc.clubName SEPARATOR ', ') AS clubNames, lm.memberName FROM lionsRegion lr "
+            "LEFT JOIN lionsClub lc ON lr.regionNo = lc.regionNo "
+            "LEFT JOIN lionsMember lm ON lr.chairmanNo = lm.memberNo "
             "where lr.attrib not like :attpatt GROUP BY lr.regionNo")
         result = await db.execute(query, {"attpatt": "%XXX%"})
         return result.fetchall()

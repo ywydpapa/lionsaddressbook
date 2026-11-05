@@ -16,6 +16,9 @@
             </div>
             <div class="login">
                 <h1>Login</h1>
+                {% if error %}
+                <p style="color: #e74a3b; text-align: center; font-weight: bold; margin-bottom: 10px;">{{ error }}</p>
+                {% endif %}
                 <form action="/login" method="post">
                     <label for="username">
                         <i class="fas fa-user"></i>

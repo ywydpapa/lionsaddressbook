@@ -88,79 +88,25 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/comm/adscript.html' %}
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
-    // Initialize Quill editor
-    const quill = new Quill('#editor-container', {
-        theme: 'snow'
-    });
-
-    // Handle form submission
-    document.getElementById('editor-form').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const doctype = document.getElementById('doctype').value;
-        const title = document.getElementById('title').value;
-        const content = quill.root.innerHTML; // Get HTML content from editor
-        // Send data to FastAPI
-        const response = await fetch('/updateclubdoc/{{notices[0]}}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                doctype: doctype,
-                title: title,
-                content: content
-            })
-        });
-        if (response.redirected) {
-            window.location.href = response.url;
-        } else {
-            const result = await response.json();
-            alert(result.message);
-        }
-    });
-</script>
-<script>
-    function updateTitle() {
-        const selectElement = document.getElementById('doctype');
-        const inputElement = document.getElementById('title');
-        const selectedOption = selectElement.options[selectElement.selectedIndex].text;
-
-        // '직접입력' 선택 시 title을 비우고 사용자가 직접 입력할 수 있도록 처리
-        if (selectElement.value >= '100') {
-            inputElement.value = '';
-            inputElement.placeholder = '직접 입력하세요';
-            inputElement.readOnly = false;
-        } else {
-            inputElement.value = selectedOption;
-            inputElement.readOnly = true; // 사용자가 수정하지 못하도록 설정
-        }
-    }
-
-    window.onload = function () {
-        updateTitle();
-    };
-
     document.addEventListener('DOMContentLoaded', function () {
-    // 모든 내림 버튼에 이벤트 리스너 추가
-    document.querySelectorAll('.remove-btn').forEach(function(btn) {
-        btn.addEventListener('click', async function() {
-            if (!confirm('정말로 해당 공지사항을 내리시겠습니까?')) return;
-            const messageno = this.getAttribute('data-messageno');
-            const response = await fetch(`/removeclubnotice/${messageno}`, {
-                method: 'POST'
+        // 모든 내림 버튼에 이벤트 리스너 추가
+        document.querySelectorAll('.remove-btn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                if (!confirm('정말로 해당 공지사항을 내리시겠습니까?')) return;
+                const messageno = this.getAttribute('data-messageno');
+                const response = await fetch(`/removeclubnotice/${messageno}`, {
+                    method: 'POST'
+                });
+                if (response.redirected) {
+                    // FastAPI에서 RedirectResponse가 오면, 그 URL로 이동
+                    window.location.href = response.url;
+                } else {
+                    alert('내리기 실패!');
+                }
             });
-            if (response.redirected) {
-                // FastAPI에서 RedirectResponse가 오면, 그 URL로 이동
-                window.location.href = response.url;
-            } else {
-                alert('내리기 실패!');
-            }
         });
     });
-});
-
 </script>
 </body>
 </html>

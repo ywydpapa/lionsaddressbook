@@ -20,15 +20,7 @@ import io
 import os
 
 
-dotenv.load_dotenv()
-DATABASE_URL = os.getenv("dburl")
-engine = create_async_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_timeout=10,
-    pool_recycle=1800)
-
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+from database import engine, async_session, get_db
 
 app = FastAPI()
 
@@ -45,49 +37,25 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 MEMBERPHOTO_DIR = "./static/img/members"
 BASE_DIR = Path(__file__).resolve().parent
-cred = credentials.Certificate(
-    str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
-)
-
-cert_path = str(BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json")
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate(cert_path) # 기존 인증서 변수 사용
+cert_path = BASE_DIR / "common" / "r15addr-firebase-adminsdk-fbsvc-87610d6413.json"
+if not firebase_admin._apps and cert_path.exists():
+    cred = credentials.Certificate(str(cert_path))
     firebase_admin.initialize_app(cred)
-security = HTTPBearer()
-
-
-# 토큰 검증 함수 (API 호출 시마다 실행됨)
-async def get_current_mobile_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        memberno: str = payload.get("sub")
-        if memberno is None:
-            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
-        return memberno
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="토큰이 만료되었습니다. 다시 로그인해주세요.")
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="잘못된 토큰입니다.")
-
-
-# 데이터베이스 세션 생성
-async def get_db():
-    async with async_session() as session:
-        yield session
 
 
 @app.on_event("startup")
 async def initialize_mobile_login_stats():
-    async with engine.begin() as connection:
-        await connection.execute(text("""
-            CREATE TABLE IF NOT EXISTS mobileLoginStats (
-                memberNo BIGINT NOT NULL PRIMARY KEY,
-                loginCount BIGINT UNSIGNED NOT NULL DEFAULT 0,
-                lastLoginAt DATETIME NOT NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        """))
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text("""
+                CREATE TABLE IF NOT EXISTS mobileLoginStats (
+                    memberNo BIGINT NOT NULL PRIMARY KEY,
+                    loginCount BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                    lastLoginAt DATETIME NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """))
+    except Exception as e:
+        print(f"[Warning] Failed to initialize mobileLoginStats on startup (DB may be offline): {e}")
 
 
 @app.get("/favicon.ico")
@@ -233,8 +201,44 @@ async def user_edit(request: Request, db: AsyncSession = Depends(get_db)):
     })
 
 
+@app.post("/updateuser")
+async def update_user(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/", status_code=303)
+    form_data = await request.form()
+    uno = form_data.get("uno")
+    if str(user_No) != str(uno) and request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
+    regno = form_data.get("regno")
+    user_role = request.session.get("user_Role")
+    clubno = form_data.get("circlelst") if user_role == "CUSER" else form_data.get("clublst")
+
+    query = text("""
+        UPDATE lionsUser 
+        SET defaultRegion = :regno, defaultClubno = :clubno 
+        WHERE userNo = :uno
+    """)
+    await db.execute(query, {"regno": regno, "clubno": clubno, "uno": uno})
+    await db.commit()
+
+    request.session["user_Region"] = regno
+    request.session["user_Clubno"] = clubno
+    if user_role == "CUSER":
+        request.session["user_Circleno"] = clubno
+
+    return RedirectResponse(url="/userEdit", status_code=303)
+
+
 @app.post("/changeuserpass")
-async def change_password(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+async def change_password(request: Request, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    if str(user_No) != str(data.get("uno")) and request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="권한이 없습니다.")
+    if not data.get("passwd"):
+        raise HTTPException(status_code=400, detail="비밀번호를 입력해주세요.")
     hashed_password = get_password_hash(data["passwd"])
     sql = text("UPDATE lionsUser SET userPassword = :passwd WHERE userNo = :userno")
     await db.execute(sql, {"passwd": hashed_password, "userno": data["uno"]})
@@ -407,7 +411,7 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
     data4update = {
         "memberName": form_data.get("membername"), "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
-        "memberSns": form_data.get("memberSns"), "memberSeccode": form_data.get("contact").replace('-', ''),
+        "memberSns": form_data.get("memberSns"), "memberSeccode": (form_data.get("contact") or "").replace('-', ''),
         "memberAddress": form_data.get("home_address"),
         "memberPhone": form_data.get("contact"), "memberEmail": form_data.get("email"),
         "memberJoindate": form_data.get("joindate"),
@@ -432,7 +436,7 @@ async def update_mymemberdtl(request: Request, memberno: int, db: AsyncSession =
     data4update = {
         "memberName": form_data.get("membername"), "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
-        "memberSns": form_data.get("memberSns"), "memberSeccode": form_data.get("contact").replace('-', ''),
+        "memberSns": form_data.get("memberSns"), "memberSeccode": (form_data.get("contact") or "").replace('-', ''),
         "memberAddress": form_data.get("home_address"),
         "memberPhone": form_data.get("contact"), "memberEmail": form_data.get("email"),
         "memberJoindate": form_data.get("joindate"),
