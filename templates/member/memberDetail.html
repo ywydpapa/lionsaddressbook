@@ -101,6 +101,19 @@
             align-items: center; /* 세로 정렬 */
             gap: 20px; /* 이미지 간격 */
         }
+
+        /* 양/음력 라디오 버튼 스타일 */
+        .solar-lunar-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: 15px;
+            white-space: nowrap;
+        }
+        .solar-lunar-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body id="page-top">
@@ -260,10 +273,17 @@
                                             정보</a>
                                     </td>
                                 </tr>
+                                <!-- 회원 생년월일 + 양/음력 선택 -->
                                 <tr>
                                     <td>생년월일</td>
-                                    <td><input type="date" class="form-control" name="birthdate"
-                                               value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}"/></td>
+                                    <td style="display: flex; align-items: center;">
+                                        <input type="date" class="form-control" name="birthdate"
+                                               value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}" style="flex: 1;"/>
+                                        <div class="solar-lunar-group">
+                                            <label><input type="radio" name="isSolarbirth" value="1" {% if memberdtl[22]|int == 1 %}checked{% endif %}> 양력</label>
+                                            <label><input type="radio" name="isSolarbirth" value="0" {% if memberdtl[22]|int != 1 %}checked{% endif %}> 음력</label>
+                                        </div>
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td>회원 성별</td>
@@ -291,10 +311,17 @@
                                     <td><input type="text" class="form-control" name="spphone"
                                                value="{{ memberdtl[15] }}"/></td>
                                 </tr>
+                                <!-- 배우자 생년월일 + 양/음력 선택 -->
                                 <tr>
                                     <td>배우자생일</td>
-                                    <td><input type="date" class="form-control" name="spbirth"
-                                               value="{{ memberdtl[16] if memberdtl[16] else '2020-01-01' }}"/></td>
+                                    <td style="display: flex; align-items: center;">
+                                        <input type="date" class="form-control" name="spbirth"
+                                               value="{{ memberdtl[16] if memberdtl[16] else '2020-01-01' }}" style="flex: 1;"/>
+                                        <div class="solar-lunar-group">
+                                            <label><input type="radio" name="isSpSolarbirth" value="1" {% if memberdtl[23]|int == 1 %}checked{% endif %}> 양력</label>
+                                            <label><input type="radio" name="isSpSolarbirth" value="0" {% if memberdtl[23]|int != 1 %}checked{% endif %}> 음력</label>
+                                        </div>
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td style="text-align: center; vertical-align:middle">회원 메모</td>

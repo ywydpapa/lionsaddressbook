@@ -250,8 +250,8 @@
                                         <input type="date" class="form-control" name="birthdate" value="{{ memberdtl[3] if memberdtl[3] else '2029-01-01'}}" style="flex: 1;"/>
                                         <div class="solar-lunar-group">
                                             <!-- memberdtl 배열에서 양/음력 값을 가져온다고 가정 (예: memberdtl[22]) -->
-                                            <label><input type="radio" name="isSolarbirth" value="1" {% if memberdtl[22] == 1 %}checked{% endif %}> 양력</label>
-                                            <label><input type="radio" name="isSolarbirth" value="0" {% if memberdtl[22] != 1 %}checked{% endif %}> 음력</label>
+                                            <label><input type="radio" name="isSolarbirth" value="1" {% if memberdtl[22]|int == 1 %}checked{% endif %}> 양력</label>
+                                            <label><input type="radio" name="isSolarbirth" value="0" {% if memberdtl[22]|int != 1 %}checked{% endif %}> 음력</label>
                                         </div>
                                     </td>
                                 </tr>
@@ -289,8 +289,8 @@
                                         <input type="date" class="form-control" name="spbirth" value="{{ memberdtl[16] if memberdtl[16] else '2020-01-01' }}" style="flex: 1;"/>
                                         <div class="solar-lunar-group">
                                             <!-- memberdtl 배열에서 배우자 양/음력 값을 가져온다고 가정 (예: memberdtl[23]) -->
-                                            <label><input type="radio" name="isSpSolarbirth" value="1" {% if memberdtl[23] == 1 %}checked{% endif %}> 양력</label>
-                                            <label><input type="radio" name="isSpSolarbirth" value="0" {% if memberdtl[23] != 1 %}checked{% endif %}> 음력</label>
+                                            <label><input type="radio" name="isSpSolarbirth" value="1" {% if memberdtl[23]|int == 1 %}checked{% endif %}> 양력</label>
+                                            <label><input type="radio" name="isSpSolarbirth" value="0" {% if memberdtl[23]|int != 1 %}checked{% endif %}> 음력</label>
                                         </div>
                                     </td>
                                 </tr>

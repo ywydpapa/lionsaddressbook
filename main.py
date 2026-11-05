@@ -420,6 +420,8 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
         "spouseName": form_data.get("spname"),
         "spousePhone": form_data.get("spphone"), "spouseBirth": form_data.get("spbirth"),
         "clubRank": form_data.get("clubrank"),
+        "isSolarbirth": form_data.get("isSolarbirth"),
+        "isSpSolarbirth": form_data.get("isSpSolarbirth"),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
