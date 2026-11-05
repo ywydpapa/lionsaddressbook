@@ -14,6 +14,7 @@ from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import credentials
 from funchub import *
+import datetime as dt
 from PIL import Image
 import io
 import os
@@ -75,6 +76,18 @@ async def get_current_mobile_user(credentials: HTTPAuthorizationCredentials = De
 async def get_db():
     async with async_session() as session:
         yield session
+
+
+@app.on_event("startup")
+async def initialize_mobile_login_stats():
+    async with engine.begin() as connection:
+        await connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS mobileLoginStats (
+                memberNo BIGINT NOT NULL PRIMARY KEY,
+                loginCount BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                lastLoginAt DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """))
 
 
 @app.get("/favicon.ico")
@@ -299,6 +312,27 @@ async def memberList(request: Request, db: AsyncSession = Depends(get_db)):
     })
 
 
+@app.get("/mobileLoginStats", response_class=HTMLResponse)
+async def mobile_login_stats(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    if request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자만 모바일 로그인 현황을 조회할 수 있습니다.")
+
+    query = text("""
+        SELECT s.memberNo, lm.memberName, lc.clubName, s.loginCount, s.lastLoginAt
+        FROM mobileLoginStats s
+        LEFT JOIN lionsMember lm ON lm.memberNo = s.memberNo
+        LEFT JOIN lionsClub lc ON lc.clubNo = lm.clubNo
+        ORDER BY s.loginCount DESC, s.lastLoginAt DESC
+    """)
+    result = await db.execute(query)
+    return templates.TemplateResponse("admin/mobileLoginStats.html", {
+        "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"), "members": result.fetchall(),
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+    })
 
 
 @app.api_route("/addmember", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -548,7 +582,7 @@ async def updateclubdoc(request: Request, clubno: int, db: AsyncSession = Depend
     if docresult:
         queryup = text(
             "UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
-        timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timenow = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         await db.execute(queryup, {"timenow": timenow, "updattrib": "XXXUPXXXUP", "clubno": clubno,
                                    "doctype": form_data.get("doctype")})
     query = text(
@@ -575,7 +609,7 @@ async def updateclubdocs(request: Request, docno: int, db: AsyncSession = Depend
     if docresult:
         queryup = text(
             "UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE clubNo = :clubno and docType = :doctype")
-        timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timenow = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         await db.execute(queryup, {
             "timenow": timenow,
             "updattrib": "XXXUPXXXUP",
@@ -592,7 +626,7 @@ async def updateclubdocs(request: Request, docno: int, db: AsyncSession = Depend
 @app.post("/deleteclubdocs/{docno}/{clubno}")
 async def deleteclubdocs(request: Request, docno: int, clubno:int,db: AsyncSession = Depends(get_db)):
     queryup = text("UPDATE lionsDoc SET modDate = :timenow , attrib = :updattrib WHERE docNo = :docno")
-    timenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    timenow = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     await db.execute(queryup, {"timenow": timenow,"updattrib": "XXXUPXXXUP", "docno": docno})
     await db.commit()
     return RedirectResponse(f"/editmyclub/{clubno}", status_code=303)
@@ -641,12 +675,17 @@ async def circlenoticeread(request: Request, messageno: int, db: AsyncSession = 
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
     query = text(
-        "select cm.messageTitle , lm.memberName , na.readYN, na.attendPlan ,na.modDate from circleboardMessage cm "
-        "left join lionsMember lm on cm.clubNo = lm.clubNo "
-        "left join noticeAndswer na on na.noticeNo = cm.messageNo and na.noticeType = 'CIRCLE' "
-        "where cm.messageNo = :messageNo order by lm.clubSortNo ")
-    result = await db.execute(query, {"messageNo": messageno})
+        "select cb.messageTitle, lm.memberName, na.readYN, na.attendPlan, na.modDate "
+        "from circleboardMessage cb "
+        "left join circleMember cm on cm.circleNo = cb.circleNo and cm.attrib = :activeAttrib "
+        "left join lionsMember lm on lm.memberNo = cm.memberNo "
+        "left join noticeAndswer na on na.noticeNo = cb.messageNo and na.memberNo = cm.memberNo "
+        "and na.noticeType = 'CIRCLE' "
+        "where cb.messageNo = :messageNo order by lm.clubNo, lm.clubSortNo")
+    result = await db.execute(query, {"messageNo": messageno, "activeAttrib": "1000010000"})
     noticeread = result.fetchall()
+    if not noticeread:
+        raise HTTPException(status_code=404, detail="써클 공지사항을 찾을 수 없습니다.")
     return templates.TemplateResponse("board/circlenoticeRead.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "notices": noticeread,
@@ -715,8 +754,8 @@ async def listclubnotice(request: Request, clubno: int, db: AsyncSession = Depen
 async def addnotice(request: Request, regionno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     return templates.TemplateResponse("board/addnotice.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
@@ -753,8 +792,8 @@ async def membersms(request: Request, clubno: int, db: AsyncSession = Depends(ge
 async def addclubnotice(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     return templates.TemplateResponse("board/addclubnotice.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
@@ -768,8 +807,8 @@ async def addclubnotice(request: Request, clubno: int, db: AsyncSession = Depend
 async def addcirclenotice(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     return templates.TemplateResponse("board/addcirclenotice.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
@@ -786,8 +825,8 @@ async def editnotice(request: Request, messageno: int, db: AsyncSession = Depend
     query = text("SELECT * FROM boardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
@@ -805,8 +844,8 @@ async def editclubnotice(request: Request, messageno: int, db: AsyncSession = De
     query = text("SELECT * FROM clubboardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
@@ -824,8 +863,8 @@ async def editcirclenotice(request: Request, messageno: int, db: AsyncSession = 
     query = text("SELECT * FROM circleboardMessage where messageNo = :messageno")
     result = await db.execute(query, {"messageno": messageno})
     notice = result.fetchone()
-    now = datetime.datetime.now()
-    two_weeks = now + datetime.timedelta(days=14)
+    now = dt.datetime.now()
+    two_weeks = now + dt.timedelta(days=14)
     fmt = '%Y-%m-%dT00:00'
     from_date = notice[6] if notice[6] is not None else now.strftime(fmt)
     to_date = notice[7] if notice[7] is not None else two_weeks.strftime(fmt)
@@ -1072,7 +1111,7 @@ async def updateclub(request: Request, clubno: int, db: AsyncSession = Depends(g
         "officeAddr": form_data.get("offaddr"), "officeTel": form_data.get("offtel"),
         "officeFax": form_data.get("offfax"),
         "officeEmail": form_data.get("offemail"), "officeWeb": form_data.get("offweb"),
-        "modDate": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "modDate": dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
     update_fields = {key: value for key, value in data4update.items() if value is not None}
     set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
@@ -1213,7 +1252,7 @@ async def update_regdtl(request: Request, regno: int, db: AsyncSession = Depends
         "regionNo": form_data.get("regno"), "chairmanNo": form_data.get("chairmno"),
         "regionSlog": form_data.get("slog"), "yearFrom": form_data.get("yearfrom"), "yearTo": form_data.get("yearto"),
     }
-    mdatenow = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    mdatenow = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     queryup = text(f"UPDATE lionsRegion SET attrib = :attr, modDate = :mdate WHERE regionNo = :regno")
     await db.execute(queryup, {"regno": regno, "attr": "XXXUPXXXUP", "mdate": mdatenow})
     query = text("INSERT INTO lionsRegion (regionNo,chairmanNo,regionSlog,yearFrom,yearTo) values (:regionNo,:chairmanNo,:regionSlog, :yearFrom, :yearTo)")

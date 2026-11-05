@@ -598,6 +598,16 @@ async def phappxlogin(phoneno: str, db: AsyncSession = Depends(get_db)):
         if rows is None: return {"error": "No data found for the given phone number."}
 
         access_token = create_access_token(data={"sub": str(rows[1])})
+        login_query = text("""
+            INSERT INTO mobileLoginStats (memberNo, loginCount, lastLoginAt)
+            VALUES (:memberNo, 1, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE
+                loginCount = loginCount + 1,
+                lastLoginAt = CURRENT_TIMESTAMP
+        """)
+        await db.execute(login_query, {"memberNo": rows[1]})
+        await db.commit()
+
         return {
             "clubno": rows[0], "memberno": rows[1], "regionno": rows[2],
             "funcno": rows[3], "clubname": rows[4], "access_token": access_token

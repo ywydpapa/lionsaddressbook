@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-4 text-gray-800">써클 공지사항 확인현황</h1>
+                <div class="d-flex justify-content-center" style="min-height: 100vh;">
+                    <div class="col-md-9">
+                        <h2 class="h4 mb-4 text-gray-800 text-center">{{ notices[0][0] }}</h2>
+                        <table class="table table-bordered text-center">
+                            <thead>
+                            <tr>
+                                <th>성명</th>
+                                <th>확인여부</th>
+                                <th>답변여부</th>
+                                <th>확인시간</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for notice in notices %}
+                                {% if notice[1] %}
+                                <tr>
+                                    <td>{{ notice[1] }}</td>
+                                    <td>{{ notice[2] if notice[2] }}</td>
+                                    <td>{{ notice[3] if notice[3] }}</td>
+                                    <td>{{ notice[4] if notice[4] }}</td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+{% include '/comm/adscript.html' %}
+</body>
+</html>

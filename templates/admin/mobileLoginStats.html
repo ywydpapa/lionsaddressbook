@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-4 text-gray-800">모바일 로그인 현황</h1>
+                <div class="container">
+                    <table class="table table-bordered text-center" id="mobile-login-stats">
+                        <thead>
+                        <tr>
+                            <th>회원번호</th>
+                            <th>회원성명</th>
+                            <th>소속클럽</th>
+                            <th>누적 로그인 횟수</th>
+                            <th>마지막 로그인</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>{{ member[0] }}</td>
+                            <td>{{ member[1] or '회원정보 없음' }}</td>
+                            <td>{{ member[2] or '' }}</td>
+                            <td>{{ member[3] }}</td>
+                            <td>{{ member[4] }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+{% include '/comm/adscript.html' %}
+{% include '/comm/adscripttable.html' %}
+<script>
+    $(document).ready(function () {
+        $('#mobile-login-stats').DataTable({
+            pageLength: 25,
+            order: [[3, 'desc']]
+        });
+    });
+</script>
+</body>
+</html>
