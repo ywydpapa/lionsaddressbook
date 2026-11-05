@@ -14,7 +14,7 @@
                 <div class="container">
                     {% if managers %}
                     <form method="get" action="/circleManager" class="form-inline mb-4">
-                        <label for="managerNo" class="mr-2">써클 관리자</label>
+                        <label for="managerNo" class="mr-2">관리자(USER)</label>
                         <select id="managerNo" name="managerNo" class="form-control mr-2">
                             {% for manager in managers %}
                             <option value="{{ manager[0] }}"
@@ -59,7 +59,7 @@
                     </form>
                     {% endif %}
                     {% else %}
-                    <div class="alert alert-info">등록된 써클 관리자 계정이 없습니다.</div>
+                    <div class="alert alert-info">등록된 USER 권한 계정이 없습니다.</div>
                     {% endif %}
                 </div>
             </div>

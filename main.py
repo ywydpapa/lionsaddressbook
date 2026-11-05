@@ -1623,7 +1623,7 @@ async def circle_manager_list(
     users_result = await db.execute(text("""
         SELECT userNo, userId, userName
         FROM lionsUser
-        WHERE userRole = 'CUSER'
+        WHERE userRole = 'USER'
         ORDER BY userName, userNo
     """))
     managers = users_result.fetchall()
@@ -1688,10 +1688,10 @@ async def update_circle_manager(
     manager_result = await db.execute(text("""
         SELECT userNo
         FROM lionsUser
-        WHERE userNo = :userNo AND userRole = 'CUSER'
+        WHERE userNo = :userNo AND userRole = 'USER'
     """), {"userNo": manager_no})
     if manager_result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail="써클 관리자 계정을 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="USER 권한 계정을 찾을 수 없습니다.")
 
     if selected_circle_nos:
         valid_circles_query = text("""
