@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-4 text-gray-800">써클 관리자별 관리 써클 지정</h1>
+                <div class="container">
+                    {% if managers %}
+                    <form method="get" action="/circleManager" class="form-inline mb-4">
+                        <label for="managerNo" class="mr-2">써클 관리자</label>
+                        <select id="managerNo" name="managerNo" class="form-control mr-2">
+                            {% for manager in managers %}
+                            <option value="{{ manager[0] }}"
+                                    {% if selected_manager and manager[0] == selected_manager[0] %}selected{% endif %}>
+                                {{ manager[2] }} ({{ manager[1] }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-secondary">불러오기</button>
+                    </form>
+
+                    {% if selected_manager %}
+                    <form method="post" action="/circleManager">
+                        <input type="hidden" name="managerNo" value="{{ selected_manager[0] }}">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                {{ selected_manager[2] }} 관리 써클
+                            </div>
+                            <div class="card-body">
+                                {% if circles %}
+                                <div class="row">
+                                    {% for circle in circles %}
+                                    <div class="col-md-4 col-sm-6 mb-2">
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input"
+                                                   id="circle-{{ circle[0] }}" name="circleNos"
+                                                   value="{{ circle[0] }}"
+                                                   {% if circle[0] in assigned_circle_nos %}checked{% endif %}>
+                                            <label class="custom-control-label" for="circle-{{ circle[0] }}">
+                                                {{ circle[1] }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <p class="mb-0">할당 가능한 써클이 없습니다.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">할당 저장</button>
+                    </form>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-info">등록된 써클 관리자 계정이 없습니다.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+{% include '/comm/adscript.html' %}
+</body>
+</html>
