@@ -189,6 +189,7 @@
 
                         <!-- 회원 정보 폼 -->
                         <form method="POST" action="/update_mymemberdtl/{{memberdtl[0]}}">
+                            <input type="hidden" name="from_club" value="{{ origin_clubno or user_clubno or '' }}">
                             <table class="table table-bordered text-center">
                                 <tbody>
                                 <tr>
@@ -304,8 +305,13 @@
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12" style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="/myclubmemberList/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 20%;">클럽회원리스트</a>
-                                            <a href="/myclubmemberCards/{{memberdtl[9]}}" class="btn btn-dark" id="clubMemberLinkc" role="button" style="flex: 0 0 20%;">클럽회원카드</a>
+                                            {% set target_club = origin_clubno or user_clubno or memberdtl[9] %}
+                                            <a href="/myclubmemberList/{{ target_club }}" class="btn btn-dark" id="clubMemberLink" role="button" style="flex: 0 0 20%;">
+                                                {% if origin_clubname and origin_clubname not in ['소속클럽없음', '소속 클럽 없음'] %}{{ origin_clubname }} 리스트{% else %}클럽회원리스트{% endif %}
+                                            </a>
+                                            <a href="/myclubmemberCards/{{ target_club }}" class="btn btn-dark" id="clubMemberLinkc" role="button" style="flex: 0 0 20%;">
+                                                {% if origin_clubname and origin_clubname not in ['소속클럽없음', '소속 클럽 없음'] %}{{ origin_clubname }} 카드{% else %}클럽회원카드{% endif %}
+                                            </a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장</button>
                                         </div>
                                     </td>
@@ -447,13 +453,13 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        const selectBox = document.getElementById("clublst");
+        const originClubNo = "{{ origin_clubno or user_clubno or '' }}";
         const link = document.getElementById("clubMemberLink");
         const linkc = document.getElementById("clubMemberLinkc");
-        const baseUrl = "/myclubmemberList/{{memberdtl[9]}}";
-        const baseUrlc = "/myclubmemberCards/{{memberdtl[9]}}";
-        link.href = `${baseUrl}`;
-        linkc.href = `${baseUrlc}`;
+        if (originClubNo && originClubNo !== "0") {
+            if (link) link.href = `/myclubmemberList/${originClubNo}`;
+            if (linkc) linkc.href = `/myclubmemberCards/${originClubNo}`;
+        }
     });
 </script>
 </html>

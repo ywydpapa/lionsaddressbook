@@ -18,6 +18,8 @@ import datetime as dt
 from PIL import Image
 import io
 import os
+from typing import Optional
+from urllib.parse import quote
 
 
 from database import engine, async_session, get_db
@@ -371,7 +373,7 @@ async def addcircle(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/memberdetail/{memberno}", response_class=HTMLResponse)
-async def memberDetail(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def memberDetail(request: Request, memberno: int, from_club: Optional[int] = None, from_clubname: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
     memberdtl = await get_memberdetail(memberno, db)
@@ -380,15 +382,30 @@ async def memberDetail(request: Request, memberno: int, db: AsyncSession = Depen
     spphoto = await get_spphoto(memberno, db)
     clublist = await get_clublist(db)
     ranklist = await get_ranklist(db)
+
+    origin_clubno = from_club
+    origin_clubname = from_clubname
+
+    # from_club이 없으면 회원의 현재 DB 소속 클럽을 원래 클럽으로 간주
+    if not origin_clubno and memberdtl and memberdtl[9]:
+        origin_clubno = memberdtl[9]
+
+    if origin_clubno and not origin_clubname:
+        for club in clublist:
+            if club[0] == origin_clubno:
+                origin_clubname = club[1]
+                break
+
     return templates.TemplateResponse("member/memberDetail.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "memberdtl": memberdtl, "myphoto": myphoto,
         "clublist": clublist, "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "origin_clubno": origin_clubno, "origin_clubname": origin_clubname
     })
 
 @app.get("/mymemberdetail/{memberno}", response_class=HTMLResponse)
-async def mymemberDetail(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def mymemberDetail(request: Request, memberno: int, from_club: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     if not user_No: return RedirectResponse(url="/")
     memberdtl = await get_memberdetail(memberno, db)
@@ -397,17 +414,31 @@ async def mymemberDetail(request: Request, memberno: int, db: AsyncSession = Dep
     spphoto = await get_spphoto(memberno, db)
     clublist = await get_clublist(db)
     ranklist = await get_ranklist(db)
+
+    user_clubno = request.session.get("user_Clubno")
+    origin_clubno = from_club or (memberdtl[9] if memberdtl and memberdtl[9] else user_clubno) or user_clubno
+
+    origin_clubname = ""
+    if origin_clubno:
+        for club in clublist:
+            if club[0] == origin_clubno:
+                origin_clubname = club[1]
+                break
+
     return templates.TemplateResponse("myclub/mymemberDetail.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "memberdtl": memberdtl, "myphoto": myphoto,
         "clublist": clublist, "ranklist": ranklist, "ncphoto": ncphoto, "spphoto": spphoto,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": user_clubno,
+        "origin_clubno": origin_clubno, "origin_clubname": origin_clubname
     })
 
 
 @app.post("/update_memberdtl/{memberno}", response_class=HTMLResponse)
 async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
+    from_club = form_data.get("from_club")
+    from_clubname = form_data.get("from_clubname")
     data4update = {
         "memberName": form_data.get("membername"), "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
@@ -429,12 +460,20 @@ async def update_memberdtl(request: Request, memberno: int, db: AsyncSession = D
     update_fields["memberNo"] = memberno
     await db.execute(query, update_fields)
     await db.commit()
-    return RedirectResponse(f"/memberdetail/{memberno}", status_code=303)
+
+    params = []
+    if from_club:
+        params.append(f"from_club={from_club}")
+    if from_clubname:
+        params.append(f"from_clubname={quote(str(from_clubname))}")
+    qs = ("?" + "&".join(params)) if params else ""
+    return RedirectResponse(f"/memberdetail/{memberno}{qs}", status_code=303)
 
 
 @app.post("/update_mymemberdtl/{memberno}", response_class=HTMLResponse)
 async def update_mymemberdtl(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
+    from_club = form_data.get("from_club")
     data4update = {
         "memberName": form_data.get("membername"), "memberMF": form_data.get("gender"),
         "memberBirth": form_data.get("birthdate"),
@@ -454,7 +493,9 @@ async def update_mymemberdtl(request: Request, memberno: int, db: AsyncSession =
     update_fields["memberNo"] = memberno
     await db.execute(query, update_fields)
     await db.commit()
-    return RedirectResponse(f"/mymemberdetail/{memberno}", status_code=303)
+
+    qs = f"?from_club={from_club}" if from_club else ""
+    return RedirectResponse(f"/mymemberdetail/{memberno}{qs}", status_code=303)
 
 
 @app.get("/clubmemberList/{clubno}/{clubname}", response_class=HTMLResponse)
@@ -465,7 +506,8 @@ async def clubmemberList(request: Request, clubno: int, clubname: str, db: Async
     return templates.TemplateResponse("member/memberList.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "clubName": clubname, "cmembers": cmembers,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "clubno": clubno
     })
 
 @app.get("/myclubmemberList/{clubno}", response_class=HTMLResponse)
@@ -476,7 +518,8 @@ async def myclubmemberList(request: Request, clubno: int, db: AsyncSession = Dep
     return templates.TemplateResponse("myclub/mymemberList.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "cmembers": cmembers,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "clubno": clubno
     })
 
 
@@ -488,7 +531,8 @@ async def clubmemberCards(request: Request, clubno: int, clubname: str, db: Asyn
     return templates.TemplateResponse("member/memberCards.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "clubName": clubname, "memberList": memberList,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "clubno": clubno
     })
 
 @app.get("/myclubmemberCards/{clubno}", response_class=HTMLResponse)
@@ -499,7 +543,8 @@ async def myclubmemberCards(request: Request, clubno: int, db: AsyncSession = De
     return templates.TemplateResponse("myclub/mymemberCards.html", {
         "request": request, "user_No": user_No, "user_Name": request.session.get("user_Name"),
         "user_Role": request.session.get("user_Role"), "memberList": memberList,
-        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno")
+        "user_region": request.session.get("user_Region"), "user_clubno": request.session.get("user_Clubno"),
+        "clubno": clubno
     })
 
 
