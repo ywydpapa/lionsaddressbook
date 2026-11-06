@@ -6,6 +6,16 @@ from sqlalchemy.orm import sessionmaker
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
 
+# Fix SQLAlchemy asyncmy pool_pre_ping missing argument bug
+try:
+    from sqlalchemy.dialects.mysql.asyncmy import AsyncAdapt_asyncmy_connection
+    _orig_ping = AsyncAdapt_asyncmy_connection.ping
+    def _safe_ping(self, reconnect: bool = True):
+        return _orig_ping(self, reconnect)
+    AsyncAdapt_asyncmy_connection.ping = _safe_ping
+except Exception:
+    pass
+
 engine = create_async_engine(
     DATABASE_URL,
     pool_pre_ping=True,

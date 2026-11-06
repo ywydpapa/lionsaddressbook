@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/comm/adheader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-4 text-gray-800">클럽별 써클 할당 관리</h1>
+                <div class="container">
+                    {% if clubs %}
+                    <form method="get" action="/clubCircle" class="form-inline mb-4">
+                        <label for="clubNo" class="mr-2">대상 클럽</label>
+                        <select id="clubNo" name="clubNo" class="form-control mr-2">
+                            {% for club in clubs %}
+                            <option value="{{ club[0] }}"
+                                    {% if selected_club and club[0] == selected_club[0] %}selected{% endif %}>
+                                {{ club[1] }} ({{ club[2] }}지역)
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-secondary">불러오기</button>
+                    </form>
+
+                    {% if selected_club %}
+                    <form method="post" action="/clubCircle">
+                        <input type="hidden" name="clubNo" value="{{ selected_club[0] }}">
+                        <div class="card mb-4">
+                            <div class="card-header font-weight-bold text-primary">
+                                {{ selected_club[1] }} ({{ selected_club[2] }}지역) 할당 써클 선택
+                            </div>
+                            <div class="card-body">
+                                {% if circles %}
+                                <div class="row">
+                                    {% for circle in circles %}
+                                    <div class="col-md-4 col-sm-6 mb-2">
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input"
+                                                   id="circle-{{ circle[0] }}" name="circleNos"
+                                                   value="{{ circle[0] }}"
+                                                   {% if circle[0] in assigned_circle_nos %}checked{% endif %}>
+                                            <label class="custom-control-label" for="circle-{{ circle[0] }}">
+                                                {{ circle[1] }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <p class="mb-0">할당 가능한 써클이 없습니다.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">할당 저장</button>
+                    </form>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-info">등록된 클럽이 없습니다.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2025</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+{% include '/comm/adscript.html' %}
+</body>
+</html>
+

@@ -165,20 +165,66 @@ async def phappcnotice(clubno: int, db: AsyncSession = Depends(get_db), current_
         return {"docs": []}
 
 
+async def get_accessible_circles_for_member(memberno: int, db: AsyncSession):
+    # 1. 회원의 소속 클럽 번호 조회
+    res_mem = await db.execute(
+        text("SELECT clubNo FROM lionsMember WHERE memberNo = :memberno"),
+        {"memberno": memberno}
+    )
+    row_mem = res_mem.fetchone()
+    if not row_mem:
+        return []
+    club_no = row_mem[0] if row_mem[0] is not None else 0
+
+    # 2. 본인 소속 써클 + 클럽 할당 써클 조회 (clubCircle 및 circleManager)
+    query = text("""
+        SELECT DISTINCT lc.circleNo, lc.circleName
+        FROM lionsCircle lc
+        WHERE COALESCE(lc.attrib, '') NOT LIKE :attrib
+          AND COALESCE(lc.circleType, '') <> :votec
+          AND (
+              -- 1. 자신이 직접 소속된 써클
+              lc.circleNo IN (
+                  SELECT cm.circleNo
+                  FROM circleMember cm
+                  WHERE cm.memberNo = :memberno
+                    AND COALESCE(cm.attrib, '') NOT LIKE :attrib
+              )
+              OR
+              -- 2. 클럽에 할당된 경우 (clubCircle 테이블을 통해 소속 클럽에 할당된 써클)
+              (:clubno > 0 AND lc.circleNo IN (
+                  SELECT cc.circleNo
+                  FROM clubCircle cc
+                  WHERE cc.clubNo = :clubno
+                    AND COALESCE(cc.attrib, '') NOT LIKE :attrib
+              ))
+              OR
+              -- 3. (하위 호환) circleManager를 통해 소속 클럽 관리자 계정에 할당된 써클
+              (:clubno > 0 AND lc.circleNo IN (
+                  SELECT cm.circleNo
+                  FROM circleManager cm
+                  JOIN lionsUser u ON cm.userNo = u.userNo
+                  WHERE u.defaultClubno = :clubno
+                    AND COALESCE(cm.attrib, '') NOT LIKE :attrib
+              ))
+          )
+        ORDER BY lc.circleNo
+    """)
+    result = await db.execute(query, {
+        "memberno": memberno,
+        "clubno": club_no,
+        "attrib": "%XXX%",
+        "votec": "VOTEC"
+    })
+    return result.fetchall()
+
+
 @phapp_router.get("/circlenotice/{memberno}")
 async def phappcirnotice(memberno: int, db: AsyncSession = Depends(get_db),
                          current_user: str = Depends(get_current_mobile_user)):
     try:
-        # 1. 사용자가 속한 써클 목록 조회
-        query1 = text("""
-                      SELECT a.circleNo, b.circleName
-                      FROM circleMember a
-                               LEFT JOIN lionsCircle b ON a.circleNo = b.circleNo
-                      WHERE a.memberNo = :memberno
-                        AND a.attrib NOT LIKE :attrib
-                      """)
-        result1 = await db.execute(query1, {"memberno": memberno, "attrib": "%XXX%"})
-        rows1 = result1.fetchall()
+        # 1. 접근 가능한 써클 목록 조회 (본인 소속 + 클럽 소속 + 클럽 할당 써클)
+        rows1 = await get_accessible_circles_for_member(memberno, db)
 
         if not rows1:
             return {"docs": [], "circlenames": []}
@@ -709,14 +755,12 @@ async def phappgetfuncno(memberno: int, db: AsyncSession = Depends(get_db),
 async def phappgetmycircle(memberno: int, db: AsyncSession = Depends(get_db),
                            current_user: str = Depends(get_current_mobile_user)):
     try:
-        query = text(
-            "select cm.circleNo, lc.circleName  from circleMember cm left join lionsCircle lc on cm.circleNo = lc.circleNo where cm.memberNo = :memberno ")
-        result = await db.execute(query, {"memberno": memberno})
-        rows = result.fetchall()
-        circles = [dict(row._mapping) for row in rows]
+        rows = await get_accessible_circles_for_member(memberno, db)
+        circles = [{"circleNo": row[0], "circleName": row[1]} for row in rows]
         return {"circles": circles}
     except Exception as e:
         print("getmycircle error:", e)
+        return {"circles": []}
 
 
 @phapp_router.get("/getcirclemembers/{circleno}")

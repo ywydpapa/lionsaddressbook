@@ -1789,6 +1789,136 @@ async def update_circle_manager(
     return RedirectResponse(f"/circleManager?managerNo={manager_no}", status_code=303)
 
 
+@app.get("/clubCircle", response_class=HTMLResponse)
+async def club_circle_list(
+    request: Request,
+    clubNo: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    if request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자만 클럽별 써클을 지정할 수 있습니다.")
+
+    clubs_result = await db.execute(text("""
+        SELECT lc.clubNo, lc.clubName, lc.regionNo
+        FROM lionsClub lc
+        WHERE COALESCE(lc.attrib, '') NOT LIKE '%XXX%'
+        ORDER BY lc.regionNo, lc.clubName
+    """))
+    clubs = clubs_result.fetchall()
+
+    selected_club = next((club for club in clubs if club[0] == clubNo), None)
+    if selected_club is None and clubs:
+        selected_club = clubs[0]
+
+    circles_result = await db.execute(text("""
+        SELECT circleNo, circleName, circleType
+        FROM lionsCircle
+        WHERE COALESCE(circleType, '') <> 'VOTEC'
+          AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+        ORDER BY circleNo
+    """))
+    circles = circles_result.fetchall()
+
+    assigned_circle_nos = set()
+    if selected_club:
+        assigned_result = await db.execute(text("""
+            SELECT DISTINCT circleNo
+            FROM clubCircle
+            WHERE clubNo = :clubNo
+              AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+        """), {"clubNo": selected_club[0]})
+        assigned_circle_nos = {row[0] for row in assigned_result.fetchall()}
+
+    return templates.TemplateResponse("admin/clubCircle.html", {
+        "request": request,
+        "user_No": user_No,
+        "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"),
+        "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"),
+        "clubs": clubs,
+        "selected_club": selected_club,
+        "circles": circles,
+        "assigned_circle_nos": assigned_circle_nos,
+    })
+
+
+@app.post("/clubCircle")
+async def update_club_circle(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    if request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자만 클럽별 써클을 지정할 수 있습니다.")
+
+    form_data = await request.form()
+    try:
+        club_no = int(form_data.get("clubNo", ""))
+        selected_circle_nos = list(dict.fromkeys(
+            int(circle_no) for circle_no in form_data.getlist("circleNos")
+        ))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="클럽 또는 써클 선택값이 올바르지 않습니다.")
+
+    club_result = await db.execute(text("""
+        SELECT clubNo
+        FROM lionsClub
+        WHERE clubNo = :clubNo
+    """), {"clubNo": club_no})
+    if club_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="클럽을 찾을 수 없습니다.")
+
+    if selected_circle_nos:
+        valid_circles_query = text("""
+            SELECT circleNo
+            FROM lionsCircle
+            WHERE circleNo IN :circleNos
+              AND COALESCE(circleType, '') <> 'VOTEC'
+              AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+        """).bindparams(bindparam("circleNos", expanding=True))
+        valid_circles_result = await db.execute(
+            valid_circles_query, {"circleNos": selected_circle_nos}
+        )
+        valid_circle_nos = {row[0] for row in valid_circles_result.fetchall()}
+        if valid_circle_nos != set(selected_circle_nos):
+            raise HTTPException(status_code=400, detail="선택한 써클 중 할당할 수 없는 써클이 있습니다.")
+
+    await db.execute(text("""
+        UPDATE clubCircle
+        SET attrib = 'XXXUPXXXUP'
+        WHERE clubNo = :clubNo
+          AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+    """), {"clubNo": club_no})
+
+    for circle_no in selected_circle_nos:
+        existing_result = await db.execute(text("""
+            SELECT 1
+            FROM clubCircle
+            WHERE clubNo = :clubNo AND circleNo = :circleNo
+            LIMIT 1
+        """), {"clubNo": club_no, "circleNo": circle_no})
+        if existing_result.scalar_one_or_none() is not None:
+            await db.execute(text("""
+                UPDATE clubCircle
+                SET attrib = '1000010000'
+                WHERE clubNo = :clubNo AND circleNo = :circleNo
+            """), {"clubNo": club_no, "circleNo": circle_no})
+        else:
+            await db.execute(text("""
+                INSERT INTO clubCircle (clubNo, circleNo, attrib)
+                VALUES (:clubNo, :circleNo, '1000010000')
+            """), {"clubNo": club_no, "circleNo": circle_no})
+
+    await db.commit()
+    return RedirectResponse(f"/clubCircle?clubNo={club_no}", status_code=303)
+
+
 @app.get("/editcircle/{circleno}", response_class=HTMLResponse)
 async def editcircle(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
