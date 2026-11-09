@@ -18,6 +18,7 @@ import datetime as dt
 from PIL import Image
 import io
 import os
+import json
 from typing import Optional
 from urllib.parse import quote
 
@@ -359,9 +360,16 @@ async def addcircle(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/")
     if request.session.get("user_Role") != "ADMIN":
         raise HTTPException(status_code=403, detail="관리자만 써클을 추가할 수 있습니다.")
-    circleName = "신규추가 써클"
-    query = text("INSERT INTO lionsCircle (circleName) VALUES (:circlename)")
-    await db.execute(query, {"circlename": circleName})
+    
+    circle_name = "신규추가 써클"
+    circle_type = "GOLFCIR"
+    if request.method == "POST":
+        form_data = await request.form()
+        circle_name = form_data.get("circlename") or "신규추가 써클"
+        circle_type = form_data.get("circletype") or "GOLFCIR"
+
+    query = text("INSERT INTO lionsCircle (circleName, circleType) VALUES (:circlename, :circletype)")
+    await db.execute(query, {"circlename": circle_name, "circletype": circle_type})
     result = await db.execute(text("SELECT LAST_INSERT_ID()"))
     circle_no = result.scalar_one()
     await db.execute(
@@ -369,7 +377,7 @@ async def addcircle(request: Request, db: AsyncSession = Depends(get_db)):
         {"userno": request.session["user_No"], "circleno": circle_no},
     )
     await db.commit()
-    return RedirectResponse("/circleList", status_code=303)
+    return RedirectResponse(f"/editcircle/{circle_no}", status_code=303)
 
 
 @app.get("/memberdetail/{memberno}", response_class=HTMLResponse)
@@ -1934,6 +1942,721 @@ async def editcircle(request: Request, circleno: int, db: AsyncSession = Depends
     return templates.TemplateResponse("admin/circleDetail.html",
                                       {"request": request, "user_No": user_No, "user_Name": user_Name,"user_Role": user_Role,
                                        "circledtl": circledtl, "user_region": user_region, "user_clubno": user_clubno})
+
+
+# =========================================================
+# [골프써클] 라운딩 시간표 관리 기능
+# =========================================================
+
+@app.get("/circleRounding/{circleno}", response_class=HTMLResponse)
+async def circle_rounding_list(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    
+    circledtl = await get_circledtl(circleno, db)
+    if not circledtl:
+        raise HTTPException(status_code=404, detail="써클을 찾을 수 없습니다.")
+
+    query = text("""
+        SELECT r.roundingNo, r.circleNo, r.roundingTitle, r.golfClubName, r.courseName,
+               DATE_FORMAT(r.roundingDate, '%Y-%m-%d') AS roundingDate,
+               TIME_FORMAT(r.roundingTime, '%H:%i') AS roundingTime,
+               r.greenFee, r.isPublished,
+               (SELECT COUNT(*) FROM circleRoundingTeam t WHERE t.roundingNo = r.roundingNo AND COALESCE(t.attrib, '') NOT LIKE '%XXX%') AS teamCount,
+               (SELECT COUNT(*) FROM circleRoundingMember m WHERE m.roundingNo = r.roundingNo AND COALESCE(m.attrib, '') NOT LIKE '%XXX%') AS memberCount,
+               COALESCE(r.roundStatus, 'READY') AS roundStatus,
+               COALESCE(r.awardPublished, 'N') AS awardPublished
+        FROM circleRounding r
+        WHERE r.circleNo = :circleno AND COALESCE(r.attrib, '') NOT LIKE '%XXX%'
+        ORDER BY r.roundingDate DESC, r.roundingNo DESC
+    """)
+    result = await db.execute(query, {"circleno": circleno})
+    roundings = result.fetchall()
+
+    return templates.TemplateResponse("admin/circleRoundingList.html", {
+        "request": request,
+        "user_No": user_No,
+        "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"),
+        "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"),
+        "circledtl": circledtl,
+        "roundings": roundings
+    })
+
+
+@app.get("/circleRoundingAdd/{circleno}", response_class=HTMLResponse)
+async def circle_rounding_add(request: Request, circleno: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    
+    circledtl = await get_circledtl(circleno, db)
+    if not circledtl:
+        raise HTTPException(status_code=404, detail="써클을 찾을 수 없습니다.")
+    
+    cmembers = await get_circlememberlist(circleno, db)
+
+    return templates.TemplateResponse("admin/circleRoundingEdit.html", {
+        "request": request,
+        "user_No": user_No,
+        "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"),
+        "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"),
+        "circledtl": circledtl,
+        "cmembers": cmembers,
+        "rounding": None,
+        "existing_teams_json": "[]"
+    })
+
+
+@app.get("/circleRoundingEdit/{circleno}/{roundingNo}", response_class=HTMLResponse)
+async def circle_rounding_edit(request: Request, circleno: int, roundingNo: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    
+    circledtl = await get_circledtl(circleno, db)
+    if not circledtl:
+        raise HTTPException(status_code=404, detail="써클을 찾을 수 없습니다.")
+    
+    cmembers = await get_circlememberlist(circleno, db)
+
+    # 1. 라운딩 기본 정보 조회
+    r_query = text("""
+        SELECT roundingNo, circleNo, roundingTitle, golfClubName, courseName,
+               DATE_FORMAT(roundingDate, '%Y-%m-%d') AS roundingDate,
+               TIME_FORMAT(roundingTime, '%H:%i') AS roundingTime,
+               greenFee, memo, isPublished
+        FROM circleRounding
+        WHERE roundingNo = :roundingNo AND circleNo = :circleno AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+    """)
+    r_result = await db.execute(r_query, {"roundingNo": roundingNo, "circleno": circleno})
+    rounding = r_result.fetchone()
+    if not rounding:
+        raise HTTPException(status_code=404, detail="해당 라운딩 정보를 찾을 수 없습니다.")
+
+    # 2. 조 및 플레이어 목록 조회
+    teams_query = text("""
+        SELECT teamNo, roundingNo, teamOrder, teamName,
+               TIME_FORMAT(teeTime, '%H:%i') AS teeTime,
+               courseName, memo
+        FROM circleRoundingTeam
+        WHERE roundingNo = :roundingNo AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+        ORDER BY teamOrder ASC, teamNo ASC
+    """)
+    t_result = await db.execute(teams_query, {"roundingNo": roundingNo})
+    team_rows = t_result.fetchall()
+
+    teams_data = []
+    for t in team_rows:
+        t_no = t[0]
+        p_query = text("""
+            SELECT rm.rmId, rm.teamNo, rm.roundingNo, rm.playerOrder, rm.memberNo, rm.memberName,
+                   rm.clubName, rm.rankTitle, rm.handicap, rm.memo,
+                   COALESCE(rm.memberMF, lm.memberMF, '') AS memberMF
+            FROM circleRoundingMember rm
+            LEFT JOIN lionsMember lm ON rm.memberNo = lm.memberNo
+            WHERE rm.teamNo = :teamNo AND COALESCE(rm.attrib, '') NOT LIKE '%XXX%'
+            ORDER BY rm.playerOrder ASC, rm.rmId ASC
+        """)
+        p_result = await db.execute(p_query, {"teamNo": t_no})
+        p_rows = p_result.fetchall()
+        players = [{
+            "rmId": p[0],
+            "playerOrder": p[3],
+            "memberNo": p[4],
+            "memberName": p[5],
+            "clubName": p[6] or "",
+            "rankTitle": p[7] or "",
+            "handicap": p[8] or "",
+            "memo": p[9] or "",
+            "memberMF": p[10] or ""
+        } for p in p_rows]
+
+        teams_data.append({
+            "teamNo": t[0],
+            "teamOrder": t[2],
+            "teamName": t[3],
+            "teeTime": t[4] or "",
+            "courseName": t[5] or "",
+            "memo": t[6] or "",
+            "players": players
+        })
+
+    return templates.TemplateResponse("admin/circleRoundingEdit.html", {
+        "request": request,
+        "user_No": user_No,
+        "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"),
+        "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"),
+        "circledtl": circledtl,
+        "cmembers": cmembers,
+        "rounding": rounding,
+        "existing_teams_json": json.dumps(teams_data, ensure_ascii=False)
+    })
+
+
+@app.post("/circleRoundingSave")
+async def circle_rounding_save(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return JSONResponse({"status": "error", "message": "로그인이 필요합니다."}, status_code=401)
+    
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "잘못된 데이터 형식입니다."}, status_code=400)
+    
+    rounding_no = data.get("roundingNo", 0)
+    circle_no = data.get("circleNo")
+    rounding_title = data.get("roundingTitle")
+    golf_club_name = data.get("golfClubName")
+    course_name = data.get("courseName")
+    rounding_date = data.get("roundingDate")
+    rounding_time = data.get("roundingTime")
+    green_fee = data.get("greenFee")
+    memo = data.get("memo")
+    is_published = data.get("isPublished", "Y")
+    teams = data.get("teams", [])
+
+    if not circle_no or not rounding_title or not golf_club_name or not rounding_date or not rounding_time:
+        return JSONResponse({"status": "error", "message": "필수 입력 항목이 누락되었습니다."}, status_code=400)
+
+    try:
+        if rounding_no and int(rounding_no) > 0:
+            # 1. Update existing rounding
+            up_query = text("""
+                UPDATE circleRounding
+                SET roundingTitle = :roundingTitle,
+                    golfClubName = :golfClubName,
+                    courseName = :courseName,
+                    roundingDate = :roundingDate,
+                    roundingTime = :roundingTime,
+                    greenFee = :greenFee,
+                    memo = :memo,
+                    isPublished = :isPublished,
+                    modDate = CURRENT_TIMESTAMP
+                WHERE roundingNo = :roundingNo AND circleNo = :circleNo
+            """)
+            await db.execute(up_query, {
+                "roundingNo": rounding_no,
+                "circleNo": circle_no,
+                "roundingTitle": rounding_title,
+                "golfClubName": golf_club_name,
+                "courseName": course_name,
+                "roundingDate": rounding_date,
+                "roundingTime": rounding_time,
+                "greenFee": green_fee,
+                "memo": memo,
+                "isPublished": is_published
+            })
+            target_rounding_no = int(rounding_no)
+        else:
+            # 2. Insert new rounding
+            ins_query = text("""
+                INSERT INTO circleRounding (
+                    circleNo, roundingTitle, golfClubName, courseName,
+                    roundingDate, roundingTime, greenFee, memo, isPublished
+                ) VALUES (
+                    :circleNo, :roundingTitle, :golfClubName, :courseName,
+                    :roundingDate, :roundingTime, :greenFee, :memo, :isPublished
+                )
+            """)
+            await db.execute(ins_query, {
+                "circleNo": circle_no,
+                "roundingTitle": rounding_title,
+                "golfClubName": golf_club_name,
+                "courseName": course_name,
+                "roundingDate": rounding_date,
+                "roundingTime": rounding_time,
+                "greenFee": green_fee,
+                "memo": memo,
+                "isPublished": is_published
+            })
+            res_id = await db.execute(text("SELECT LAST_INSERT_ID()"))
+            target_rounding_no = res_id.scalar_one()
+
+        # 2. 기존 스코어/시상 데이터 백업 (선수명/memberNo 기준, 재설정 시 유실 방지)
+        prev_scores_res = await db.execute(text("""
+            SELECT memberNo, memberName, grossScore, netScore, ranking, awardName, awardPrize, scoreMemo
+            FROM circleRoundingMember
+            WHERE roundingNo = :roundingNo AND (grossScore IS NOT NULL OR awardName IS NOT NULL)
+        """), {"roundingNo": target_rounding_no})
+        prev_score_map = {}
+        for r in prev_scores_res.fetchall():
+            m_key = f"m_{r[0]}" if r[0] else f"name_{r[1]}"
+            prev_score_map[m_key] = {
+                "grossScore": r[2], "netScore": r[3], "ranking": r[4],
+                "awardName": r[5], "awardPrize": r[6], "scoreMemo": r[7]
+            }
+
+        # 기존 조 및 멤버 삭제 후 재생성 (Clean sync)
+        await db.execute(text("DELETE FROM circleRoundingMember WHERE roundingNo = :roundingNo"), {"roundingNo": target_rounding_no})
+        await db.execute(text("DELETE FROM circleRoundingTeam WHERE roundingNo = :roundingNo"), {"roundingNo": target_rounding_no})
+
+        # 조 및 플레이어 저장
+        for t_idx, t in enumerate(teams):
+            team_order = t.get("teamOrder", t_idx + 1)
+            team_name = t.get("teamName", f"{team_order}조")
+            tee_time = t.get("teeTime") or None
+            c_name = t.get("courseName") or None
+            t_memo = t.get("memo") or None
+
+            t_ins = text("""
+                INSERT INTO circleRoundingTeam (roundingNo, teamOrder, teamName, teeTime, courseName, memo)
+                VALUES (:roundingNo, :teamOrder, :teamName, :teeTime, :courseName, :memo)
+            """)
+            await db.execute(t_ins, {
+                "roundingNo": target_rounding_no,
+                "teamOrder": team_order,
+                "teamName": team_name,
+                "teeTime": tee_time,
+                "courseName": c_name,
+                "memo": t_memo
+            })
+            t_res = await db.execute(text("SELECT LAST_INSERT_ID()"))
+            new_team_no = t_res.scalar_one()
+
+            players = t.get("players", [])
+            for p_idx, p in enumerate(players):
+                p_name = p.get("memberName")
+                if not p_name:
+                    continue
+                m_no = p.get("memberNo")
+                m_mf = p.get("memberMF")
+                if not m_mf and m_no:
+                    try:
+                        mf_res = await db.execute(text("SELECT memberMF FROM lionsMember WHERE memberNo = :mno"), {"mno": m_no})
+                        mf_val = mf_res.scalar_one_or_none()
+                        if mf_val:
+                            m_mf = mf_val
+                    except Exception:
+                        pass
+
+                m_key = f"m_{m_no}" if m_no else f"name_{p_name}"
+                backed = prev_score_map.get(m_key, {})
+                gross_sc = p.get("grossScore", backed.get("grossScore"))
+                net_sc = p.get("netScore", backed.get("netScore"))
+                rank_val = p.get("ranking", backed.get("ranking"))
+                aw_name = p.get("awardName", backed.get("awardName"))
+                aw_prize = p.get("awardPrize", backed.get("awardPrize"))
+                sc_memo = p.get("scoreMemo", backed.get("scoreMemo"))
+
+                p_ins = text("""
+                    INSERT INTO circleRoundingMember (
+                        teamNo, roundingNo, playerOrder, memberNo, memberName, clubName, rankTitle, memberMF,
+                        handicap, grossScore, netScore, ranking, awardName, awardPrize, scoreMemo, memo
+                    ) VALUES (
+                        :teamNo, :roundingNo, :playerOrder, :memberNo, :memberName, :clubName, :rankTitle, :memberMF,
+                        :handicap, :grossScore, :netScore, :ranking, :awardName, :awardPrize, :scoreMemo, :memo
+                    )
+                """)
+                await db.execute(p_ins, {
+                    "teamNo": new_team_no,
+                    "roundingNo": target_rounding_no,
+                    "playerOrder": p.get("playerOrder", p_idx + 1),
+                    "memberNo": m_no,
+                    "memberName": p_name,
+                    "clubName": p.get("clubName"),
+                    "rankTitle": p.get("rankTitle"),
+                    "memberMF": m_mf,
+                    "handicap": p.get("handicap"),
+                    "grossScore": gross_sc,
+                    "netScore": net_sc,
+                    "ranking": rank_val,
+                    "awardName": aw_name,
+                    "awardPrize": aw_prize,
+                    "scoreMemo": sc_memo,
+                    "memo": p.get("memo")
+                })
+
+        await db.commit()
+        return JSONResponse({"status": "success", "roundingNo": target_rounding_no})
+
+    except Exception as e:
+        await db.rollback()
+        print("circle_rounding_save error:", e)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.post("/circleRoundingDelete/{circleno}/{roundingNo}")
+async def circle_rounding_delete(request: Request, circleno: int, roundingNo: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    
+    # Soft delete
+    await db.execute(text("""
+        UPDATE circleRounding
+        SET attrib = 'XXXDELXXX'
+        WHERE roundingNo = :roundingNo AND circleNo = :circleno
+    """), {"roundingNo": roundingNo, "circleno": circleno})
+    await db.commit()
+
+    return RedirectResponse(f"/circleRounding/{circleno}", status_code=303)
+
+
+@app.get("/circleRoundingScore/{circleno}/{roundingNo}", response_class=HTMLResponse)
+async def circle_rounding_score(request: Request, circleno: int, roundingNo: int, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return RedirectResponse(url="/")
+    
+    circledtl = await get_circledtl(circleno, db)
+    if not circledtl:
+        raise HTTPException(status_code=404, detail="써클을 찾을 수 없습니다.")
+    
+    # 1. 라운딩 기본 정보 조회
+    r_query = text("""
+        SELECT roundingNo, circleNo, roundingTitle, golfClubName, courseName,
+               DATE_FORMAT(roundingDate, '%Y-%m-%d') AS roundingDate,
+               TIME_FORMAT(roundingTime, '%H:%i') AS roundingTime,
+               greenFee, memo, isPublished,
+               COALESCE(roundStatus, 'READY') AS roundStatus,
+               COALESCE(awardPublished, 'N') AS awardPublished,
+               awardMemo
+        FROM circleRounding
+        WHERE roundingNo = :roundingNo AND circleNo = :circleno AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+    """)
+    r_result = await db.execute(r_query, {"roundingNo": roundingNo, "circleno": circleno})
+    rounding = r_result.fetchone()
+    if not rounding:
+        raise HTTPException(status_code=404, detail="해당 라운딩 정보를 찾을 수 없습니다.")
+
+    # 2. 전체 참가자 목록 (조 순서, 슬롯 순서)
+    p_query = text("""
+        SELECT rm.rmId, rm.teamNo, t.teamName, t.teeTime, t.courseName,
+               rm.playerOrder, rm.memberNo, rm.memberName, rm.clubName, rm.rankTitle,
+               COALESCE(rm.memberMF, lm.memberMF, '') AS memberMF,
+               rm.handicap, rm.grossScore, rm.netScore, rm.ranking,
+               rm.awardName, rm.awardPrize, rm.scoreMemo
+        FROM circleRoundingMember rm
+        JOIN circleRoundingTeam t ON rm.teamNo = t.teamNo
+        LEFT JOIN lionsMember lm ON rm.memberNo = lm.memberNo
+        WHERE rm.roundingNo = :roundingNo AND COALESCE(rm.attrib, '') NOT LIKE '%XXX%'
+        ORDER BY t.teamOrder ASC, rm.playerOrder ASC, rm.rmId ASC
+    """)
+    p_result = await db.execute(p_query, {"roundingNo": roundingNo})
+    players = [dict(row._mapping) for row in p_result.fetchall()]
+
+    return templates.TemplateResponse("admin/circleRoundingScore.html", {
+        "request": request,
+        "user_No": user_No,
+        "user_Name": request.session.get("user_Name"),
+        "user_Role": request.session.get("user_Role"),
+        "user_region": request.session.get("user_Region"),
+        "user_clubno": request.session.get("user_Clubno"),
+        "circledtl": circledtl,
+        "rounding": dict(rounding._mapping),
+        "players": players
+    })
+
+
+@app.post("/circleRoundingScoreSave")
+async def circle_rounding_score_save(request: Request, db: AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    if not user_No:
+        return JSONResponse({"status": "error", "message": "로그인이 필요합니다."}, status_code=401)
+    
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "잘못된 데이터 형식입니다."}, status_code=400)
+    
+    rounding_no = data.get("roundingNo")
+    circle_no = data.get("circleNo")
+    round_status = data.get("roundStatus", "READY")
+    award_published = data.get("awardPublished", "N")
+    award_memo = data.get("awardMemo", "")
+    scores = data.get("scores", [])
+
+    if not rounding_no:
+        return JSONResponse({"status": "error", "message": "라운딩 번호가 누락되었습니다."}, status_code=400)
+
+    try:
+        # 1. 라운딩 상태 업데이트
+        await db.execute(text("""
+            UPDATE circleRounding
+            SET roundStatus = :roundStatus,
+                awardPublished = :awardPublished,
+                awardMemo = :awardMemo,
+                modDate = CURRENT_TIMESTAMP
+            WHERE roundingNo = :roundingNo
+        """), {
+            "roundStatus": round_status,
+            "awardPublished": award_published,
+            "awardMemo": award_memo,
+            "roundingNo": rounding_no
+        })
+
+        # 2. 각 참가자 스코어 및 시상 정보 업데이트
+        for s in scores:
+            rm_id = s.get("rmId")
+            if not rm_id:
+                continue
+            gross = s.get("grossScore")
+            gross = int(gross) if (gross is not None and str(gross).strip() != "") else None
+
+            net = s.get("netScore")
+            net = float(net) if (net is not None and str(net).strip() != "") else None
+
+            ranking = s.get("ranking")
+            ranking = int(ranking) if (ranking is not None and str(ranking).strip() != "") else None
+
+            handicap = s.get("handicap")
+            award_name = (s.get("awardName") or "").strip() or None
+            award_prize = (s.get("awardPrize") or "").strip() or None
+            score_memo = (s.get("scoreMemo") or "").strip() or None
+
+            await db.execute(text("""
+                UPDATE circleRoundingMember
+                SET grossScore = :grossScore,
+                    netScore = :netScore,
+                    ranking = :ranking,
+                    handicap = :handicap,
+                    awardName = :awardName,
+                    awardPrize = :awardPrize,
+                    scoreMemo = :scoreMemo
+                WHERE rmId = :rmId AND roundingNo = :roundingNo
+            """), {
+                "grossScore": gross,
+                "netScore": net,
+                "ranking": ranking,
+                "handicap": handicap,
+                "awardName": award_name,
+                "awardPrize": award_prize,
+                "scoreMemo": score_memo,
+                "rmId": rm_id,
+                "roundingNo": rounding_no
+            })
+
+        await db.commit()
+        return JSONResponse({"status": "success", "message": "스코어 및 시상 기록이 성공적으로 저장되었습니다."})
+
+    except Exception as e:
+        await db.rollback()
+        print("circle_rounding_score_save error:", e)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.get("/circleRoundingView/{roundingNo}", response_class=HTMLResponse)
+async def circle_rounding_view(request: Request, roundingNo: int, db: AsyncSession = Depends(get_db)):
+    # 1. 라운딩 정보 & 써클명 조회
+    query = text("""
+        SELECT r.roundingNo, r.circleNo, r.roundingTitle, r.golfClubName, r.courseName,
+               r.roundingDate,
+               TIME_FORMAT(r.roundingTime, '%H:%i') AS roundingTime,
+               r.greenFee, r.memo, r.isPublished,
+               COALESCE(r.roundStatus, 'READY') AS roundStatus,
+               COALESCE(r.awardPublished, 'N') AS awardPublished,
+               r.awardMemo,
+               c.circleName
+        FROM circleRounding r
+        JOIN lionsCircle c ON r.circleNo = c.circleNo
+        WHERE r.roundingNo = :roundingNo AND COALESCE(r.attrib, '') NOT LIKE '%XXX%'
+    """)
+    result = await db.execute(query, {"roundingNo": roundingNo})
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="게시된 라운딩 시간표를 찾을 수 없습니다.")
+    
+    rounding_dict = dict(row._mapping)
+
+    # 한국어 요일 포맷팅 (예: 2026년 11월 10일(화))
+    r_date = rounding_dict.get("roundingDate")
+    day_kor_names = ["월", "화", "수", "목", "금", "토", "일"]
+    rounding_date_kor = ""
+    if r_date:
+        if isinstance(r_date, (dt.date, dt.datetime)):
+            d_weekday = day_kor_names[r_date.weekday()]
+            rounding_date_kor = f"{r_date.year}년 {r_date.month}월 {r_date.day}일({d_weekday})"
+        else:
+            try:
+                dt_obj = dt.datetime.strptime(str(r_date)[:10], "%Y-%m-%d").date()
+                d_weekday = day_kor_names[dt_obj.weekday()]
+                rounding_date_kor = f"{dt_obj.year}년 {dt_obj.month}월 {dt_obj.day}일({d_weekday})"
+            except Exception:
+                rounding_date_kor = str(r_date)
+    rounding_dict["roundingDateKor"] = rounding_date_kor
+
+    # 2. 조 및 플레이어 조회
+    teams_query = text("""
+        SELECT teamNo, roundingNo, teamOrder, teamName,
+               TIME_FORMAT(teeTime, '%H:%i') AS teeTime,
+               courseName, memo
+        FROM circleRoundingTeam
+        WHERE roundingNo = :roundingNo AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+        ORDER BY teamOrder ASC, teamNo ASC
+    """)
+    t_result = await db.execute(teams_query, {"roundingNo": roundingNo})
+    team_rows = t_result.fetchall()
+
+    teams_data = []
+    all_players = []
+    total_players = 0
+    for t in team_rows:
+        t_no = t[0]
+        p_query = text("""
+            SELECT rm.rmId, rm.playerOrder, rm.memberNo, rm.memberName, rm.clubName, rm.rankTitle, rm.handicap, rm.memo,
+                   COALESCE(rm.memberMF, lm.memberMF, '') AS memberMF,
+                   rm.grossScore, rm.netScore, rm.ranking, rm.awardName, rm.awardPrize, rm.scoreMemo
+            FROM circleRoundingMember rm
+            LEFT JOIN lionsMember lm ON rm.memberNo = lm.memberNo
+            WHERE rm.teamNo = :teamNo AND COALESCE(rm.attrib, '') NOT LIKE '%XXX%'
+            ORDER BY rm.playerOrder ASC, rm.rmId ASC
+        """)
+        p_result = await db.execute(p_query, {"teamNo": t_no})
+        p_rows = p_result.fetchall()
+        players = []
+        for p in p_rows:
+            p_name = p[3] or ""
+            p_mf = (p[8] or "").strip()
+            is_female = (p_mf.upper() == 'F' or p_mf == '여')
+            is_lions = bool(p[2])
+            # Lions 회원 표시: 이름 끝이 'L'로 끝나지 않고 Lions 회원이면 L 표기 지원
+            display_name = p_name
+            if is_lions and not display_name.endswith('L'):
+                display_name = f"{display_name}L"
+            p_obj = {
+                "rmId": p[0],
+                "playerOrder": p[1],
+                "memberNo": p[2],
+                "memberName": display_name,
+                "rawName": p_name,
+                "clubName": p[4] or "",
+                "rankTitle": p[5] or "",
+                "handicap": p[6] or "",
+                "memo": p[7] or "",
+                "memberMF": p_mf,
+                "isFemale": is_female,
+                "isLions": is_lions,
+                "grossScore": p[9],
+                "netScore": float(p[10]) if p[10] is not None else None,
+                "ranking": p[11],
+                "awardName": p[12] or "",
+                "awardPrize": p[13] or "",
+                "scoreMemo": p[14] or ""
+            }
+            players.append(p_obj)
+            all_players.append(p_obj)
+        total_players += len(players)
+
+        teams_data.append({
+            "teamNo": t[0],
+            "teamOrder": t[2],
+            "teamName": t[3],
+            "teeTime": t[4] or "",
+            "courseName": t[5] or "",
+            "memo": t[6] or "",
+            "players": players
+        })
+
+    # 3. 코스별 병렬 매트릭스 그리드 데이터 생성 (이미지 양식 대응)
+    course_list = []
+    course_teams_map = {}
+    for t in teams_data:
+        c_name = (t["courseName"] or "").strip()
+        if not c_name:
+            c_name = (rounding_dict.get("courseName") or "").strip() or "코스"
+        if c_name not in course_teams_map:
+            course_list.append(c_name)
+            course_teams_map[c_name] = []
+        course_teams_map[c_name].append(t)
+
+    if not course_list:
+        course_list = ["코스"]
+        course_teams_map["코스"] = []
+
+    max_rows = max([len(course_teams_map[c]) for c in course_list], default=0)
+    matrix_rows = []
+    for r_idx in range(max_rows):
+        row_courses = []
+        for c in course_list:
+            c_teams = course_teams_map[c]
+            if r_idx < len(c_teams):
+                team = c_teams[r_idx]
+                team_players = team["players"]
+                padded_players = []
+                for p_i in range(4):
+                    if p_i < len(team_players):
+                        p = team_players[p_i]
+                        padded_players.append({
+                            "name": p["memberName"],
+                            "isFemale": p["isFemale"],
+                            "isLions": p["isLions"],
+                            "clubName": p.get("clubName", ""),
+                            "rankTitle": p.get("rankTitle", ""),
+                            "handicap": p.get("handicap", ""),
+                            "awardName": p.get("awardName", "")
+                        })
+                    else:
+                        padded_players.append({
+                            "name": "",
+                            "isFemale": False,
+                            "isLions": False,
+                            "clubName": "",
+                            "rankTitle": "",
+                            "handicap": "",
+                            "awardName": ""
+                        })
+                row_courses.append({
+                    "courseName": c,
+                    "hasTeam": True,
+                    "teamName": team["teamName"],
+                    "teeTime": team["teeTime"],
+                    "players": padded_players
+                })
+            else:
+                row_courses.append({
+                    "courseName": c,
+                    "hasTeam": False,
+                    "teamName": "",
+                    "teeTime": "",
+                    "players": [{"name": "", "isFemale": False, "isLions": False, "clubName": "", "rankTitle": "", "handicap": "", "awardName": ""} for _ in range(4)]
+                })
+        matrix_rows.append(row_courses)
+
+    # 4. 시상 목록 및 순위표(Leaderboard) 데이터 구축
+    awards_list = [p for p in all_players if p.get("awardName")]
+    
+    # 순위표 대상: 스코어 또는 순위 또는 시상이 등록된 선수
+    leaderboard = [p for p in all_players if (p.get("grossScore") is not None or p.get("ranking") is not None or p.get("netScore") is not None or p.get("awardName"))]
+    leaderboard.sort(key=lambda x: (
+        x.get("ranking") if x.get("ranking") is not None else 9999,
+        x.get("netScore") if x.get("netScore") is not None else 9999,
+        x.get("grossScore") if x.get("grossScore") is not None else 9999
+    ))
+
+    has_scores = any(p.get("grossScore") is not None for p in all_players)
+    has_awards = len(awards_list) > 0
+
+    user_No = request.session.get("user_No")
+    user_Role = request.session.get("user_Role")
+    can_edit = bool(user_No and user_Role in ["ADMIN", "USER", "CUSER"])
+
+    return templates.TemplateResponse("board/circleRoundingView.html", {
+        "request": request,
+        "rounding": rounding_dict,
+        "circle_name": rounding_dict.get("circleName", "골프동호회"),
+        "circle_no": rounding_dict.get("circleNo"),
+        "rounding_date_kor": rounding_date_kor,
+        "courses": course_list,
+        "matrix_rows": matrix_rows,
+        "teams": teams_data,
+        "total_players": total_players,
+        "can_edit": can_edit,
+        "leaderboard": leaderboard,
+        "awards_list": awards_list,
+        "has_scores": has_scores,
+        "has_awards": has_awards,
+        "round_status": rounding_dict.get("roundStatus", "READY"),
+        "award_published": rounding_dict.get("awardPublished", "N"),
+        "award_memo": rounding_dict.get("awardMemo", "")
+    })
 
 
 @app.get("/regionList", response_class=HTMLResponse)

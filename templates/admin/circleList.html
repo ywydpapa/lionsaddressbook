@@ -18,7 +18,9 @@
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <h4 class="h3 mb-4 text-gray-800">내가 관리하는 써클 리스트</h4>
                     {% if user_Role == 'ADMIN' %}
-                    <a href="/addcircle" class="btn btn-primary" id="newcircle" role="button" style="flex: 0 0 auto;">신규 써클 추가</a>
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addCircleModal" style="flex: 0 0 auto;">
+                        <i class="fas fa-plus-circle"></i> 신규 써클 추가
+                    </button>
                     {% endif %}
                 </div>
                 <div>
@@ -31,18 +33,23 @@
                         <th>집행부</th>
                         <th>써클회원관리</th>
                         <th>공지사항관리</th>
+                        <th>라운딩 시간표</th>
                         </thead>
                         {% for circle in circle_list %}
                             <tr style="text-align: center">
                                 <td>{{ circle[0] }}</td>
                                 <td><a href="/editcircle/{{ circle[0] }}">{{ circle[1] }}</a></td>
                                 <td>
-                                    {% if circle[2] == 'CHMCIR' %}
+                                    {% if circle[2] == 'GOLFCIR' %}
+                                        <span class="badge badge-success text-white" style="font-size: 0.9em;"><i class="fas fa-golf-ball mr-1"></i>골프써클</span>
+                                    {% elif circle[2] == 'CHMCIR' %}
                                         사자회
                                     {% elif circle[2] == 'SECCIR' %}
                                         사총회
                                     {% elif circle[2] == 'TRECIR' %}
                                         재무회
+                                    {% elif circle[2] == 'REGCIR' %}
+                                        부총재회
                                     {% else %}
                                         기타
                                     {% endif %}
@@ -50,6 +57,15 @@
                                 <td><a href="/circleStaff/{{ circle[0] }}">집행부 관리</a></td>
                                 <td><a href="/circlememberList/{{ circle[0] }}">회원관리</a></td>
                                 <td><a href="/listcirclenotice/{{ circle[0] }}">공지관리</a></td>
+                                <td>
+                                    {% if circle[2] == 'GOLFCIR' %}
+                                    <a href="/circleRounding/{{ circle[0] }}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-calendar-alt mr-1"></i>라운딩 시간표
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </table>
@@ -58,6 +74,45 @@
             <!-- /.container-fluid -->
         </div>
         <!-- End of Main Content -->
+        <!-- 신규 써클 추가 모달 -->
+        <div class="modal fade" id="addCircleModal" tabindex="-1" role="dialog" aria-labelledby="addCircleModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <form method="POST" action="/addcircle">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title font-weight-bold text-primary" id="addCircleModalLabel">
+                                <i class="fas fa-plus-circle mr-1"></i>신규 써클 추가
+                            </h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="circlename" class="font-weight-bold">써클명</label>
+                                <input type="text" class="form-control" id="circlename" name="circlename" placeholder="예: 2026-2027 골프회" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="circletype" class="font-weight-bold">써클 종류</label>
+                                <select class="form-control" id="circletype" name="circletype">
+                                    <option value="GOLFCIR" selected>골프써클 (골프회)</option>
+                                    <option value="CHMCIR">사자회</option>
+                                    <option value="SECCIR">사총회</option>
+                                    <option value="TRECIR">재무회</option>
+                                    <option value="REGCIR">부총재회</option>
+                                    <option value="ETCCIR">기타</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">취소</button>
+                            <button type="submit" class="btn btn-primary">추가 및 상세설정</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer class="sticky-footer bg-white">
             <div class="container my-auto">

@@ -135,12 +135,13 @@
                                 <tr>
                                     <td>써클타입</td>
                                     <td>
-                                        <select name = "circletype" class="form-control">
-                                            <option value="CHMCIR">사자회</option>
-                                            <option value="SECCIR">사총회</option>
-                                            <option value="TRECIR">재무회</option>
-                                            <option value="REGCIR">부총재회</option>
-                                            <option value="ETCCIR">기타</option>
+                                        <select name="circletype" class="form-control">
+                                            <option value="GOLFCIR" {% if circledtl[2] == 'GOLFCIR' %}selected{% endif %}>골프써클 (골프회)</option>
+                                            <option value="CHMCIR" {% if circledtl[2] == 'CHMCIR' %}selected{% endif %}>사자회</option>
+                                            <option value="SECCIR" {% if circledtl[2] == 'SECCIR' %}selected{% endif %}>사총회</option>
+                                            <option value="TRECIR" {% if circledtl[2] == 'TRECIR' %}selected{% endif %}>재무회</option>
+                                            <option value="REGCIR" {% if circledtl[2] == 'REGCIR' %}selected{% endif %}>부총재회</option>
+                                            <option value="ETCCIR" {% if circledtl[2] == 'ETCCIR' %}selected{% endif %}>기타</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -158,11 +159,13 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/circleList'; return false;"
-                                               class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">목록으로 돌아가기</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 30%;">저장
-                                            </button>
+                                            <a href="/circleList" class="btn btn-dark" role="button" style="flex: 0 0 25%;">목록으로 돌아가기</a>
+                                            {% if circledtl[2] == 'GOLFCIR' %}
+                                            <a href="/circleRounding/{{ circledtl[0] }}" class="btn btn-success" role="button" style="flex: 0 0 35%;">
+                                                <i class="fas fa-golf-ball mr-1"></i> 라운딩 시간표 관리
+                                            </a>
+                                            {% endif %}
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 25%;">저장</button>
                                         </div>
                                     </td>
                                 </tr>

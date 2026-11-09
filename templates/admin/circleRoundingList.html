@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/comm/adheader.html' %}
+    <style>
+        .rounding-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .rounding-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+        }
+    </style>
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <!-- 헤더 영역 -->
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h1 class="h3 mb-1 text-gray-800">
+                            <i class="fas fa-golf-ball text-success mr-2"></i>{{ circledtl[1] }} 라운딩 시간표 관리
+                        </h1>
+                        <p class="text-muted small mb-0">골프 라운딩 일정과 조별 티오프 시간표를 작성하고 회원들에게 게시할 수 있습니다.</p>
+                    </div>
+                    <div class="btn-group">
+                        <a href="/circleList" class="btn btn-secondary btn-sm shadow-sm mr-2">
+                            <i class="fas fa-arrow-left fa-sm mr-1"></i>써클 목록
+                        </a>
+                        <a href="/circleRoundingAdd/{{ circledtl[0] }}" class="btn btn-success btn-sm shadow-sm">
+                            <i class="fas fa-plus fa-sm mr-1"></i>신규 라운딩 등록
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 라운딩 목록 카드 -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-success">
+                            <i class="fas fa-list-alt mr-1"></i>라운딩 일정 목록 (총 {{ roundings|length }}건)
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% if roundings %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover text-center" id="roundingTable" width="100%" cellspacing="0">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th style="width: 60px;">번호</th>
+                                        <th>라운딩 명칭</th>
+                                        <th>골프장명 / 코스</th>
+                                        <th>라운딩 일시</th>
+                                        <th>조/참가인원</th>
+                                        <th>그린피/회비</th>
+                                        <th>게시 상태</th>
+                                        <th style="width: 220px;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for r in roundings %}
+                                    <tr style="vertical-align: middle;">
+                                        <td>{{ loop.index }}</td>
+                                        <td class="text-left font-weight-bold">
+                                            <a href="/circleRoundingEdit/{{ circledtl[0] }}/{{ r[0] }}" class="text-dark">
+                                                {{ r[2] }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="text-primary font-weight-bold">{{ r[3] }}</span>
+                                            {% if r[4] %}
+                                            <small class="text-muted d-block">({{ r[4] }})</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="font-weight-bold">{{ r[5] }}</div>
+                                            <small class="text-success"><i class="far fa-clock mr-1"></i>{{ r[6] }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info">{{ r[9] }}개 조</span>
+                                            <span class="badge badge-secondary">{{ r[10] }}명</span>
+                                        </td>
+                                        <td>{{ r[7] if r[7] else '-' }}</td>
+                                        <td>
+                                            {% if r[11] == 'FINISHED' %}
+                                            <span class="badge badge-warning text-dark font-weight-bold px-2 py-1"><i class="fas fa-trophy mr-1"></i>시상완료</span>
+                                            {% elif r[8] == 'Y' %}
+                                            <span class="badge badge-success px-2 py-1"><i class="fas fa-check-circle mr-1"></i>게시중</span>
+                                            {% else %}
+                                            <span class="badge badge-secondary px-2 py-1"><i class="fas fa-eye-slash mr-1"></i>미게시</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/circleRoundingView/{{ r[0] }}" target="_blank" class="btn btn-outline-info" title="게시용 시간표 및 성적 보기">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>게시보기
+                                                </a>
+                                                <a href="/circleRoundingEdit/{{ circledtl[0] }}/{{ r[0] }}" class="btn btn-outline-primary" title="시간표 수정 및 조편성">
+                                                    <i class="fas fa-edit mr-1"></i>조편성
+                                                </a>
+                                                <a href="/circleRoundingScore/{{ circledtl[0] }}/{{ r[0] }}" class="btn btn-outline-warning text-dark font-weight-bold" title="스코어 기록 및 시상 관리">
+                                                    <i class="fas fa-trophy mr-1"></i>스코어/시상
+                                                </a>
+                                                <button type="button" class="btn btn-outline-danger" onclick="deleteRounding({{ circledtl[0] }}, {{ r[0] }}, '{{ r[2] }}')" title="삭제">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-golf-ball fa-3x text-gray-300 mb-3"></i>
+                            <h5 class="text-gray-600">등록된 라운딩 시간표가 없습니다.</h5>
+                            <p class="text-muted small">새로운 골프 라운딩 일정과 조별 티오프 시간표를 작성해 보세요.</p>
+                            <a href="/circleRoundingAdd/{{ circledtl[0] }}" class="btn btn-success btn-sm mt-2">
+                                <i class="fas fa-plus mr-1"></i>첫 라운딩 등록하기
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+
+<form id="deleteForm" method="POST" style="display: none;"></form>
+
+{% include '/comm/adscript.html' %}
+<script>
+    function deleteRounding(circleNo, roundingNo, title) {
+        if (confirm(`'${title}' 라운딩 시간표를 삭제하시겠습니까?`)) {
+            const form = document.getElementById('deleteForm');
+            form.action = `/circleRoundingDelete/${circleNo}/${roundingNo}`;
+            form.submit();
+        }
+    }
+</script>
+</body>
+</html>

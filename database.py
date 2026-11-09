@@ -10,8 +10,8 @@ DATABASE_URL = os.getenv("dburl")
 try:
     from sqlalchemy.dialects.mysql.asyncmy import AsyncAdapt_asyncmy_connection
     _orig_ping = AsyncAdapt_asyncmy_connection.ping
-    def _safe_ping(self, reconnect: bool = True):
-        return _orig_ping(self, reconnect)
+    def _safe_ping(self, reconnect: bool = False):
+        return _orig_ping(self, False)
     AsyncAdapt_asyncmy_connection.ping = _safe_ping
 except Exception:
     pass

@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{ circle_name }} {{ rounding.roundingTitle }} - 라운딩 조편성 및 시상 결과</title>
+    <!-- FontAwesome & Bootstrap -->
+    <link href="/static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <link href="/static/css/sb-admin-2.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #eef2f5;
+            color: #222;
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", Dotum, "돋움", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 1. 격자형 시간표 스타일 (엑셀 / 업로드 이미지 양식 정밀 복원) */
+        .grid-schedule-card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            padding: 30px 25px;
+            margin-bottom: 25px;
+            border: 1px solid #dce2e6;
+        }
+        .table-main-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: #000;
+            text-align: center;
+            text-decoration: underline;
+            text-underline-offset: 7px;
+            text-decoration-thickness: 2px;
+            letter-spacing: -0.5px;
+            margin-bottom: 18px;
+            line-height: 1.4;
+        }
+        .schedule-meta-box {
+            margin-bottom: 18px;
+            padding-left: 5px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #000;
+            line-height: 1.8;
+        }
+        .schedule-meta-box .bullet {
+            font-size: 13px;
+            margin-right: 4px;
+            color: #000;
+        }
+
+        /* 엑셀 스타일 병렬 매트릭스 테이블 */
+        .excel-table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 8px;
+        }
+        .excel-grid-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: {% if courses|length >= 3 %}1020px{% elif courses|length == 2 %}760px{% else %}520px{% endif %};
+            border: 2px solid #000000;
+            background-color: #ffffff;
+        }
+        .excel-grid-table th, 
+        .excel-grid-table td {
+            border: 1px solid #555555;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 14.5px;
+            padding: 8px 4px;
+            color: #000000;
+        }
+
+        /* 코스 구분 굵은 수직 경계선 */
+        .excel-grid-table .course-start-col {
+            border-left: 2.5px solid #000000 !important;
+        }
+        .excel-grid-table .course-end-col {
+            border-right: 2.5px solid #000000 !important;
+        }
+
+        /* 헤더 색상 (이미지 원본 일치) */
+        .excel-grid-table .th-course,
+        .excel-grid-table .th-time {
+            background-color: #d9d2e9 !important; /* 연한 보라/라벤더 */
+            font-weight: 700;
+            font-size: 14px;
+            width: 58px;
+            padding: 6px 2px;
+        }
+        .excel-grid-table .th-time {
+            width: 68px;
+        }
+        .excel-grid-table .th-roster-group {
+            background-color: #cfe2f3 !important; /* 연한 하늘/파랑 */
+            font-weight: 700;
+            font-size: 14.5px;
+            padding: 6px 4px;
+            letter-spacing: -0.3px;
+        }
+        .excel-grid-table .th-slot-num {
+            background-color: #d9e1f2 !important; /* 서브헤더 밝은 블루 */
+            font-weight: 700;
+            font-size: 13.5px;
+            width: 82px;
+            padding: 4px 2px;
+        }
+
+        /* 데이터 셀 스타일 */
+        .excel-grid-table .td-course-name {
+            font-weight: 700;
+            background-color: #ffffff;
+        }
+        .excel-grid-table .td-tee-time {
+            font-weight: 700;
+            background-color: #ffffff;
+        }
+        .excel-grid-table .td-player {
+            font-weight: 700;
+            background-color: #ffffff;
+            white-space: nowrap;
+            letter-spacing: -0.3px;
+        }
+
+        /* 여성 참가자 연두색 하이라이트 (이미지 100% 일치 색상 #a9d08e) */
+        .excel-grid-table .td-player.is-female {
+            background-color: #a9d08e !important;
+            color: #000000 !important;
+            font-weight: 800;
+        }
+
+        /* 빈 슬롯 */
+        .excel-grid-table .td-player.is-empty {
+            background-color: #ffffff;
+            color: transparent;
+        }
+
+        /* 2. 카드형 뷰 스타일 */
+        .card-schedule-card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            padding: 30px 25px;
+            margin-bottom: 25px;
+            border: 1px solid #dce2e6;
+        }
+        .golf-header {
+            background: #1b4d3e;
+            background: linear-gradient(135deg, #1b4d3e 0%, #2e7d32 100%);
+            color: #fff;
+            padding: 2.2rem 1rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.12);
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .info-card {
+            background: #fff;
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.08);
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #2e7d32;
+        }
+        .table-tee-time {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.08);
+        }
+        .table-tee-time th {
+            background-color: #2e7d32;
+            color: #fff;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 0.95rem;
+            padding: 0.75rem;
+            border: none;
+        }
+        .player-badge-card {
+            background-color: #f8f9fc;
+            border: 1px solid #e3e6f0;
+            border-radius: 0.35rem;
+            padding: 0.4rem 0.6rem;
+            margin: 2px 0;
+            display: inline-block;
+            width: 100%;
+        }
+        .player-badge-card.is-female-card {
+            background-color: #eaf6ea;
+            border-color: #a9d08e;
+        }
+
+        /* 3. 시상 및 성적(리더보드) 전용 스타일 */
+        .award-banner-card {
+            border-radius: 0.75rem;
+            padding: 1.25rem 1rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #1f2d3d 0%, #34495e 100%);
+            color: #fff;
+            text-align: center;
+        }
+        .award-trophy-box {
+            background: #fff;
+            border: 2px solid #e3e6f0;
+            border-radius: 0.5rem;
+            padding: 1.1rem 0.8rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+            position: relative;
+        }
+        .award-trophy-box.award-gold {
+            border-color: #f6c23e;
+            background: linear-gradient(180deg, #fffcf0 0%, #fff 100%);
+        }
+        .award-trophy-box.award-silver {
+            border-color: #b0bec5;
+            background: linear-gradient(180deg, #f7f9fa 0%, #fff 100%);
+        }
+        .award-trophy-box.award-bronze {
+            border-color: #d7ccc8;
+            background: linear-gradient(180deg, #fbf9f8 0%, #fff 100%);
+        }
+        .award-trophy-box.award-lucky {
+            border-color: #81c784;
+            background: linear-gradient(180deg, #f1f8e9 0%, #fff 100%);
+        }
+        .award-trophy-box.award-special {
+            border-color: #90caf9;
+            background: linear-gradient(180deg, #f0f7ff 0%, #fff 100%);
+        }
+        .award-tag-top {
+            font-size: 0.95rem;
+            font-weight: 800;
+            padding: 0.35rem 0.75rem;
+            border-radius: 2rem;
+            display: inline-block;
+            margin-bottom: 0.6rem;
+        }
+        .award-winner-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #2e384d;
+            margin-bottom: 0.25rem;
+        }
+        .award-prize-text {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #e74a3b;
+        }
+        .table-leaderboard th {
+            background-color: #2c3e50;
+            color: #fff;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 0.92rem;
+            padding: 0.65rem 0.5rem;
+        }
+        .table-leaderboard td {
+            vertical-align: middle;
+            text-align: center;
+            padding: 0.6rem 0.5rem;
+            font-size: 0.92rem;
+        }
+        .table-leaderboard .td-female {
+            background-color: #a9d08e !important;
+            font-weight: 800;
+        }
+
+        /* 4. 인쇄 전용 스타일 (A4 가로 기준 최적화) */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 8mm 10mm;
+            }
+            body {
+                background-color: #fff !important;
+                padding: 0 !important;
+                color: #000 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .grid-schedule-card,
+            .card-schedule-card {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            body.print-mode-card #viewGridMode,
+            body.print-mode-card #viewLeaderboardMode {
+                display: none !important;
+            }
+            body.print-mode-card #viewCardMode {
+                display: block !important;
+            }
+            body.print-mode-grid #viewCardMode,
+            body.print-mode-grid #viewLeaderboardMode {
+                display: none !important;
+            }
+            body.print-mode-grid #viewGridMode {
+                display: block !important;
+            }
+            body.print-mode-leaderboard #viewGridMode,
+            body.print-mode-leaderboard #viewCardMode {
+                display: none !important;
+            }
+            body.print-mode-leaderboard #viewLeaderboardMode {
+                display: block !important;
+            }
+            .golf-header {
+                background: #1b4d3e !important;
+                color: #fff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+            }
+            .table-tee-time th {
+                background-color: #2e7d32 !important;
+                color: #fff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .table-leaderboard th {
+                background-color: #2c3e50 !important;
+                color: #fff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .excel-grid-table {
+                width: 100% !important;
+                border: 2px solid #000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .excel-grid-table th, 
+            .excel-grid-table td {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .excel-grid-table .th-course,
+            .excel-grid-table .th-time {
+                background-color: #d9d2e9 !important;
+            }
+            .excel-grid-table .th-roster-group {
+                background-color: #cfe2f3 !important;
+            }
+            .excel-grid-table .th-slot-num {
+                background-color: #d9e1f2 !important;
+            }
+            .excel-grid-table .td-player.is-female,
+            .table-leaderboard .td-female {
+                background-color: #a9d08e !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid py-4" style="max-width: 1300px;">
+
+    <!-- 상단 도구 모음: 탭 전환, 인쇄, 공유, 수정 (화면 출력용) -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 no-print">
+        <div class="d-flex align-items-center mb-2">
+            {% if circle_no %}
+            <a href="/circleRounding/{{ circle_no }}" class="btn btn-outline-secondary btn-sm mr-2 shadow-sm">
+                <i class="fas fa-arrow-left mr-1"></i>목록으로
+            </a>
+            {% else %}
+            <button type="button" class="btn btn-outline-secondary btn-sm mr-2 shadow-sm" onclick="window.history.back()">
+                <i class="fas fa-arrow-left mr-1"></i>뒤로가기
+            </button>
+            {% endif %}
+
+            <!-- 뷰 모드 전환 탭 (3개 모드) -->
+            <div class="btn-group btn-group-sm shadow-sm" role="group">
+                <button type="button" class="btn btn-success font-weight-bold" id="btnTabGrid" onclick="switchView('grid')">
+                    <i class="fas fa-table mr-1"></i>코스별 격자 시간표
+                </button>
+                <button type="button" class="btn btn-outline-secondary font-weight-bold" id="btnTabCard" onclick="switchView('card')">
+                    <i class="fas fa-th-list mr-1"></i>조별 상세 카드
+                </button>
+                <button type="button" class="btn btn-outline-secondary font-weight-bold" id="btnTabLeaderboard" onclick="switchView('leaderboard')">
+                    <i class="fas fa-trophy mr-1 text-warning"></i>시상 및 스코어 결과
+                    {% if has_awards %}
+                    <span class="badge badge-warning text-dark ml-1 font-weight-bold">{{ awards_list|length }}</span>
+                    {% endif %}
+                </button>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center flex-wrap mb-2">
+            <!-- 이미지 저장 버튼 & 드롭다운 -->
+            <div class="btn-group btn-group-sm shadow-sm mr-1">
+                <button type="button" class="btn btn-primary font-weight-bold" id="btnDownloadActiveImage" onclick="downloadScheduleImage('current')" title="현재 보고 있는 화면을 이미지로 다운로드">
+                    <i class="fas fa-camera mr-1"></i><span id="downloadBtnText">격자 시간표 이미지 저장</span>
+                </button>
+                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="저장 양식 선택">
+                    <span class="sr-only">드롭다운 메뉴</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right shadow">
+                    <a class="dropdown-item py-2 font-weight-bold" href="javascript:void(0)" onclick="downloadScheduleImage('grid')">
+                        <i class="fas fa-table text-success mr-2"></i>📊 코스별 격자 시간표 (양식) 저장
+                    </a>
+                    <a class="dropdown-item py-2 font-weight-bold" href="javascript:void(0)" onclick="downloadScheduleImage('card')">
+                        <i class="fas fa-th-list text-info mr-2"></i>📋 조별 상세 카드 이미지 저장
+                    </a>
+                    <a class="dropdown-item py-2 font-weight-bold" href="javascript:void(0)" onclick="downloadScheduleImage('leaderboard')">
+                        <i class="fas fa-trophy text-warning mr-2"></i>🏆 시상 및 스코어 결과 이미지 저장
+                    </a>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-dark btn-sm shadow-sm mr-1" onclick="printSchedule()" title="A4 가로 인쇄">
+                <i class="fas fa-print mr-1"></i>인쇄하기
+            </button>
+            <button type="button" class="btn btn-outline-success btn-sm shadow-sm mr-1" onclick="copyShareUrl()" title="회원 공유 링크 복사">
+                <i class="fas fa-share-alt mr-1"></i>링크 복사
+            </button>
+
+            {% if can_edit and circle_no %}
+            <a href="/circleRoundingScore/{{ circle_no }}/{{ rounding.roundingNo }}" class="btn btn-warning btn-sm shadow-sm text-dark font-weight-bold mr-1" title="참가자 스코어 입력 및 시상 내역 관리">
+                <i class="fas fa-medal mr-1"></i>스코어/시상 기록
+            </a>
+            <a href="/circleRoundingEdit/{{ circle_no }}/{{ rounding.roundingNo }}" class="btn btn-outline-success btn-sm shadow-sm">
+                <i class="fas fa-edit mr-1"></i>조편성 수정
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- [MODE 1] 코스별 격자 시간표 (업로드 이미지 100% 일치 양식) -->
+    <!-- ============================================================== -->
+    <div id="viewGridMode">
+        <div class="grid-schedule-card shadow" id="captureGridTarget">
+            <!-- 제목 영역 (밑줄 볼드 중앙정렬) -->
+            <div class="text-center">
+                <h1 class="table-main-title">
+                    {{ circle_name }} {{ rounding.roundingTitle }}
+                </h1>
+            </div>
+
+            <!-- 일시 / 장소 메타 영역 (■ 불릿) -->
+            <div class="schedule-meta-box">
+                <div><span class="bullet">■</span> 일시 : {{ rounding_date_kor if rounding_date_kor else rounding.roundingDate }}</div>
+                <div><span class="bullet">■</span> 장소 : {{ rounding.golfClubName }}{% if rounding.courseName %} ({{ rounding.courseName }}){% endif %}</div>
+                {% if rounding.greenFee %}
+                <div class="text-muted"><span class="bullet">■</span> 회비 : {{ rounding.greenFee }}</div>
+                {% endif %}
+                {% if rounding.memo %}
+                <div class="text-muted"><span class="bullet">■</span> 안내 : {{ rounding.memo }}</div>
+                {% endif %}
+            </div>
+
+            <!-- 코스별 병렬 격자 테이블 -->
+            <div class="excel-table-container">
+                <table class="excel-grid-table">
+                    <thead>
+                        <!-- 1행: 각 코스별 '코스', '시간', '조편성 명단 (직책생략)' -->
+                        <tr>
+                            {% for c in courses %}
+                            <th class="th-course course-start-col" rowspan="2">코스</th>
+                            <th class="th-time" rowspan="2">시간</th>
+                            <th class="th-roster-group course-end-col" colspan="4">조편성 명단 (직책생략)</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- 2행: 각 코스별 1, 2, 3, 4 번호 서브헤더 -->
+                        <tr>
+                            {% for c in courses %}
+                            <th class="th-slot-num">1</th>
+                            <th class="th-slot-num">2</th>
+                            <th class="th-slot-num">3</th>
+                            <th class="th-slot-num course-end-col">4</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r_slots in matrix_rows %}
+                        <tr>
+                            {% for slot in r_slots %}
+                            <!-- 코스명 -->
+                            <td class="td-course-name course-start-col">{{ slot.courseName }}</td>
+                            <!-- 티오프 시간 -->
+                            <td class="td-tee-time">{{ slot.teeTime if slot.hasTeam else '' }}</td>
+                            <!-- 1 ~ 4번 플레이어 (여성인 경우 연두색 #a9d08e 하이라이트) -->
+                            {% for p in slot.players %}
+                            <td class="td-player {% if p.isFemale %}is-female{% endif %} {% if not p.name %}is-empty{% endif %} {% if loop.last %}course-end-col{% endif %}">
+                                {{ p.name if p.name else '' }}
+                            </td>
+                            {% endfor %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        {% if not matrix_rows %}
+                        <tr>
+                            <td colspan="{{ courses|length * 6 }}" class="text-center py-4 text-muted">
+                                등록된 조 편성 정보가 없습니다.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 하단 범례 안내 (화면 및 이미지에 깔끔하게 포함) -->
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small border-top">
+                <div>
+                    <span class="badge" style="background-color: #a9d08e; color: #000; font-weight: 700; padding: 4px 8px; border: 1px solid #7f7f7f;">■ 연두색</span>
+                    <span class="ml-1 font-weight-bold">: 여성 회원</span>
+                    <span class="ml-3 text-secondary">* 직책은 생략 표기되었습니다.</span>
+                </div>
+                <div>
+                    <span>총 {{ total_players }}명 참가 ({{ teams|length }}개 조)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- [MODE 2] 조별 상세 카드 (핸디캡, 클럽명, 상세 메모 확인용) -->
+    <!-- ============================================================== -->
+    <div id="viewCardMode" style="display: none;">
+        <div class="card-schedule-card shadow" id="captureCardTarget">
+            <!-- 라운딩 헤더 배너 -->
+            <div class="golf-header text-center">
+                <span class="badge badge-warning text-dark font-weight-bold px-3 py-1 mb-2">
+                    <i class="fas fa-golf-ball mr-1"></i>{{ circle_name }}
+                </span>
+                <h1 class="h2 font-weight-bold mb-2">{{ rounding.roundingTitle }}</h1>
+                <p class="mb-0 text-white-50" style="font-size: 1.1rem;">
+                    <i class="far fa-calendar-alt mr-1"></i>{{ rounding_date_kor if rounding_date_kor else rounding.roundingDate }} &nbsp;|&nbsp;
+                    <i class="fas fa-map-marker-alt mr-1"></i>{{ rounding.golfClubName }} {% if rounding.courseName %}({{ rounding.courseName }}){% endif %}
+                </p>
+            </div>
+
+            <!-- 라운딩 상세 정보 카드 -->
+            <div class="info-card">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <strong class="text-muted mr-2"><i class="fas fa-map-marked-alt text-success mr-1"></i>골프장:</strong>
+                            <span class="font-weight-bold text-dark h5 mb-0">{{ rounding.golfClubName }}</span>
+                            {% if rounding.courseName %}
+                            <span class="badge badge-light border ml-1">{{ rounding.courseName }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2">
+                            <strong class="text-muted mr-2"><i class="far fa-calendar-check text-primary mr-1"></i>일 시:</strong>
+                            <span class="font-weight-bold text-dark">{{ rounding_date_kor if rounding_date_kor else rounding.roundingDate }} (첫 조 {{ rounding.roundingTime }})</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {% if rounding.greenFee %}
+                        <div class="mb-2">
+                            <strong class="text-muted mr-2"><i class="fas fa-won-sign text-warning mr-1"></i>회 비:</strong>
+                            <span class="font-weight-bold text-dark">{{ rounding.greenFee }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong class="text-muted mr-2"><i class="fas fa-users text-info mr-1"></i>규 모:</strong>
+                            <span class="font-weight-bold text-dark">총 {{ teams|length }}개 조 (참가 {{ total_players }}명)</span>
+                        </div>
+                    </div>
+                </div>
+                {% if rounding.memo %}
+                <hr class="my-2">
+                <div class="mt-2 text-gray-800 small">
+                    <strong class="text-success"><i class="fas fa-comment-alt mr-1"></i>안내사항 / 로컬룰:</strong>
+                    <p class="mb-0 mt-1" style="white-space: pre-line;">{{ rounding.memo }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 조별 상세 테이블 -->
+            <div class="table-responsive table-tee-time mb-3">
+                <table class="table table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">조</th>
+                            <th style="width: 130px;">티오프 시간</th>
+                            <th style="width: 120px;">코스</th>
+                            <th>참가자 명단 (1 ~ 4번 플레이어)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in teams %}
+                        <tr>
+                            <td class="text-center font-weight-bold text-success align-middle">
+                                <span class="badge badge-success px-3 py-2" style="font-size: 1rem;">{{ team.teamName }}</span>
+                            </td>
+                            <td class="text-center align-middle">
+                                <span class="text-danger font-weight-bold" style="font-size: 1.15rem;">
+                                    <i class="far fa-clock mr-1"></i>{{ team.teeTime if team.teeTime else '-' }}
+                                </span>
+                            </td>
+                            <td class="text-center align-middle">
+                                {% if team.courseName %}
+                                <span class="badge badge-primary font-weight-bold">{{ team.courseName }}</span>
+                                {% endif %}
+                                {% if team.memo %}
+                                <small class="text-muted d-block mt-1">{{ team.memo }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="row no-gutters">
+                                    {% for p in team.players %}
+                                    <div class="col-sm-6 col-md-3 px-1">
+                                        <div class="player-badge-card {% if p.isFemale %}is-female-card{% endif %}">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <span class="font-weight-bold text-dark">
+                                                    {{ p.memberName }}
+                                                    {% if p.isFemale %}
+                                                    <span class="badge badge-success text-white py-0 px-1 ml-1" style="font-size: 0.7rem;">여</span>
+                                                    {% endif %}
+                                                </span>
+                                                {% if p.handicap %}
+                                                <span class="badge badge-light border text-danger small font-weight-bold">H:{{ p.handicap }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="small text-truncate text-muted">
+                                                {{ p.clubName if p.clubName else '' }}
+                                                {% if p.rankTitle %}<span class="text-muted">· {{ p.rankTitle }}</span>{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                    {% if not team.players %}
+                                    <div class="col-12 text-muted small py-2 text-center">배정된 선수가 없습니다.</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 하단 푸터 / 안내 -->
+            <div class="d-flex justify-content-between align-items-center pt-2 text-muted small border-top">
+                <span>355-A 지구 회원 주소록 &bull; {{ circle_name }}</span>
+                <span>총 {{ total_players }}명 참가 ({{ teams|length }}개 조)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- [MODE 3] 시상 및 스코어 결과 (Leaderboard & Awards Showcase) -->
+    <!-- ============================================================== -->
+    <div id="viewLeaderboardMode" style="display: none;">
+        <div class="card-schedule-card shadow" id="captureLeaderboardTarget">
+            <!-- 상단 시상식 메인 배너 -->
+            <div class="award-banner-card">
+                <span class="badge badge-warning text-dark font-weight-bold px-3 py-1 mb-2">
+                    <i class="fas fa-trophy mr-1"></i>{{ circle_name }}
+                </span>
+                <h1 class="h2 font-weight-bold mb-2">{{ rounding.roundingTitle }}</h1>
+                <h4 class="h5 font-weight-bold text-warning mb-2">
+                    <i class="fas fa-medal mr-1"></i>대회 시상 및 성적 결과표
+                </h4>
+                <p class="mb-0 text-white-50" style="font-size: 1rem;">
+                    <i class="far fa-calendar-alt mr-1"></i>{{ rounding_date_kor if rounding_date_kor else rounding.roundingDate }} &nbsp;|&nbsp;
+                    <i class="fas fa-map-marker-alt mr-1"></i>{{ rounding.golfClubName }}{% if rounding.courseName %} ({{ rounding.courseName }}){% endif %}
+                </p>
+            </div>
+
+            <!-- 대회 총평 / 시상 공지 카드 -->
+            {% if award_memo %}
+            <div class="alert alert-warning border-left-warning shadow-sm mb-4">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-bullhorn fa-2x text-warning mr-3 mt-1"></i>
+                    <div>
+                        <strong class="text-dark d-block mb-1" style="font-size: 1.05rem;">
+                            <i class="fas fa-comment-dots mr-1"></i>대회 총평 및 시상 공지
+                        </strong>
+                        <p class="mb-0 text-dark" style="white-space: pre-line; line-height: 1.6;">{{ award_memo }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 1. 주요 수상자 포디움 쇼케이스 (우승, 메달, 행운상 등) -->
+            {% if awards_list %}
+            <div class="mb-4">
+                <h5 class="font-weight-bold text-gray-800 mb-3">
+                    <i class="fas fa-crown text-warning mr-1"></i>영광의 수상자 (Hall of Fame)
+                </h5>
+                <div class="row">
+                    {% for aw in awards_list %}
+                    {% set is_fem = aw.isFemale %}
+                    {% set aw_name = aw.awardName %}
+                    <div class="col-sm-6 col-lg-3 px-2">
+                        <div class="award-trophy-box shadow-sm {% if '우승' in aw_name %}award-gold{% elif '메달' in aw_name %}award-gold{% elif '준우승' in aw_name %}award-silver{% elif '3위' in aw_name %}award-bronze{% elif '행운' in aw_name %}award-lucky{% else %}award-special{% endif %}">
+                            <span class="award-tag-top {% if '우승' in aw_name %}badge-warning text-dark{% elif '메달' in aw_name %}badge-warning text-dark{% elif '준우승' in aw_name %}badge-secondary text-white{% elif '3위' in aw_name %}badge-secondary text-white{% elif '행운' in aw_name %}badge-success text-white{% else %}badge-info text-white{% endif %}">
+                                {% if '우승' in aw_name %}<i class="fas fa-trophy mr-1"></i>
+                                {% elif '메달' in aw_name %}<i class="fas fa-medal mr-1"></i>
+                                {% elif '행운' in aw_name %}<i class="fas fa-clover mr-1"></i>
+                                {% elif '롱기' in aw_name %}<i class="fas fa-golf-ball mr-1"></i>
+                                {% elif '니어' in aw_name %}<i class="fas fa-bullseye mr-1"></i>
+                                {% else %}<i class="fas fa-gift mr-1"></i>{% endif %}
+                                {{ aw_name }}
+                            </span>
+                            <div class="award-winner-name {% if is_fem %}text-success{% endif %}">
+                                {{ aw.memberName }}
+                                {% if is_fem %}<span class="badge badge-success py-0 px-1 ml-1" style="font-size: 0.7rem;">여</span>{% endif %}
+                            </div>
+                            <div class="small text-muted mb-1">{{ aw.clubName if aw.clubName else '소속' }} {% if aw.rankTitle %}&bull; {{ aw.rankTitle }}{% endif %}</div>
+                            {% if aw.grossScore %}
+                            <div class="small font-weight-bold text-dark mb-1">
+                                그로스: <span class="text-danger">{{ aw.grossScore }}타</span>
+                                {% if aw.netScore %}&nbsp;|&nbsp;네트: <span class="text-primary">{{ aw.netScore }}타</span>{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if aw.awardPrize %}
+                            <div class="award-prize-text mt-1">
+                                <i class="fas fa-gift mr-1"></i>{{ aw.awardPrize }}
+                            </div>
+                            {% endif %}
+                            {% if aw.scoreMemo %}
+                            <div class="small text-muted mt-1 font-italic">{{ aw.scoreMemo }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 2. 전체 성적 순위표 (Leaderboard Table) -->
+            {% if leaderboard %}
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="font-weight-bold text-gray-800 m-0">
+                        <i class="fas fa-list-ol text-primary mr-1"></i>전체 참가자 성적 순위표
+                    </h5>
+                    <span class="text-muted small">총 {{ leaderboard|length }}명 집계</span>
+                </div>
+
+                <div class="table-responsive shadow-sm" style="border-radius: 6px; overflow: hidden;">
+                    <table class="table table-bordered table-hover table-leaderboard mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">순위</th>
+                                <th style="width: 140px;">성명 (선수)</th>
+                                <th style="width: 130px;">소속 클럽</th>
+                                <th style="width: 75px;">핸디</th>
+                                <th style="width: 95px;">그로스(타수)</th>
+                                <th style="width: 95px;">네트 점수</th>
+                                <th style="width: 130px;">시상 내역</th>
+                                <th style="width: 160px;">부상 / 상품</th>
+                                <th>비고 / 메모</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in leaderboard %}
+                            {% set is_fem = p.isFemale %}
+                            <tr>
+                                <!-- 순위 -->
+                                <td>
+                                    {% if p.ranking == 1 %}
+                                    <span class="badge badge-warning text-dark font-weight-bold px-2 py-1" style="font-size: 0.95rem;">
+                                        <i class="fas fa-crown text-danger mr-1"></i>1위
+                                    </span>
+                                    {% elif p.ranking == 2 %}
+                                    <span class="badge badge-secondary font-weight-bold px-2 py-1" style="font-size: 0.95rem;">
+                                        <i class="fas fa-medal mr-1"></i>2위
+                                    </span>
+                                    {% elif p.ranking == 3 %}
+                                    <span class="badge badge-secondary font-weight-bold px-2 py-1" style="font-size: 0.95rem;">
+                                        <i class="fas fa-medal mr-1"></i>3위
+                                    </span>
+                                    {% elif p.ranking %}
+                                    <span class="font-weight-bold text-dark">{{ p.ranking }}위</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <!-- 성명 (여성은 연두색 하이라이트) -->
+                                <td class="{% if is_fem %}td-female{% endif %}">
+                                    <span class="font-weight-bold text-dark">{{ p.memberName }}</span>
+                                    {% if is_fem %}<span class="badge badge-success text-white py-0 px-1 ml-1" style="font-size: 0.7rem;">여</span>{% endif %}
+                                    {% if p.rankTitle %}<small class="text-muted d-block">{{ p.rankTitle }}</small>{% endif %}
+                                </td>
+                                <!-- 소속 -->
+                                <td class="small text-muted">{{ p.clubName if p.clubName else '-' }}</td>
+                                <!-- 핸디캡 -->
+                                <td class="font-weight-bold text-muted">{{ p.handicap if p.handicap else '-' }}</td>
+                                <!-- 그로스 -->
+                                <td class="font-weight-bold text-danger" style="font-size: 1.05rem;">
+                                    {{ p.grossScore if p.grossScore is not none else '-' }}
+                                </td>
+                                <!-- 네트 -->
+                                <td class="font-weight-bold text-primary" style="font-size: 1.05rem;">
+                                    {{ p.netScore if p.netScore is not none else '-' }}
+                                </td>
+                                <!-- 시상명 -->
+                                <td>
+                                    {% if p.awardName %}
+                                    <span class="badge {% if '우승' in p.awardName or '메달' in p.awardName %}badge-warning text-dark{% elif '행운' in p.awardName %}badge-success{% else %}badge-info{% endif %} font-weight-bold px-2 py-1" style="font-size: 0.85rem;">
+                                        {% if '우승' in p.awardName %}<i class="fas fa-trophy mr-1"></i>
+                                        {% elif '메달' in p.awardName %}<i class="fas fa-medal mr-1"></i>
+                                        {% elif '행운' in p.awardName %}<i class="fas fa-clover mr-1"></i>
+                                        {% endif %}
+                                        {{ p.awardName }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <!-- 부상 -->
+                                <td class="small font-weight-bold text-danger text-left">
+                                    {{ p.awardPrize if p.awardPrize else '-' }}
+                                </td>
+                                <!-- 비고 -->
+                                <td class="small text-muted text-left">
+                                    {{ p.scoreMemo if p.scoreMemo else '' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 스코어 / 시상 미입력 상태 안내 카드 -->
+            {% if not leaderboard and not awards_list %}
+            <div class="text-center py-5 bg-light rounded border my-3">
+                <i class="fas fa-hourglass-half fa-3x text-warning mb-3"></i>
+                <h5 class="font-weight-bold text-gray-700">성적 및 시상 결과 집계 중</h5>
+                <p class="text-muted small mb-3">
+                    현재 라운딩이 진행 중이거나 스코어 집계 및 시상 결과가 아직 등록되지 않았습니다.<br>
+                    경기 종료 후 관리자가 성적과 수상 내역을 등록하면 본 화면에 순위표와 명예의 전당이 발표됩니다.
+                </p>
+                {% if can_edit and circle_no %}
+                <a href="/circleRoundingScore/{{ circle_no }}/{{ rounding.roundingNo }}" class="btn btn-warning btn-sm shadow-sm font-weight-bold text-dark">
+                    <i class="fas fa-trophy mr-1"></i>지금 스코어 및 시상 기록하기
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- 하단 푸터 / 안내 -->
+            <div class="d-flex justify-content-between align-items-center pt-2 text-muted small border-top">
+                <span>355-A 지구 회원 주소록 &bull; {{ circle_name }} 골프 라운딩</span>
+                <span>총 {{ total_players }}명 참가 ({{ teams|length }}개 조)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 푸터 안내 (화면용) -->
+    <div class="text-center text-muted small py-3 no-print">
+        <span>355-A 지구 회원 주소록 &bull; {{ circle_name }} 골프 라운딩 시간표</span>
+    </div>
+</div>
+
+<!-- jQuery & Bootstrap Bundle JS (드롭다운 동작용) -->
+<script src="/static/js/jquery/jquery_3.5.1.js"></script>
+<script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+<!-- html2canvas 라이브러리 (이미지 저장용) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+    let currentViewMode = 'grid';
+
+    // 뷰 전환 함수 (grid, card, leaderboard)
+    function switchView(mode) {
+        currentViewMode = mode;
+        const gridView = document.getElementById('viewGridMode');
+        const cardView = document.getElementById('viewCardMode');
+        const lbView = document.getElementById('viewLeaderboardMode');
+
+        const btnGrid = document.getElementById('btnTabGrid');
+        const btnCard = document.getElementById('btnTabCard');
+        const btnLb = document.getElementById('btnTabLeaderboard');
+        const downloadBtnText = document.getElementById('downloadBtnText');
+
+        // 전체 비활성화 리셋
+        gridView.style.display = 'none';
+        cardView.style.display = 'none';
+        lbView.style.display = 'none';
+
+        btnGrid.className = 'btn btn-outline-secondary font-weight-bold';
+        btnCard.className = 'btn btn-outline-secondary font-weight-bold';
+        btnLb.className = 'btn btn-outline-secondary font-weight-bold';
+
+        if (mode === 'grid') {
+            gridView.style.display = 'block';
+            btnGrid.className = 'btn btn-success font-weight-bold';
+            if (downloadBtnText) downloadBtnText.textContent = '격자 시간표 이미지 저장';
+        } else if (mode === 'card') {
+            cardView.style.display = 'block';
+            btnCard.className = 'btn btn-success font-weight-bold';
+            if (downloadBtnText) downloadBtnText.textContent = '조별 상세카드 이미지 저장';
+        } else if (mode === 'leaderboard') {
+            lbView.style.display = 'block';
+            btnLb.className = 'btn btn-warning text-dark font-weight-bold shadow-sm';
+            if (downloadBtnText) downloadBtnText.textContent = '시상 결과 이미지 저장';
+        }
+    }
+
+    // URL 파라미터 체크 (예: ?tab=leaderboard)
+    document.addEventListener("DOMContentLoaded", function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqTab = urlParams.get('tab');
+        if (reqTab === 'leaderboard') {
+            switchView('leaderboard');
+        } else if (reqTab === 'card') {
+            switchView('card');
+        } else {
+            // 시상 완료 및 공개 상태인 경우 시상 탭 알림 또는 기본 격자표 유지
+            switchView('grid');
+        }
+    });
+
+    // 인쇄 실행 (현재 활성화된 탭 기준 인쇄)
+    function printSchedule() {
+        document.body.classList.remove('print-mode-grid', 'print-mode-card', 'print-mode-leaderboard');
+        if (currentViewMode === 'card') {
+            document.body.classList.add('print-mode-card');
+        } else if (currentViewMode === 'leaderboard') {
+            document.body.classList.add('print-mode-leaderboard');
+        } else {
+            document.body.classList.add('print-mode-grid');
+        }
+        setTimeout(() => {
+            window.print();
+        }, 150);
+    }
+
+    // 이미지 파일로 다운로드 (html2canvas)
+    // targetMode: 'current', 'grid', 'card', 'leaderboard'
+    async function downloadScheduleImage(targetMode = 'current') {
+        if (typeof html2canvas === 'undefined') {
+            alert("이미지 생성 라이브러리를 로드하는 중입니다. 잠시 후 다시 시도해 주시거나 인쇄(PDF) 기능을 사용해 주세요.");
+            return;
+        }
+
+        const mode = (targetMode === 'current') ? currentViewMode : targetMode;
+        const gridView = document.getElementById('viewGridMode');
+        const cardView = document.getElementById('viewCardMode');
+        const lbView = document.getElementById('viewLeaderboardMode');
+
+        let targetElement = null;
+        let fileNameSuffix = '';
+
+        const prevGridDisplay = gridView.style.display;
+        const prevCardDisplay = cardView.style.display;
+        const prevLbDisplay = lbView.style.display;
+
+        // 캡처 대상 엘리먼트 가시화
+        gridView.style.display = 'none';
+        cardView.style.display = 'none';
+        lbView.style.display = 'none';
+
+        if (mode === 'card') {
+            cardView.style.display = 'block';
+            targetElement = document.getElementById('captureCardTarget');
+            fileNameSuffix = '조별상세카드';
+        } else if (mode === 'leaderboard') {
+            lbView.style.display = 'block';
+            targetElement = document.getElementById('captureLeaderboardTarget');
+            fileNameSuffix = '시상및성적결과';
+        } else {
+            gridView.style.display = 'block';
+            targetElement = document.getElementById('captureGridTarget');
+            fileNameSuffix = '격자시간표';
+        }
+
+        if (!targetElement) {
+            gridView.style.display = prevGridDisplay;
+            cardView.style.display = prevCardDisplay;
+            lbView.style.display = prevLbDisplay;
+            return;
+        }
+
+        // 버튼 상태 표시
+        const mainBtn = document.getElementById('btnDownloadActiveImage');
+        const origBtnHtml = mainBtn ? mainBtn.innerHTML : '';
+        if (mainBtn) {
+            mainBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>이미지 생성중...';
+            mainBtn.disabled = true;
+        }
+
+        const prevOverflow = targetElement.style.overflow;
+        targetElement.style.overflow = 'visible';
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            const canvas = await html2canvas(targetElement, {
+                scale: 2, // 고해상도 2배율 캡처
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                windowWidth: Math.max(targetElement.scrollWidth, 1100)
+            });
+
+            const link = document.createElement('a');
+            const safeTitle = '{{ circle_name }}_{{ rounding.roundingTitle }}'.replace(/[/\\?%*:|"<>]/g, '_');
+            link.download = `${safeTitle}_${fileNameSuffix}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error("html2canvas error:", err);
+            alert("이미지 생성 중 오류가 발생했습니다. 브라우저의 [인쇄하기] 메뉴에서 PDF로 저장하실 수 있습니다.");
+        } finally {
+            targetElement.style.overflow = prevOverflow;
+            gridView.style.display = prevGridDisplay;
+            cardView.style.display = prevCardDisplay;
+            lbView.style.display = prevLbDisplay;
+            if (mainBtn) {
+                mainBtn.innerHTML = origBtnHtml;
+                mainBtn.disabled = false;
+            }
+        }
+    }
+
+    // 링크 복사
+    function copyShareUrl() {
+        const url = window.location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert("라운딩 및 시상 결과 링크가 복사되었습니다!\n카카오톡이나 단체 대화방에 붙여넣기(Ctrl+V)하여 공유하세요.");
+            }).catch(() => {
+                promptCopy(url);
+            });
+        } else {
+            promptCopy(url);
+        }
+    }
+
+    function promptCopy(text) {
+        window.prompt("아래 링크를 복사(Ctrl+C)하여 공유하세요:", text);
+    }
+</script>
+</body>
+</html>

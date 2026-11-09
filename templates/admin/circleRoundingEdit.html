@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/comm/adheader.html' %}
+    <style>
+        .team-box {
+            border: 2px solid #e3e6f0;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s;
+        }
+        .team-box:hover {
+            border-color: #1cc88a;
+        }
+        .team-header {
+            background-color: #f8f9fc;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e3e6f0;
+            border-top-left-radius: 0.45rem;
+            border-top-right-radius: 0.45rem;
+        }
+        .player-row {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px dashed #eaecf4;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .player-row:last-child {
+            border-bottom: none;
+        }
+        .player-row.female-row {
+            background-color: #eaf6ea;
+        }
+        .member-badge-assigned {
+            opacity: 0.5;
+            background-color: #eaecf4 !important;
+            color: #858796 !important;
+            cursor: not-allowed !important;
+        }
+        .circle-member-item {
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            background-color: #f8f9fc;
+            border: 1px solid #e3e6f0;
+            transition: all 0.15s;
+        }
+        .circle-member-item:hover:not(.member-badge-assigned) {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            transform: translateX(3px);
+        }
+        .member-list-scroll {
+            max-height: 580px;
+            overflow-y: auto;
+        }
+        .preset-badge-btn {
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/comm/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/comm/adtopbar.html' %}
+            <div class="container-fluid">
+                <!-- 헤더 영역 -->
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h1 class="h3 mb-1 text-gray-800">
+                            <i class="fas fa-golf-ball text-success mr-2"></i>{{ circledtl[1] }} 라운딩 시간표 {% if rounding %}수정{% else %}작성{% endif %}
+                        </h1>
+                        <p class="text-muted small mb-0">골프장 정보와 조별 티오프 시간 및 참가자 배정 시간표를 작성합니다.</p>
+                    </div>
+                    <div>
+                        <a href="/circleRounding/{{ circledtl[0] }}" class="btn btn-secondary btn-sm shadow-sm mr-2">
+                            <i class="fas fa-list fa-sm mr-1"></i>목록으로
+                        </a>
+                        <button type="button" class="btn btn-success btn-sm shadow-sm font-weight-bold" onclick="saveRounding()">
+                            <i class="fas fa-save fa-sm mr-1"></i>시간표 저장
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- 좌측: 기본 정보 및 조별 시간표 (8컬럼) -->
+                    <div class="col-xl-8 col-lg-7">
+                        <!-- 1. 라운딩 기본 정보 카드 -->
+                        <div class="card shadow mb-4">
+                            <div class="card-header py-3 bg-gradient-success text-white">
+                                <h6 class="m-0 font-weight-bold"><i class="fas fa-info-circle mr-1"></i>라운딩 기본 정보</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="roundingBasicForm">
+                                    <input type="hidden" id="circleNo" value="{{ circledtl[0] }}">
+                                    <input type="hidden" id="roundingNo" value="{{ rounding[0] if rounding else 0 }}">
+
+                                    <div class="form-row">
+                                        <div class="form-group col-md-8">
+                                            <label class="font-weight-bold text-gray-800">라운딩 명칭 <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="roundingTitle" placeholder="예: 2026년 11월 정기 월례회" value="{{ rounding[2] if rounding else '' }}" required>
+                                        </div>
+                                        <div class="form-group col-md-4">
+                                            <label class="font-weight-bold text-gray-800">게시 상태</label>
+                                            <select class="form-control" id="isPublished">
+                                                <option value="Y" {% if not rounding or rounding[9] == 'Y' %}selected{% endif %}>게시중 (회원 열람 가능)</option>
+                                                <option value="N" {% if rounding and rounding[9] == 'N' %}selected{% endif %}>미게시 (임시저장/작성중)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group col-md-6">
+                                            <label class="font-weight-bold text-gray-800">골프장명 <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-map-marker-alt text-success"></i></span></div>
+                                                <input type="text" class="form-control" id="golfClubName" placeholder="예: 베이사이드GC, 양산CC" value="{{ rounding[3] if rounding else '' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-md-6">
+                                            <label class="font-weight-bold text-gray-800">코스명 (요약)</label>
+                                            <input type="text" class="form-control" id="courseName" placeholder="예: 누리 / 가온 / 마루, Out / In" value="{{ rounding[4] if rounding and rounding[4] else '' }}">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group col-md-4">
+                                            <label class="font-weight-bold text-gray-800">라운딩 일자 <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend"><span class="input-group-text"><i class="far fa-calendar-alt text-primary"></i></span></div>
+                                                <input type="date" class="form-control" id="roundingDate" value="{{ rounding[5] if rounding else '' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-md-4">
+                                            <label class="font-weight-bold text-gray-800">첫 조 티오프 / 집결시간 <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend"><span class="input-group-text"><i class="far fa-clock text-warning"></i></span></div>
+                                                <input type="time" class="form-control font-weight-bold" id="roundingTime" value="{{ rounding[6] if rounding else '11:35' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="form-group col-md-4">
+                                            <label class="font-weight-bold text-gray-800">그린피 / 회비</label>
+                                            <input type="text" class="form-control" id="greenFee" placeholder="예: 250,000원 (카트/식대포함)" value="{{ rounding[7] if rounding and rounding[7] else '' }}">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group mb-0">
+                                        <label class="font-weight-bold text-gray-800">공지사항 및 로컬룰 메모</label>
+                                        <textarea class="form-control" id="memo" rows="2" placeholder="예: 7분 간격 티오프입니다. 30분 전 클럽하우스 2층 단체실에 집결해 주세요.">{{ rounding[8] if rounding and rounding[8] else '' }}</textarea>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- 2. 조별 티오프 시간표 및 참가자 편성 영역 -->
+                        <div class="card shadow mb-4">
+                            <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white flex-wrap">
+                                <h6 class="m-0 font-weight-bold text-gray-800">
+                                    <i class="fas fa-users-cog text-primary mr-1"></i>조 편성 및 참가 시간표
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <button type="button" class="btn btn-primary btn-sm shadow-sm font-weight-bold" onclick="addNewTeam()">
+                                        <i class="fas fa-plus mr-1"></i>조 추가
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- 코스 프리셋 및 동시 티오프 자동계산 툴바 -->
+                                <div class="card mb-3 bg-light border">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                            <!-- 코스 프리셋 버튼군 -->
+                                            <div class="d-flex align-items-center flex-wrap mb-1 mb-md-0">
+                                                <span class="font-weight-bold text-dark small mr-2"><i class="fas fa-layer-group text-primary mr-1"></i>코스 프리셋:</span>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 mr-1 mb-1 font-weight-bold" onclick="applyCoursePreset(['누리', '가온', '마루'])">
+                                                    누리/가온/마루 (3코스)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 mr-1 mb-1 font-weight-bold" onclick="applyCoursePreset(['Out', 'In'])">
+                                                    Out/In (2코스)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 mr-1 mb-1 font-weight-bold" onclick="applyCoursePreset(['동', '서', '남'])">
+                                                    동/서/남 (3코스)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 mr-1 mb-1 font-weight-bold" onclick="applyCoursePreset(['동', '서'])">
+                                                    동/서 (2코스)
+                                                </button>
+                                            </div>
+
+                                            <!-- 간격 및 티오프 계산 버튼군 -->
+                                            <div class="d-flex align-items-center flex-wrap">
+                                                <div class="input-group input-group-sm mr-1 mb-1" style="width: 120px;">
+                                                    <div class="input-group-prepend"><span class="input-group-text py-0">간격</span></div>
+                                                    <input type="number" id="intervalMinutes" class="form-control form-control-sm text-center font-weight-bold py-0" value="7" min="1" max="60">
+                                                    <div class="input-group-append"><span class="input-group-text py-0">분</span></div>
+                                                </div>
+                                                <button type="button" class="btn btn-success btn-sm py-1 px-2 mr-1 mb-1 font-weight-bold shadow-sm" onclick="calcSimultaneousTeeTimes()" title="코스별로 동일 시간대(동시 티오프)를 자동 계산">
+                                                    <i class="fas fa-magic mr-1"></i>동시 티오프 계산
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 mb-1" onclick="calcSequentialTeeTimes()" title="1조부터 끝조까지 순차 계산">
+                                                    순차 계산
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="teamsContainer">
+                                    <!-- 조 박스들이 여기에 동적으로 생성됩니다 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 우측: 써클 회원 명단 퀵 패널 (4컬럼) -->
+                    <div class="col-xl-4 col-lg-5">
+                        <div class="card shadow mb-4 sticky-top" style="top: 20px; z-index: 10;">
+                            <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+                                <h6 class="m-0 font-weight-bold text-gray-800">
+                                    <i class="fas fa-user-friends text-info mr-1"></i>써클 회원 명단 (총 {{ cmembers|length }}명)
+                                </h6>
+                                <span class="badge badge-success" id="assignedCountBadge">0명 배정됨</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="form-group mb-2">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="memberSearchInput" class="form-control" placeholder="회원명, 성별(여/남), 클럽 검색..." onkeyup="filterMemberList()">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('memberSearchInput').value=''; filterMemberList();">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted d-block mt-1">
+                                        회원을 클릭하면 빈 슬롯에 자동 배정됩니다. (여성 회원은 <span class="badge badge-success" style="font-size: 0.7rem;">여</span>로 표시)
+                                    </small>
+                                </div>
+
+                                <div class="member-list-scroll" id="memberListContainer">
+                                    {% for m in cmembers %}
+                                    {% set is_female = (m.memberMF and (m.memberMF == 'F' or m.memberMF == '여')) %}
+                                    <div class="circle-member-item d-flex justify-content-between align-items-center"
+                                         id="member-item-{{ m.memberNo }}"
+                                         data-memberno="{{ m.memberNo }}"
+                                         data-membername="{{ m.memberName }}"
+                                         data-membermf="{{ m.memberMF if m.memberMF else '' }}"
+                                         data-clubname="{{ m.clubName if m.clubName else '' }}"
+                                         data-ranktitle="{{ m.circleRanktitle if m.circleRanktitle else (m.rankTitlekor if m.rankTitlekor else '') }}"
+                                         onclick="assignMemberToNextEmptySlot({{ m.memberNo }}, '{{ m.memberName }}', '{{ m.clubName if m.clubName else '' }}', '{{ m.circleRanktitle if m.circleRanktitle else (m.rankTitlekor if m.rankTitlekor else '') }}', '{{ m.memberMF if m.memberMF else '' }}')">
+                                        <div>
+                                            <span class="font-weight-bold text-dark">{{ m.memberName }}</span>
+                                            {% if is_female %}
+                                            <span class="badge badge-success ml-1" style="font-size: 0.72rem; padding: 2px 4px;">여</span>
+                                            {% else %}
+                                            <span class="badge badge-light border text-muted ml-1" style="font-size: 0.72rem; padding: 2px 4px;">남</span>
+                                            {% endif %}
+                                            <small class="text-muted ml-1">({{ m.clubName if m.clubName else '소속' }})</small>
+                                            {% if m.circleRanktitle %}
+                                            <span class="badge badge-info ml-1" style="font-size: 0.72rem;">{{ m.circleRanktitle }}</span>
+                                            {% elif m.rankTitlekor %}
+                                            <span class="badge badge-light border ml-1" style="font-size: 0.72rem;">{{ m.rankTitlekor }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 assign-btn" style="font-size: 0.8rem;">
+                                                <i class="fas fa-user-plus mr-1"></i>배정
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                    {% if not cmembers %}
+                                    <div class="text-center py-4 text-muted small">
+                                        등록된 써클 회원이 없습니다.<br>[써클회원관리]에서 회원을 먼저 추가해 주세요.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+
+{% include '/comm/adscript.html' %}
+
+<script>
+    // 기존 데이터 로드 (수정 모드일 때)
+    const initialTeamsData = {{ existing_teams_json | safe if existing_teams_json else '[]' }};
+    let teamCounter = 0;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        if (initialTeamsData && initialTeamsData.length > 0) {
+            initialTeamsData.forEach(team => {
+                renderTeamBox(team);
+            });
+        } else {
+            // 신규 작성 시 기본 6개 조 (3코스 각 2조) 생성
+            const defaultCourses = ['누리', '가온', '마루'];
+            for (let i = 1; i <= 6; i++) {
+                const cName = defaultCourses[(i - 1) % defaultCourses.length];
+                renderTeamBox({
+                    teamName: `${i}조`,
+                    teeTime: '',
+                    courseName: cName,
+                    memo: '',
+                    players: []
+                });
+            }
+            calcSimultaneousTeeTimes();
+        }
+        updateAssignedBadges();
+    });
+
+    // 조 렌더링 함수
+    function renderTeamBox(teamData) {
+        teamCounter++;
+        const teamId = `team_${teamCounter}`;
+        const container = document.getElementById('teamsContainer');
+
+        const box = document.createElement('div');
+        box.className = 'team-box shadow-sm';
+        box.id = teamId;
+
+        const teamName = teamData.teamName || `${teamCounter}조`;
+        const teeTime = teamData.teeTime || '';
+        const courseName = teamData.courseName || '';
+        const teamMemo = teamData.memo || '';
+
+        box.innerHTML = `
+            <div class="team-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center flex-wrap">
+                    <div class="input-group input-group-sm mr-2 mb-1" style="width: 110px;">
+                        <input type="text" class="form-control font-weight-bold text-primary team-name-input" value="${escapeHtml(teamName)}" placeholder="조 명칭">
+                    </div>
+                    <div class="input-group input-group-sm mr-2 mb-1" style="width: 130px;">
+                        <div class="input-group-prepend"><span class="input-group-text"><i class="far fa-clock"></i></span></div>
+                        <input type="time" class="form-control font-weight-bold team-time-input" value="${escapeHtml(teeTime)}">
+                    </div>
+                    <div class="input-group input-group-sm mr-2 mb-1" style="width: 120px;">
+                        <input type="text" class="form-control team-course-input font-weight-bold" value="${escapeHtml(courseName)}" placeholder="코스명">
+                    </div>
+                    <div class="input-group input-group-sm mr-2 mb-1" style="width: 160px;">
+                        <input type="text" class="form-control team-memo-input" value="${escapeHtml(teamMemo)}" placeholder="메모 (카트번호 등)">
+                    </div>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeTeam('${teamId}')" title="조 삭제">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-2">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr class="text-muted small border-bottom">
+                            <th style="width: 50px;" class="text-center">슬롯</th>
+                            <th style="width: 65px;" class="text-center">성별</th>
+                            <th style="width: 25%;">성명 (회원/게스트)</th>
+                            <th style="width: 23%;">소속 클럽</th>
+                            <th style="width: 18%;">직책</th>
+                            <th style="width: 14%;">핸디</th>
+                            <th style="width: 40px;" class="text-center">비우기</th>
+                        </tr>
+                    </thead>
+                    <tbody class="players-tbody">
+                        ${renderPlayerRows(teamData.players || [])}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.appendChild(box);
+    }
+
+    // 4개 플레이어 슬롯 렌더링 (성별 토글 & 연두색 하이라이트 포함)
+    function renderPlayerRows(players) {
+        let html = '';
+        for (let i = 0; i < 4; i++) {
+            const p = players[i] || {};
+            const pMF = (p.memberMF || '').toUpperCase();
+            const isFemale = (pMF === 'F' || pMF === '여');
+            const rowStyle = isFemale ? 'style="background-color: #eaf6ea;"' : '';
+
+            html += `
+                <tr class="player-row ${isFemale ? 'female-row' : ''}" data-slot="${i+1}" ${rowStyle}>
+                    <td class="text-center font-weight-bold text-muted small align-middle">
+                        ${i+1}번
+                    </td>
+                    <td class="text-center align-middle">
+                        <input type="hidden" class="player-mf" value="${isFemale ? 'F' : (pMF ? pMF : 'M')}">
+                        <button type="button" class="btn btn-sm btn-mf-toggle ${isFemale ? 'btn-success font-weight-bold' : 'btn-outline-secondary'}" 
+                                onclick="togglePlayerGender(this)" style="font-size: 0.75rem; padding: 2px 5px;" title="클릭하여 남성/여성(연두색) 전환">
+                            ${isFemale ? '여성' : '남성'}
+                        </button>
+                    </td>
+                    <td>
+                        <input type="hidden" class="player-memberno" value="${p.memberNo || ''}">
+                        <input type="text" class="form-control form-control-sm font-weight-bold player-name" 
+                               value="${escapeHtml(p.memberName || '')}" placeholder="성명 (우측 클릭)">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm player-club" value="${escapeHtml(p.clubName || '')}" placeholder="클럽명">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm player-rank" value="${escapeHtml(p.rankTitle || '')}" placeholder="직책">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm text-center player-handicap" value="${escapeHtml(p.handicap || '')}" placeholder="핸디">
+                    </td>
+                    <td class="text-center align-middle">
+                        <button type="button" class="btn btn-sm text-danger p-0" onclick="clearPlayerRow(this)" title="슬롯 비우기">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+        return html;
+    }
+
+    // 플레이어 성별 토글 (남성 / 여성)
+    function togglePlayerGender(btn) {
+        const tr = btn.closest('tr');
+        const mfInput = tr.querySelector('.player-mf');
+        const isCurrentlyFemale = (mfInput.value === 'F' || mfInput.value === '여');
+
+        if (isCurrentlyFemale) {
+            mfInput.value = 'M';
+            btn.className = 'btn btn-sm btn-mf-toggle btn-outline-secondary';
+            btn.textContent = '남성';
+            tr.classList.remove('female-row');
+            tr.style.backgroundColor = '';
+        } else {
+            mfInput.value = 'F';
+            btn.className = 'btn btn-sm btn-mf-toggle btn-success font-weight-bold';
+            btn.textContent = '여성';
+            tr.classList.add('female-row');
+            tr.style.backgroundColor = '#eaf6ea';
+        }
+    }
+
+    // 조 추가
+    function addNewTeam() {
+        const currentCount = document.querySelectorAll('.team-box').length;
+        const defaultCourses = ['누리', '가온', '마루'];
+        const cName = defaultCourses[currentCount % defaultCourses.length];
+
+        renderTeamBox({
+            teamName: `${currentCount + 1}조`,
+            teeTime: '',
+            courseName: cName,
+            memo: '',
+            players: []
+        });
+        calcSimultaneousTeeTimes();
+    }
+
+    // 조 삭제
+    function removeTeam(teamId) {
+        if (document.querySelectorAll('.team-box').length <= 1) {
+            alert("최소 1개 조는 유지되어야 합니다.");
+            return;
+        }
+        const elem = document.getElementById(teamId);
+        if (elem) {
+            elem.remove();
+            updateAssignedBadges();
+        }
+    }
+
+    // 플레이어 슬롯 비우기
+    function clearPlayerRow(btn) {
+        const tr = btn.closest('tr');
+        tr.querySelector('.player-memberno').value = '';
+        tr.querySelector('.player-name').value = '';
+        tr.querySelector('.player-club').value = '';
+        tr.querySelector('.player-rank').value = '';
+        tr.querySelector('.player-handicap').value = '';
+        tr.querySelector('.player-mf').value = 'M';
+        const mfBtn = tr.querySelector('.btn-mf-toggle');
+        if (mfBtn) {
+            mfBtn.className = 'btn btn-sm btn-mf-toggle btn-outline-secondary';
+            mfBtn.textContent = '남성';
+        }
+        tr.classList.remove('female-row');
+        tr.style.backgroundColor = '';
+        updateAssignedBadges();
+    }
+
+    // 코스 프리셋 적용 함수
+    function applyCoursePreset(courseArray) {
+        if (!courseArray || courseArray.length === 0) return;
+        const boxes = document.querySelectorAll('.team-box');
+        if (boxes.length === 0) return;
+
+        // 순환 배정: 1조->코스[0], 2조->코스[1], 3조->코스[2], 4조->코스[0]...
+        boxes.forEach((box, idx) => {
+            const cInput = box.querySelector('.team-course-input');
+            if (cInput) {
+                cInput.value = courseArray[idx % courseArray.length];
+            }
+        });
+
+        // 기본 정보의 코스명 필드에도 등록
+        const mainCourseInput = document.getElementById('courseName');
+        if (mainCourseInput) {
+            mainCourseInput.value = courseArray.join(' / ');
+        }
+
+        // 동시 티오프 계산 자동 실행
+        calcSimultaneousTeeTimes();
+    }
+
+    // 코스별 동시 티오프 계산 (누리 1조, 가온 1조, 마루 1조는 같은 시간에 티오프)
+    function calcSimultaneousTeeTimes() {
+        const startTime = document.getElementById('roundingTime').value || '11:35';
+        const interval = parseInt(document.getElementById('intervalMinutes').value, 10) || 7;
+        const [startH, startM] = startTime.split(':').map(Number);
+
+        const boxes = document.querySelectorAll('.team-box');
+        // 각 코스별로 몇 번째 조인지(wave index) 카운트
+        const courseWaveMap = {};
+
+        boxes.forEach(box => {
+            const cName = box.querySelector('.team-course-input').value.trim() || '기본코스';
+            if (courseWaveMap[cName] === undefined) {
+                courseWaveMap[cName] = 0;
+            }
+            const waveIndex = courseWaveMap[cName];
+            courseWaveMap[cName]++;
+
+            const totalMinutes = (startH * 60 + startM) + (waveIndex * interval);
+            const h = Math.floor(totalMinutes / 60) % 24;
+            const m = totalMinutes % 60;
+            const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+            const timeInput = box.querySelector('.team-time-input');
+            if (timeInput) {
+                timeInput.value = timeStr;
+            }
+        });
+    }
+
+    // 단일코스 순차 티오프 계산 (1조, 2조, 3조, ...)
+    function calcSequentialTeeTimes() {
+        const startTime = document.getElementById('roundingTime').value || '11:35';
+        const interval = parseInt(document.getElementById('intervalMinutes').value, 10) || 7;
+        const [startH, startM] = startTime.split(':').map(Number);
+
+        const boxes = document.querySelectorAll('.team-box');
+        boxes.forEach((box, index) => {
+            const totalMinutes = (startH * 60 + startM) + (index * interval);
+            const h = Math.floor(totalMinutes / 60) % 24;
+            const m = totalMinutes % 60;
+            const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            const timeInput = box.querySelector('.team-time-input');
+            if (timeInput) {
+                timeInput.value = timeStr;
+            }
+        });
+    }
+
+    // 우측 명단에서 비어있는 다음 슬롯에 회원 자동 배정
+    function assignMemberToNextEmptySlot(memberNo, memberName, clubName, rankTitle, memberMF) {
+        // Lions 회원은 이름 끝에 'L' 접미사 부착 (예: 제종모L)
+        let displayName = memberName.trim();
+        if (!displayName.endsWith('L')) {
+            displayName += 'L';
+        }
+
+        // 이미 배정된 회원인지 체크
+        const existingSlot = Array.from(document.querySelectorAll('.player-memberno')).find(input => input.value == memberNo);
+        if (existingSlot) {
+            if (!confirm(`${displayName} 회원은 이미 배정되어 있습니다. 다른 슬롯에 추가로 배정하시겠습니까?`)) {
+                return;
+            }
+        }
+
+        // 비어있는 슬롯 찾기
+        const emptySlot = Array.from(document.querySelectorAll('.player-name')).find(input => input.value.trim() === '');
+        if (!emptySlot) {
+            addNewTeam();
+            setTimeout(() => {
+                assignMemberToNextEmptySlot(memberNo, memberName, clubName, rankTitle, memberMF);
+            }, 100);
+            return;
+        }
+
+        const tr = emptySlot.closest('tr');
+        tr.querySelector('.player-memberno').value = memberNo;
+        tr.querySelector('.player-name').value = displayName;
+        tr.querySelector('.player-club').value = clubName;
+        tr.querySelector('.player-rank').value = rankTitle;
+
+        // 성별 설정
+        const mfInput = tr.querySelector('.player-mf');
+        const mfBtn = tr.querySelector('.btn-mf-toggle');
+        const isFem = (memberMF && (memberMF.toUpperCase() === 'F' || memberMF === '여'));
+
+        if (isFem) {
+            mfInput.value = 'F';
+            mfBtn.className = 'btn btn-sm btn-mf-toggle btn-success font-weight-bold';
+            mfBtn.textContent = '여성';
+            tr.classList.add('female-row');
+            tr.style.backgroundColor = '#eaf6ea';
+        } else {
+            mfInput.value = 'M';
+            mfBtn.className = 'btn btn-sm btn-mf-toggle btn-outline-secondary';
+            mfBtn.textContent = '남성';
+            tr.classList.remove('female-row');
+            tr.style.backgroundColor = '';
+        }
+
+        // 배정 애니메이션 플래시
+        tr.style.transition = 'background-color 0.4s';
+        const origBg = isFem ? '#eaf6ea' : '';
+        tr.style.backgroundColor = '#fff3cd';
+        setTimeout(() => { tr.style.backgroundColor = origBg; }, 400);
+
+        updateAssignedBadges();
+    }
+
+    // 배정 상태 뱃지 업데이트
+    function updateAssignedBadges() {
+        const assignedMemberNos = new Set();
+        document.querySelectorAll('.player-memberno').forEach(input => {
+            if (input.value) {
+                assignedMemberNos.add(input.value);
+            }
+        });
+
+        let assignedCount = 0;
+        document.querySelectorAll('.circle-member-item').forEach(item => {
+            const mno = item.getAttribute('data-memberno');
+            const assignBtn = item.querySelector('.assign-btn');
+            if (assignedMemberNos.has(mno)) {
+                item.classList.add('member-badge-assigned');
+                assignBtn.innerHTML = '<i class="fas fa-check mr-1"></i>완료';
+                assignBtn.className = 'btn btn-sm btn-secondary py-0 px-2 assign-btn';
+                assignedCount++;
+            } else {
+                item.classList.remove('member-badge-assigned');
+                assignBtn.innerHTML = '<i class="fas fa-user-plus mr-1"></i>배정';
+                assignBtn.className = 'btn btn-sm btn-outline-success py-0 px-2 assign-btn';
+            }
+        });
+
+        document.getElementById('assignedCountBadge').textContent = `${assignedCount}명 배정됨`;
+    }
+
+    // 회원 검색 필터링
+    function filterMemberList() {
+        const query = document.getElementById('memberSearchInput').value.toLowerCase().trim();
+        document.querySelectorAll('.circle-member-item').forEach(item => {
+            const text = item.textContent.toLowerCase();
+            const mf = (item.getAttribute('data-membermf') || '').toLowerCase();
+            const isMatch = text.includes(query) || (query === '여' && (mf === 'f' || mf === '여')) || (query === '남' && (mf === 'm' || mf === '남'));
+            if (isMatch) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    // 라운딩 저장
+    async function saveRounding() {
+        const circleNo = document.getElementById('circleNo').value;
+        const roundingNo = document.getElementById('roundingNo').value;
+        const roundingTitle = document.getElementById('roundingTitle').value.trim();
+        const golfClubName = document.getElementById('golfClubName').value.trim();
+        const courseName = document.getElementById('courseName').value.trim();
+        const roundingDate = document.getElementById('roundingDate').value;
+        const roundingTime = document.getElementById('roundingTime').value;
+        const greenFee = document.getElementById('greenFee').value.trim();
+        const memo = document.getElementById('memo').value.trim();
+        const isPublished = document.getElementById('isPublished').value;
+
+        if (!roundingTitle) {
+            alert("라운딩 명칭을 입력해 주세요.");
+            document.getElementById('roundingTitle').focus();
+            return;
+        }
+        if (!golfClubName) {
+            alert("골프장명을 입력해 주세요.");
+            document.getElementById('golfClubName').focus();
+            return;
+        }
+        if (!roundingDate) {
+            alert("라운딩 일자를 선택해 주세요.");
+            document.getElementById('roundingDate').focus();
+            return;
+        }
+        if (!roundingTime) {
+            alert("첫 조 티오프 시간을 선택해 주세요.");
+            document.getElementById('roundingTime').focus();
+            return;
+        }
+
+        // 조 및 플레이어 데이터 수집
+        const teams = [];
+        const teamBoxes = document.querySelectorAll('.team-box');
+
+        teamBoxes.forEach((box, tIdx) => {
+            const teamName = box.querySelector('.team-name-input').value.trim() || `${tIdx + 1}조`;
+            const teeTime = box.querySelector('.team-time-input').value.trim();
+            const course = box.querySelector('.team-course-input').value.trim();
+            const tMemo = box.querySelector('.team-memo-input').value.trim();
+
+            const players = [];
+            const rows = box.querySelectorAll('.players-tbody tr');
+            rows.forEach((row, pIdx) => {
+                const pName = row.querySelector('.player-name').value.trim();
+                if (pName) {
+                    players.push({
+                        playerOrder: pIdx + 1,
+                        memberNo: parseInt(row.querySelector('.player-memberno').value, 10) || null,
+                        memberName: pName,
+                        memberMF: (row.querySelector('.player-mf').value.trim() || 'M').toUpperCase(),
+                        clubName: row.querySelector('.player-club').value.trim(),
+                        rankTitle: row.querySelector('.player-rank').value.trim(),
+                        handicap: row.querySelector('.player-handicap').value.trim(),
+                        memo: ''
+                    });
+                }
+            });
+
+            teams.push({
+                teamOrder: tIdx + 1,
+                teamName: teamName,
+                teeTime: teeTime,
+                courseName: course,
+                memo: tMemo,
+                players: players
+            });
+        });
+
+        const payload = {
+            roundingNo: parseInt(roundingNo, 10) || 0,
+            circleNo: parseInt(circleNo, 10),
+            roundingTitle: roundingTitle,
+            golfClubName: golfClubName,
+            courseName: courseName,
+            roundingDate: roundingDate,
+            roundingTime: roundingTime,
+            greenFee: greenFee,
+            memo: memo,
+            isPublished: isPublished,
+            teams: teams
+        };
+
+        try {
+            const response = await fetch('/circleRoundingSave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                const targetRoundingNo = result.roundingNo || roundingNo;
+                if (confirm("라운딩 시간표가 성공적으로 저장되었습니다!\n\n게시용 시간표 페이지를 지금 바로 확인하시겠습니까?")) {
+                    window.location.href = `/circleRoundingView/${targetRoundingNo}`;
+                } else {
+                    window.location.href = `/circleRounding/${circleNo}`;
+                }
+            } else {
+                alert("저장 실패: " + (result.message || "오류가 발생했습니다."));
+            }
+        } catch (err) {
+            console.error(err);
+            alert("저장 중 네트워크 또는 서버 오류가 발생했습니다.");
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

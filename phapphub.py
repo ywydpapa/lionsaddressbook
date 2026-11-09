@@ -1391,3 +1391,118 @@ async def delete_club_event(
         await db.rollback()
         print("delete_club_event error:", e)
         raise HTTPException(status_code=500, detail="클럽 행사 삭제 처리 중 오류 발생")
+
+
+# =========================================================
+# [골프써클] 라운딩 시간표 조회 API
+# =========================================================
+
+@phapp_router.get("/getcirclerounding/{circleNo}")
+async def phapp_get_circle_rounding(circleNo: int, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_mobile_user)):
+    try:
+        query = text("""
+            SELECT r.roundingNo, r.circleNo, r.roundingTitle, r.golfClubName, r.courseName,
+                   DATE_FORMAT(r.roundingDate, '%Y-%m-%d') AS roundingDate,
+                   TIME_FORMAT(r.roundingTime, '%H:%i') AS roundingTime,
+                   r.greenFee, r.memo,
+                   (SELECT COUNT(*) FROM circleRoundingTeam t WHERE t.roundingNo = r.roundingNo AND COALESCE(t.attrib, '') NOT LIKE '%XXX%') AS teamCount,
+                   (SELECT COUNT(*) FROM circleRoundingMember m WHERE m.roundingNo = r.roundingNo AND COALESCE(m.attrib, '') NOT LIKE '%XXX%') AS memberCount
+            FROM circleRounding r
+            WHERE r.circleNo = :circleNo
+              AND r.isPublished = 'Y'
+              AND COALESCE(r.attrib, '') NOT LIKE '%XXX%'
+            ORDER BY r.roundingDate DESC, r.roundingNo DESC
+        """)
+        result = await db.execute(query, {"circleNo": circleNo})
+        rows = result.fetchall()
+        roundings = [dict(row._mapping) for row in rows]
+        return {"roundings": roundings}
+    except Exception as e:
+        print("getcirclerounding error:", e)
+        return {"roundings": []}
+
+
+@phapp_router.get("/getcircleroundingdetail/{roundingNo}")
+async def phapp_get_circle_rounding_detail(roundingNo: int, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_mobile_user)):
+    try:
+        query = text("""
+            SELECT r.roundingNo, r.circleNo, r.roundingTitle, r.golfClubName, r.courseName,
+                   DATE_FORMAT(r.roundingDate, '%Y-%m-%d') AS roundingDate,
+                   TIME_FORMAT(r.roundingTime, '%H:%i') AS roundingTime,
+                   r.greenFee, r.memo, r.isPublished,
+                   COALESCE(r.roundStatus, 'READY') AS roundStatus,
+                   COALESCE(r.awardPublished, 'N') AS awardPublished,
+                   r.awardMemo,
+                   c.circleName
+            FROM circleRounding r
+            JOIN lionsCircle c ON r.circleNo = c.circleNo
+            WHERE r.roundingNo = :roundingNo AND COALESCE(r.attrib, '') NOT LIKE '%XXX%'
+        """)
+        result = await db.execute(query, {"roundingNo": roundingNo})
+        row = result.fetchone()
+        if not row:
+            return {"error": "라운딩 정보를 찾을 수 없습니다."}
+        
+        rounding_dict = dict(row._mapping)
+
+        # 조 및 플레이어 조회
+        teams_query = text("""
+            SELECT teamNo, roundingNo, teamOrder, teamName,
+                   TIME_FORMAT(teeTime, '%H:%i') AS teeTime,
+                   courseName, memo
+            FROM circleRoundingTeam
+            WHERE roundingNo = :roundingNo AND COALESCE(attrib, '') NOT LIKE '%XXX%'
+            ORDER BY teamOrder ASC, teamNo ASC
+        """)
+        t_result = await db.execute(teams_query, {"roundingNo": roundingNo})
+        team_rows = t_result.fetchall()
+
+        teams_data = []
+        for t in team_rows:
+            t_no = t[0]
+            p_query = text("""
+                SELECT rm.rmId, rm.playerOrder, rm.memberNo, rm.memberName, rm.clubName, rm.rankTitle, rm.handicap, rm.memo,
+                       COALESCE(rm.memberMF, lm.memberMF, '') AS memberMF,
+                       rm.grossScore, rm.netScore, rm.ranking, rm.awardName, rm.awardPrize, rm.scoreMemo
+                FROM circleRoundingMember rm
+                LEFT JOIN lionsMember lm ON rm.memberNo = lm.memberNo
+                WHERE rm.teamNo = :teamNo AND COALESCE(rm.attrib, '') NOT LIKE '%XXX%'
+                ORDER BY rm.playerOrder ASC, rm.rmId ASC
+            """)
+            p_result = await db.execute(p_query, {"teamNo": t_no})
+            p_rows = p_result.fetchall()
+            players = [{
+                "rmId": p[0],
+                "playerOrder": p[1],
+                "memberNo": p[2],
+                "memberName": p[3],
+                "clubName": p[4] or "",
+                "rankTitle": p[5] or "",
+                "handicap": p[6] or "",
+                "memo": p[7] or "",
+                "memberMF": p[8] or "",
+                "grossScore": p[9],
+                "netScore": float(p[10]) if p[10] is not None else None,
+                "ranking": p[11],
+                "awardName": p[12] or "",
+                "awardPrize": p[13] or "",
+                "scoreMemo": p[14] or ""
+            } for p in p_rows]
+
+            teams_data.append({
+                "teamNo": t[0],
+                "teamOrder": t[2],
+                "teamName": t[3],
+                "teeTime": t[4] or "",
+                "courseName": t[5] or "",
+                "memo": t[6] or "",
+                "players": players
+            })
+
+        return {
+            "rounding": rounding_dict,
+            "teams": teams_data
+        }
+    except Exception as e:
+        print("getcircleroundingdetail error:", e)
+        return {"error": "상세 조회 중 오류가 발생했습니다."}
