@@ -59,6 +59,16 @@ class ClubEventInsertModel(BaseModel):
     eventPlace: str = ""
     eventMemo: str = ""
 
+class CircleRoundingCreate(BaseModel):
+    circleNo: int
+    roundingTitle: str = Field(..., max_length=100)
+    golfClubName: Optional[str] = Field(None, max_length=100)
+    courseName: Optional[str] = Field(None, max_length=100)
+    roundingDate: str
+    roundingTime: str = "08:00:00"
+    greenFee: Optional[str] = Field(None, max_length=50)
+    memo: Optional[str] = Field(None, max_length=2000)
+
 
 @phapp_router.get("/clubList/{regionno}")
 async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
@@ -1513,3 +1523,36 @@ async def phapp_get_circle_rounding_detail(roundingNo: int, db: AsyncSession = D
     except Exception as e:
         print("getcircleroundingdetail error:", e)
         return {"error": "상세 조회 중 오류가 발생했습니다."}
+
+
+@phapp_router.post("/insertcirclerounding")
+async def insert_circle_rounding(
+        req: CircleRoundingCreate,
+        db: AsyncSession = Depends(get_db),
+        current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+                     INSERT INTO circleRounding (circleNo, roundingTitle, golfClubName, courseName,
+                                                roundingDate, roundingTime, greenFee, memo,
+                                                isPublished, regDate, attrib)
+                     VALUES (:circleNo, :roundingTitle, :golfClubName, :courseName,
+                             :roundingDate, :roundingTime, :greenFee, :memo,
+                             'Y', NOW(), '1000010000')
+                     """)
+        await db.execute(query, {
+            "circleNo": req.circleNo,
+            "roundingTitle": req.roundingTitle,
+            "golfClubName": req.golfClubName,
+            "courseName": req.courseName,
+            "roundingDate": req.roundingDate,
+            "roundingTime": req.roundingTime,
+            "greenFee": req.greenFee,
+            "memo": req.memo
+        })
+        await db.commit()
+        return {"status": "success", "message": "골프 라운딩 일정이 성공적으로 등록되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("insert_circle_rounding error:", e)
+        raise HTTPException(status_code=500, detail="골프 라운딩 일정 등록 중 오류 발생")
