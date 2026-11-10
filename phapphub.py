@@ -178,7 +178,7 @@ async def get_accessible_circles_for_member(memberno: int, db: AsyncSession):
 
     # 2. 본인 소속 써클 + 클럽 할당 써클 조회 (clubCircle 및 circleManager)
     query = text("""
-        SELECT DISTINCT lc.circleNo, lc.circleName
+        SELECT DISTINCT lc.circleNo, lc.circleName, COALESCE(lc.circleType, '') as circleType
         FROM lionsCircle lc
         WHERE COALESCE(lc.attrib, '') NOT LIKE :attrib
           AND COALESCE(lc.circleType, '') <> :votec
@@ -756,7 +756,14 @@ async def phappgetmycircle(memberno: int, db: AsyncSession = Depends(get_db),
                            current_user: str = Depends(get_current_mobile_user)):
     try:
         rows = await get_accessible_circles_for_member(memberno, db)
-        circles = [{"circleNo": row[0], "circleName": row[1]} for row in rows]
+        circles = [
+            {
+                "circleNo": row[0],
+                "circleName": row[1],
+                "circleType": row[2] if len(row) > 2 else ""
+            }
+            for row in rows
+        ]
         return {"circles": circles}
     except Exception as e:
         print("getmycircle error:", e)
