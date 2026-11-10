@@ -88,6 +88,20 @@ class CircleRoundingPlayerCreate(BaseModel):
     memo: Optional[str] = Field(None, max_length=200)
     playerOrder: int = 1
 
+class CircleRoundingPlayerUpdate(BaseModel):
+    rmId: int
+    grossScore: Optional[int] = None
+    netScore: Optional[float] = None
+    ranking: Optional[int] = None
+    awardName: Optional[str] = Field(None, max_length=100)
+    awardPrize: Optional[str] = Field(None, max_length=200)
+    scoreMemo: Optional[str] = Field(None, max_length=200)
+
+class CircleRoundingAwardPublish(BaseModel):
+    roundingNo: int
+    awardPublished: str = Field("Y", max_length=5)
+    awardMemo: Optional[str] = Field(None, max_length=2000)
+
 
 @phapp_router.get("/clubList/{regionno}")
 async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
@@ -1680,3 +1694,75 @@ async def delete_circle_rounding_player(
         await db.rollback()
         print("delete_circle_rounding_player error:", e)
         raise HTTPException(status_code=500, detail=f"선수 삭제 중 오류 발생: {e}")
+
+
+@phapp_router.post("/updatecircleroundingplayer")
+async def update_circle_rounding_player(
+    req: CircleRoundingPlayerUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        def clean_val(val):
+            if val is None:
+                return None
+            s = str(val).strip()
+            return s if s != "" else None
+
+        query = text("""
+            UPDATE circleRoundingMember
+            SET grossScore = :grossScore,
+                netScore = :netScore,
+                ranking = :ranking,
+                awardName = :awardName,
+                awardPrize = :awardPrize,
+                scoreMemo = :scoreMemo
+            WHERE rmId = :rmId
+        """)
+        await db.execute(query, {
+            "rmId": req.rmId,
+            "grossScore": req.grossScore,
+            "netScore": req.netScore,
+            "ranking": req.ranking,
+            "awardName": clean_val(req.awardName),
+            "awardPrize": clean_val(req.awardPrize),
+            "scoreMemo": clean_val(req.scoreMemo)
+        })
+        await db.commit()
+        return {"status": "success", "message": "성적 및 시상 정보가 저장되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("update_circle_rounding_player error:", e)
+        raise HTTPException(status_code=500, detail=f"성적 정보 저장 중 오류 발생: {e}")
+
+
+@phapp_router.post("/publishcircleroundingaward")
+async def publish_circle_rounding_award(
+    req: CircleRoundingAwardPublish,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        def clean_val(val):
+            if val is None:
+                return None
+            s = str(val).strip()
+            return s if s != "" else None
+
+        query = text("""
+            UPDATE circleRounding
+            SET awardPublished = :awardPublished,
+                awardMemo = :awardMemo
+            WHERE roundingNo = :roundingNo
+        """)
+        await db.execute(query, {
+            "roundingNo": req.roundingNo,
+            "awardPublished": req.awardPublished,
+            "awardMemo": clean_val(req.awardMemo)
+        })
+        await db.commit()
+        return {"status": "success", "message": "시상 결과 공개 설정이 변경되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("publish_circle_rounding_award error:", e)
+        raise HTTPException(status_code=500, detail=f"시상 공개 설정 중 오류 발생: {e}")
