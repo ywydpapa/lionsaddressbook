@@ -69,6 +69,25 @@ class CircleRoundingCreate(BaseModel):
     greenFee: Optional[str] = Field(None, max_length=50)
     memo: Optional[str] = Field(None, max_length=2000)
 
+class CircleRoundingTeamCreate(BaseModel):
+    roundingNo: int
+    teamName: str = Field("1조", max_length=50)
+    teeTime: Optional[str] = Field("08:00:00", max_length=10)
+    courseName: Optional[str] = Field(None, max_length=50)
+    memo: Optional[str] = Field(None, max_length=500)
+    teamOrder: int = 1
+
+class CircleRoundingPlayerCreate(BaseModel):
+    roundingNo: int
+    teamNo: int
+    memberNo: int = 0
+    memberName: str = Field(..., max_length=50)
+    clubName: Optional[str] = Field(None, max_length=50)
+    rankTitle: Optional[str] = Field(None, max_length=50)
+    handicap: Optional[str] = Field(None, max_length=10)
+    memo: Optional[str] = Field(None, max_length=200)
+    playerOrder: int = 1
+
 
 @phapp_router.get("/clubList/{regionno}")
 async def phappclublist(regionno: int, db: AsyncSession = Depends(get_db)):
@@ -1556,3 +1575,96 @@ async def insert_circle_rounding(
         await db.rollback()
         print("insert_circle_rounding error:", e)
         raise HTTPException(status_code=500, detail="골프 라운딩 일정 등록 중 오류 발생")
+
+
+@phapp_router.post("/insertcircleroundingteam")
+async def insert_circle_rounding_team(
+    req: CircleRoundingTeamCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+            INSERT INTO circleRoundingTeam (roundingNo, teamOrder, teamName, teeTime, courseName, memo, regDate, attrib)
+            VALUES (:roundingNo, :teamOrder, :teamName, :teeTime, :courseName, :memo, NOW(), '1000010000')
+        """)
+        await db.execute(query, {
+            "roundingNo": req.roundingNo,
+            "teamOrder": req.teamOrder,
+            "teamName": req.teamName,
+            "teeTime": req.teeTime,
+            "courseName": req.courseName,
+            "memo": req.memo
+        })
+        await db.commit()
+        return {"status": "success", "message": "조(팀)가 성공적으로 생성되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("insert_circle_rounding_team error:", e)
+        raise HTTPException(status_code=500, detail="조 생성 중 오류 발생")
+
+
+@phapp_router.post("/insertcircleroundingplayer")
+async def insert_circle_rounding_player(
+    req: CircleRoundingPlayerCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("""
+            INSERT INTO circleRoundingMember (roundingNo, teamNo, playerOrder, memberNo, memberName, clubName, rankTitle, handicap, memo, regDate, attrib)
+            VALUES (:roundingNo, :teamNo, :playerOrder, :memberNo, :memberName, :clubName, :rankTitle, :handicap, :memo, NOW(), '1000010000')
+        """)
+        await db.execute(query, {
+            "roundingNo": req.roundingNo,
+            "teamNo": req.teamNo,
+            "playerOrder": req.playerOrder,
+            "memberNo": req.memberNo,
+            "memberName": req.memberName,
+            "clubName": req.clubName,
+            "rankTitle": req.rankTitle,
+            "handicap": req.handicap,
+            "memo": req.memo
+        })
+        await db.commit()
+        return {"status": "success", "message": "선수가 성공적으로 추가되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("insert_circle_rounding_player error:", e)
+        raise HTTPException(status_code=500, detail="선수 등록 중 오류 발생")
+
+
+@phapp_router.post("/deletecircleroundingteam/{teamNo}")
+async def delete_circle_rounding_team(
+    teamNo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query1 = text("UPDATE circleRoundingTeam SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE teamNo = :teamNo")
+        await db.execute(query1, {"teamNo": teamNo})
+        query2 = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE teamNo = :teamNo")
+        await db.execute(query2, {"teamNo": teamNo})
+        await db.commit()
+        return {"status": "success", "message": "조 및 소속 선수가 삭제되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("delete_circle_rounding_team error:", e)
+        raise HTTPException(status_code=500, detail="조 삭제 중 오류 발생")
+
+
+@phapp_router.post("/deletecircleroundingplayer/{rmId}")
+async def delete_circle_rounding_player(
+    rmId: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_mobile_user)
+):
+    try:
+        query = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE rmId = :rmId")
+        await db.execute(query, {"rmId": rmId})
+        await db.commit()
+        return {"status": "success", "message": "선수가 삭제되었습니다."}
+    except Exception as e:
+        await db.rollback()
+        print("delete_circle_rounding_player error:", e)
+        raise HTTPException(status_code=500, detail="선수 삭제 중 오류 발생")
