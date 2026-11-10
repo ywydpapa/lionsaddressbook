@@ -1591,8 +1591,8 @@ async def insert_circle_rounding_team(
             return s if s != "" else None
 
         query = text("""
-            INSERT INTO circleRoundingTeam (roundingNo, teamOrder, teamName, teeTime, courseName, memo, regDate, attrib)
-            VALUES (:roundingNo, :teamOrder, :teamName, :teeTime, :courseName, :memo, NOW(), '1000010000')
+            INSERT INTO circleRoundingTeam (roundingNo, teamOrder, teamName, teeTime, courseName, memo)
+            VALUES (:roundingNo, :teamOrder, :teamName, :teeTime, :courseName, :memo)
         """)
         await db.execute(query, {
             "roundingNo": req.roundingNo,
@@ -1624,8 +1624,8 @@ async def insert_circle_rounding_player(
             return s if s != "" else None
 
         query = text("""
-            INSERT INTO circleRoundingMember (roundingNo, teamNo, playerOrder, memberNo, memberName, clubName, rankTitle, handicap, memo, regDate, attrib)
-            VALUES (:roundingNo, :teamNo, :playerOrder, :memberNo, :memberName, :clubName, :rankTitle, :handicap, :memo, NOW(), '1000010000')
+            INSERT INTO circleRoundingMember (roundingNo, teamNo, playerOrder, memberNo, memberName, clubName, rankTitle, handicap, memo)
+            VALUES (:roundingNo, :teamNo, :playerOrder, :memberNo, :memberName, :clubName, :rankTitle, :handicap, :memo)
         """)
         await db.execute(query, {
             "roundingNo": req.roundingNo,
@@ -1653,16 +1653,16 @@ async def delete_circle_rounding_team(
     current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        query1 = text("UPDATE circleRoundingTeam SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE teamNo = :teamNo")
+        query1 = text("UPDATE circleRoundingTeam SET attrib = 'XXXUPXXXUP' WHERE teamNo = :teamNo")
         await db.execute(query1, {"teamNo": teamNo})
-        query2 = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE teamNo = :teamNo")
+        query2 = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP' WHERE teamNo = :teamNo")
         await db.execute(query2, {"teamNo": teamNo})
         await db.commit()
         return {"status": "success", "message": "조 및 소속 선수가 삭제되었습니다."}
     except Exception as e:
         await db.rollback()
         print("delete_circle_rounding_team error:", e)
-        raise HTTPException(status_code=500, detail="조 삭제 중 오류 발생")
+        raise HTTPException(status_code=500, detail=f"조 삭제 중 오류 발생: {e}")
 
 
 @phapp_router.post("/deletecircleroundingplayer/{rmId}")
@@ -1672,11 +1672,11 @@ async def delete_circle_rounding_player(
     current_user: str = Depends(get_current_mobile_user)
 ):
     try:
-        query = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP', modDate = NOW() WHERE rmId = :rmId")
+        query = text("UPDATE circleRoundingMember SET attrib = 'XXXUPXXXUP' WHERE rmId = :rmId")
         await db.execute(query, {"rmId": rmId})
         await db.commit()
         return {"status": "success", "message": "선수가 삭제되었습니다."}
     except Exception as e:
         await db.rollback()
         print("delete_circle_rounding_player error:", e)
-        raise HTTPException(status_code=500, detail="선수 삭제 중 오류 발생")
+        raise HTTPException(status_code=500, detail=f"선수 삭제 중 오류 발생: {e}")
