@@ -1584,6 +1584,12 @@ async def insert_circle_rounding_team(
     current_user: str = Depends(get_current_mobile_user)
 ):
     try:
+        def clean_val(val):
+            if val is None:
+                return None
+            s = str(val).strip()
+            return s if s != "" else None
+
         query = text("""
             INSERT INTO circleRoundingTeam (roundingNo, teamOrder, teamName, teeTime, courseName, memo, regDate, attrib)
             VALUES (:roundingNo, :teamOrder, :teamName, :teeTime, :courseName, :memo, NOW(), '1000010000')
@@ -1591,17 +1597,17 @@ async def insert_circle_rounding_team(
         await db.execute(query, {
             "roundingNo": req.roundingNo,
             "teamOrder": req.teamOrder,
-            "teamName": req.teamName,
-            "teeTime": req.teeTime,
-            "courseName": req.courseName,
-            "memo": req.memo
+            "teamName": clean_val(req.teamName) or "조",
+            "teeTime": clean_val(req.teeTime),
+            "courseName": clean_val(req.courseName),
+            "memo": clean_val(req.memo)
         })
         await db.commit()
         return {"status": "success", "message": "조(팀)가 성공적으로 생성되었습니다."}
     except Exception as e:
         await db.rollback()
         print("insert_circle_rounding_team error:", e)
-        raise HTTPException(status_code=500, detail="조 생성 중 오류 발생")
+        raise HTTPException(status_code=500, detail=f"조 생성 중 오류 발생: {e}")
 
 
 @phapp_router.post("/insertcircleroundingplayer")
@@ -1611,6 +1617,12 @@ async def insert_circle_rounding_player(
     current_user: str = Depends(get_current_mobile_user)
 ):
     try:
+        def clean_val(val):
+            if val is None:
+                return None
+            s = str(val).strip()
+            return s if s != "" else None
+
         query = text("""
             INSERT INTO circleRoundingMember (roundingNo, teamNo, playerOrder, memberNo, memberName, clubName, rankTitle, handicap, memo, regDate, attrib)
             VALUES (:roundingNo, :teamNo, :playerOrder, :memberNo, :memberName, :clubName, :rankTitle, :handicap, :memo, NOW(), '1000010000')
@@ -1620,18 +1632,18 @@ async def insert_circle_rounding_player(
             "teamNo": req.teamNo,
             "playerOrder": req.playerOrder,
             "memberNo": req.memberNo,
-            "memberName": req.memberName,
-            "clubName": req.clubName,
-            "rankTitle": req.rankTitle,
-            "handicap": req.handicap,
-            "memo": req.memo
+            "memberName": clean_val(req.memberName) or "선수",
+            "clubName": clean_val(req.clubName),
+            "rankTitle": clean_val(req.rankTitle),
+            "handicap": clean_val(req.handicap),
+            "memo": clean_val(req.memo)
         })
         await db.commit()
         return {"status": "success", "message": "선수가 성공적으로 추가되었습니다."}
     except Exception as e:
         await db.rollback()
         print("insert_circle_rounding_player error:", e)
-        raise HTTPException(status_code=500, detail="선수 등록 중 오류 발생")
+        raise HTTPException(status_code=500, detail=f"선수 등록 중 오류 발생: {e}")
 
 
 @phapp_router.post("/deletecircleroundingteam/{teamNo}")
